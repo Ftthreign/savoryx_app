@@ -363,7 +363,7 @@ class _ClayShowcaseScreenState extends State<ClayShowcaseScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '+${CurrencyFormatter.formatCompactRupiah(_stashedCount)} Stashed ✨',
+                                  '+${CurrencyFormatter.formatCompactRupiah(_stashedCount)} Stashed',
                                   style: ClayTypography.labelSm(
                                     color: ClayColors.tertiaryChip,
                                   ),

@@ -63,8 +63,14 @@ class ClayBottomNavBar extends StatelessWidget {
         ? ClayColors.surfaceContainerDarkLow
         : ClayColors.surfaceContainerLow;
 
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
+
     return Container(
-      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 12.0),
+      padding: EdgeInsets.only(
+        left: 16.0,
+        right: 16.0,
+        bottom: 12.0 + (bottomInset > 0 ? bottomInset - 4.0 : 0.0),
+      ),
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
