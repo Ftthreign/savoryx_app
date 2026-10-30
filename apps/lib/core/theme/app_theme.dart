@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../features/settings/domain/entities/app_font_family.dart';
+import '../../features/settings/domain/entities/app_theme_mode.dart';
+import '../typography/font_manager.dart';
 import 'clay_colors.dart';
-import 'clay_typography.dart';
 
-/// App-wide theme provider configuring Material 3 ThemeData with Claymorphism tokens.
+/// App-wide theme provider configuring Material 3 ThemeData with Claymorphism tokens,
+/// 3 surface modes (Light, Dark, OLED), and 6 dynamic fonts.
 abstract final class AppTheme {
   /// Default Claymorphism Light Theme.
-  static ThemeData get clayLight {
+  static ThemeData clayLight({
+    AppFontFamily font = AppFontFamily.nunitoSans,
+  }) {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -36,7 +41,8 @@ abstract final class AppTheme {
         outline: ClayColors.outline,
         outlineVariant: ClayColors.outlineVariant,
       ),
-      textTheme: ClayTypography.createTextTheme(
+      textTheme: FontManager.getTextTheme(
+        font: font,
         defaultColor: ClayColors.onSurface,
       ),
       dividerTheme: const DividerThemeData(
@@ -47,7 +53,9 @@ abstract final class AppTheme {
   }
 
   /// Claymorphism Dark Theme.
-  static ThemeData get clayDark {
+  static ThemeData clayDark({
+    AppFontFamily font = AppFontFamily.nunitoSans,
+  }) {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -78,7 +86,8 @@ abstract final class AppTheme {
         outline: Color(0xFF8A92A0),
         outlineVariant: Color(0xFF323846),
       ),
-      textTheme: ClayTypography.createTextTheme(
+      textTheme: FontManager.getTextTheme(
+        font: font,
         defaultColor: ClayColors.onSurfaceDark,
       ),
       dividerTheme: const DividerThemeData(
@@ -86,5 +95,65 @@ abstract final class AppTheme {
         thickness: 1,
       ),
     );
+  }
+
+  /// OLED Pure Black Theme (#000000).
+  static ThemeData oledBlack({
+    AppFontFamily font = AppFontFamily.nunitoSans,
+  }) {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: ClayColors.oledBlack,
+      colorScheme: const ColorScheme(
+        brightness: Brightness.dark,
+        primary: ClayColors.primaryHighlight,
+        onPrimary: Colors.white,
+        primaryContainer: Color(0xFF5A0000),
+        onPrimaryContainer: ClayColors.primaryFixed,
+        secondary: ClayColors.secondaryFixed,
+        onSecondary: ClayColors.onPrimaryFixed,
+        secondaryContainer: Color(0xFF241F0A),
+        onSecondaryContainer: ClayColors.secondaryContainer,
+        tertiary: ClayColors.tertiaryGlint,
+        onTertiary: ClayColors.onTertiaryFixed,
+        tertiaryContainer: Color(0xFF152207),
+        onTertiaryContainer: ClayColors.tertiaryChip,
+        error: Color(0xFFFFB4AB),
+        onError: Color(0xFF690005),
+        errorContainer: Color(0xFF93000A),
+        onErrorContainer: Color(0xFFFFDAD6),
+        surface: ClayColors.oledBlack,
+        onSurface: ClayColors.onSurfaceDark,
+        onSurfaceVariant: ClayColors.onSurfaceVariantDark,
+        background: ClayColors.oledBlack,
+        onBackground: ClayColors.onSurfaceDark,
+        outline: Color(0xFF454B58),
+        outlineVariant: Color(0xFF222630),
+      ),
+      textTheme: FontManager.getTextTheme(
+        font: font,
+        defaultColor: ClayColors.onSurfaceDark,
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFF1A1D24),
+        thickness: 1,
+      ),
+    );
+  }
+
+  /// Master theme resolver supporting dynamic combinations of mode and font.
+  static ThemeData getThemeData({
+    required AppThemeMode mode,
+    AppFontFamily font = AppFontFamily.nunitoSans,
+  }) {
+    switch (mode) {
+      case AppThemeMode.clayLight:
+        return clayLight(font: font);
+      case AppThemeMode.clayDark:
+        return clayDark(font: font);
+      case AppThemeMode.oledBlack:
+        return oledBlack(font: font);
+    }
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/di/injection_container.dart';
-import 'core/theme/app_theme.dart';
 import 'core/theme/clay_colors.dart';
 import 'core/theme/clay_typography.dart';
 import 'core/utils/constants.dart';
@@ -8,6 +8,10 @@ import 'core/utils/currency_formatter.dart';
 import 'core/widgets/clay_button.dart';
 import 'core/widgets/clay_card.dart';
 import 'core/widgets/clay_toggle_switch.dart';
+import 'features/settings/domain/entities/app_font_family.dart';
+import 'features/settings/domain/entities/app_theme_mode.dart';
+import 'features/settings/presentation/bloc/theme_cubit.dart';
+import 'features/settings/presentation/bloc/theme_state.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,48 +19,32 @@ Future<void> main() async {
   runApp(const SavoryxApp());
 }
 
-class SavoryxApp extends StatefulWidget {
+class SavoryxApp extends StatelessWidget {
   const SavoryxApp({super.key});
 
   @override
-  State<SavoryxApp> createState() => _SavoryxAppState();
-}
-
-class _SavoryxAppState extends State<SavoryxApp> {
-  ThemeMode _themeMode = ThemeMode.light;
-
-  void _toggleTheme() {
-    setState(() {
-      _themeMode =
-          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.clayLight,
-      darkTheme: AppTheme.clayDark,
-      themeMode: _themeMode,
-      home: ClayShowcaseScreen(
-        onToggleTheme: _toggleTheme,
-        isDark: _themeMode == ThemeMode.dark,
+    return BlocProvider<ThemeCubit>(
+      create: (_) => getIt<ThemeCubit>(),
+      child: BlocBuilder<ThemeCubit, ThemeState>(
+        builder: (context, state) {
+          final loadedState =
+              state is ThemeLoaded ? state : const ThemeLoaded();
+
+          return MaterialApp(
+            title: AppConstants.appName,
+            debugShowCheckedModeBanner: false,
+            theme: loadedState.themeData,
+            home: const ClayShowcaseScreen(),
+          );
+        },
       ),
     );
   }
 }
 
 class ClayShowcaseScreen extends StatefulWidget {
-  const ClayShowcaseScreen({
-    super.key,
-    required this.onToggleTheme,
-    required this.isDark,
-  });
-
-  final VoidCallback onToggleTheme;
-  final bool isDark;
+  const ClayShowcaseScreen({super.key});
 
   @override
   State<ClayShowcaseScreen> createState() => _ClayShowcaseScreenState();
@@ -75,6 +63,11 @@ class _ClayShowcaseScreenState extends State<ClayShowcaseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeCubit = context.watch<ThemeCubit>();
+    final themeState = themeCubit.state is ThemeLoaded
+        ? (themeCubit.state as ThemeLoaded)
+        : const ThemeLoaded();
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -97,7 +90,7 @@ class _ClayShowcaseScreenState extends State<ClayShowcaseScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Tactile Showcase',
+                        'Dynamic Engine Showcase',
                         style: ClayTypography.headlineSm(
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
@@ -122,15 +115,17 @@ class _ClayShowcaseScreenState extends State<ClayShowcaseScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Theme Switch Button
+                      // Quick Dark/Light Toggle
                       ClayButton(
                         width: 44,
                         height: 44,
                         padding: EdgeInsets.zero,
                         borderRadius: BorderRadius.circular(22),
-                        onTap: widget.onToggleTheme,
+                        onTap: themeCubit.toggleDarkMode,
                         child: Icon(
-                          widget.isDark ? Icons.light_mode : Icons.dark_mode,
+                          themeState.mode.isDark
+                              ? Icons.light_mode
+                              : Icons.dark_mode,
                           size: 20,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
@@ -140,7 +135,95 @@ class _ClayShowcaseScreenState extends State<ClayShowcaseScreen> {
                 ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // --- Surface Theme Mode Selector Chips (Light, Dark, OLED) ---
+              Text(
+                'SURFACE THEME MODE',
+                style: ClayTypography.labelSm(
+                  color: ClayColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 40,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: AppThemeMode.values.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final mode = AppThemeMode.values[index];
+                    final isSelected = themeState.mode == mode;
+
+                    return ClayButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      borderRadius: BorderRadius.circular(20),
+                      color: isSelected
+                          ? ClayColors.primary
+                          : (themeState.mode.isDark
+                              ? ClayColors.surfaceContainerDark
+                              : ClayColors.surfaceContainerLow),
+                      onTap: () => themeCubit.setThemeMode(mode),
+                      child: Center(
+                        child: Text(
+                          mode.displayName,
+                          style: ClayTypography.labelMd(
+                            color: isSelected
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // --- Multi-Font Switcher Engine (6 Fonts) ---
+              Text(
+                'TYPOGRAPHY ENGINE (6 OFFICIAL FONTS)',
+                style: ClayTypography.labelSm(
+                  color: ClayColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 40,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: AppFontFamily.values.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final font = AppFontFamily.values[index];
+                    final isSelected = themeState.font == font;
+
+                    return ClayButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      borderRadius: BorderRadius.circular(20),
+                      color: isSelected
+                          ? ClayColors.tertiaryContainer
+                          : (themeState.mode.isDark
+                              ? ClayColors.surfaceContainerDark
+                              : ClayColors.surfaceContainerLow),
+                      onTap: () => themeCubit.setFontFamily(font),
+                      child: Center(
+                        child: Text(
+                          font.displayName,
+                          style: ClayTypography.labelMd(
+                            color: isSelected
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 20),
 
               // --- Hero Spend Card (Butter Yellow) ---
               ClayCard(
@@ -246,7 +329,6 @@ class _ClayShowcaseScreenState extends State<ClayShowcaseScreen> {
               // --- Fast-Action Behavioral Row ---
               Row(
                 children: [
-                  // 'Saya Batal Beli' Shadow Fund Button
                   Expanded(
                     child: ClayButton(
                       color: ClayColors.tertiaryContainer,
