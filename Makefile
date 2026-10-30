@@ -40,7 +40,7 @@ help:
 dev-db:
 	@echo "Menyalakan PostgreSQL lokal..."
 	$(DOCKER) compose -f $(COMPOSE_FILE) up -d postgres
-	@echo "PostgreSQL aktif di localhost:5432"
+	@echo "PostgreSQL aktif di localhost:5433"
 
 dev-stack:
 	@echo "Menyalakan seluruh stack (API + PostgreSQL) via Docker..."
