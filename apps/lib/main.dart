@@ -8,6 +8,7 @@ import 'core/utils/currency_formatter.dart';
 import 'core/widgets/clay_button.dart';
 import 'core/widgets/clay_card.dart';
 import 'core/widgets/clay_toggle_switch.dart';
+import 'features/navigation/presentation/screens/main_navigation_shell.dart';
 import 'features/settings/domain/entities/app_font_family.dart';
 import 'features/settings/domain/entities/app_theme_mode.dart';
 import 'features/settings/presentation/bloc/theme_cubit.dart';
@@ -35,7 +36,7 @@ class SavoryxApp extends StatelessWidget {
             title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
             theme: loadedState.themeData,
-            home: const ClayShowcaseScreen(),
+            home: const MainNavigationShell(),
           );
         },
       ),
