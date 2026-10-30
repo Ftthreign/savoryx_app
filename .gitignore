@@ -72,3 +72,9 @@ yarn-debug.log*
 yarn-error.log*
 lcov.info
 /docs
+
+*.md 
+!README.md
+/SKILLS
+*-lock.json
+.agents
