@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../theme/clay_colors.dart';
-import '../theme/clay_shadows.dart';
-import '../utils/constants.dart';
-import 'clay_container.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_shadows.dart';
+import 'package:savoryx/core/utils/constants.dart';
+import 'package:savoryx/core/widgets/clay_container.dart';
 
 /// Elevated Claymorphism card for financial stats, accounts and transactions.
 class ClayCard extends StatelessWidget {

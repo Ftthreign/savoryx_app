@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
-import 'constants.dart';
-import 'financial_math.dart';
+import 'package:savoryx/core/utils/constants.dart';
+import 'package:savoryx/core/utils/financial_math.dart';
 
 /// Deterministic, zero-floating-point financial currency formatter.
 abstract final class CurrencyFormatter {

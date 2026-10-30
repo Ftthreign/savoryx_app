@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/clay_colors.dart';
-import '../theme/clay_shadows.dart';
-import '../theme/clay_typography.dart';
-import 'clay_button.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_shadows.dart';
+import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/widgets/clay_button.dart';
 
 /// Navigation item model for ClayBottomNavBar.
 class ClayNavItem {

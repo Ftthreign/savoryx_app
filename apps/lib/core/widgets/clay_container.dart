@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../theme/clay_colors.dart';
-import '../theme/clay_shadows.dart';
-import '../utils/constants.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_shadows.dart';
+import 'package:savoryx/core/utils/constants.dart';
 
 /// Fundamental Claymorphism container widget.
 /// Encapsulates dual-shadow depth, custom bevel curves, and surface specular reflection.

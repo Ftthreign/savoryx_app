@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/clay_bottom_nav_bar.dart';
-import '../../../transaction/presentation/widgets/rapid_input_modal.dart';
-import '../widgets/health_tab.dart';
-import '../widgets/overview_tab.dart';
-import '../widgets/settings_tab.dart';
-import '../widgets/vaults_tab.dart';
+import 'package:savoryx/core/widgets/clay_bottom_nav_bar.dart';
+import 'package:savoryx/features/transaction/presentation/widgets/rapid_input_modal.dart';
+import 'package:savoryx/features/navigation/presentation/widgets/health_tab.dart';
+import 'package:savoryx/features/navigation/presentation/widgets/overview_tab.dart';
+import 'package:savoryx/features/navigation/presentation/widgets/settings_tab.dart';
+import 'package:savoryx/features/navigation/presentation/widgets/vaults_tab.dart';
 
 /// Main navigation shell housing the four primary tabs within an IndexedStack.
 /// Tab state and scroll offsets are completely preserved across tab switches.

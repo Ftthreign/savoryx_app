@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/clay_colors.dart';
-import '../../../../core/theme/clay_typography.dart';
-import '../../../../core/widgets/clay_card.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/widgets/clay_card.dart';
 
 /// Health tab displaying executive financial health score and regret audit.
 class HealthTab extends StatelessWidget {

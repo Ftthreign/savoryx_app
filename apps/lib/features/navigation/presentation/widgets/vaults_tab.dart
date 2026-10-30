@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/clay_colors.dart';
-import '../../../../core/theme/clay_typography.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../core/widgets/clay_card.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/utils/currency_formatter.dart';
+import 'package:savoryx/core/widgets/clay_card.dart';
 
 /// Vaults tab displaying sinking funds and emergency fund allocations.
 class VaultsTab extends StatelessWidget {

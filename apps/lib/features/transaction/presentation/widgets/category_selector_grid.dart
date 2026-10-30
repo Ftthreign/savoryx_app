@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/clay_colors.dart';
-import '../../../../core/theme/clay_typography.dart';
-import '../../../../core/widgets/clay_button.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/widgets/clay_button.dart';
 
 class CategorySelectorGrid extends StatelessWidget {
   const CategorySelectorGrid({

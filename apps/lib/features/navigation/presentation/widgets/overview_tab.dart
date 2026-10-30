@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/clay_colors.dart';
-import '../../../../core/theme/clay_typography.dart';
-import '../../../../core/utils/constants.dart';
-import '../../../../core/utils/currency_formatter.dart';
-import '../../../../core/widgets/clay_button.dart';
-import '../../../../core/widgets/clay_card.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/utils/constants.dart';
+import 'package:savoryx/core/utils/currency_formatter.dart';
+import 'package:savoryx/core/widgets/clay_button.dart';
+import 'package:savoryx/core/widgets/clay_card.dart';
 
 /// Overview tab displaying safe-to-spend runway, quick actions,
 /// account balances, and recent ledger entries.

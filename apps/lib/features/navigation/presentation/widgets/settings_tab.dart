@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/theme/clay_colors.dart';
-import '../../../../core/theme/clay_typography.dart';
-import '../../../../core/widgets/clay_button.dart';
-import '../../../../core/widgets/clay_card.dart';
-import '../../../settings/domain/entities/app_font_family.dart';
-import '../../../settings/domain/entities/app_theme_mode.dart';
-import '../../../settings/presentation/bloc/theme_cubit.dart';
-import '../../../settings/presentation/bloc/theme_state.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/widgets/clay_button.dart';
+import 'package:savoryx/core/widgets/clay_card.dart';
+import 'package:savoryx/features/settings/domain/entities/app_font_family.dart';
+import 'package:savoryx/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:savoryx/features/settings/presentation/bloc/theme_cubit.dart';
+import 'package:savoryx/features/settings/presentation/bloc/theme_state.dart';
 
 /// Settings tab for switching themes and typography engine options.
 class SettingsTab extends StatelessWidget {

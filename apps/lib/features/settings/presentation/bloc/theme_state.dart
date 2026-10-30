@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../domain/entities/app_font_family.dart';
-import '../../domain/entities/app_theme_mode.dart';
+import 'package:savoryx/core/theme/app_theme.dart';
+import 'package:savoryx/features/settings/domain/entities/app_font_family.dart';
+import 'package:savoryx/features/settings/domain/entities/app_theme_mode.dart';
 
 /// Dart 3 sealed class hierarchy for Theme state preventing impossible states.
 sealed class ThemeState extends Equatable {
