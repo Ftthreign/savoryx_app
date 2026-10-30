@@ -6,7 +6,7 @@ DOCKER       := docker
 GO           := go
 FLUTTER      := flutter
 
-.PHONY: help dev-db stop-db clean-db dev-server gen-sqlc test-server lint-server dev-mobile gen-mobile test-mobile lint-mobile build-sub10mb check-all
+.PHONY: help dev-db dev-stack stop-db clean-db dev-server gen-sqlc test-server lint-server dev-mobile gen-mobile test-mobile lint-mobile build-sub10mb check-all
 
 all: help
 
@@ -16,6 +16,7 @@ help:
 	@echo ""
 	@echo " [Database / Infrastructure]"
 	@echo "   make dev-db          - Jalankan PostgreSQL 16 di background"
+	@echo "   make dev-stack       - Jalankan PostgreSQL + API container di Docker"
 	@echo "   make stop-db         - Hentikan container PostgreSQL"
 	@echo "   make clean-db        - Hentikan container dan HAPUS volume data"
 	@echo ""
@@ -38,8 +39,12 @@ help:
 
 dev-db:
 	@echo "Menyalakan PostgreSQL lokal..."
-	$(DOCKER) compose -f $(COMPOSE_FILE) up -d
+	$(DOCKER) compose -f $(COMPOSE_FILE) up -d postgres
 	@echo "PostgreSQL aktif di localhost:5432"
+
+dev-stack:
+	@echo "Menyalakan seluruh stack (API + PostgreSQL) via Docker..."
+	$(DOCKER) compose -f $(COMPOSE_FILE) up -d --build
 
 stop-db:
 	@echo "Menghentikan container PostgreSQL..."

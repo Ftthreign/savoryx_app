@@ -1,19 +1,19 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:alpine AS builder
 
 WORKDIR /app
 
 RUN apk update && apk add --no-cache ca-certificates git tzdata
 
-COPY go.mod ./
-RUN go mod download || true
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -extldflags '-static'" \
-    -o /app/bin/savoryx-api ./cmd/api/main.go
+    -o /app/bin/savoryx-api ./cmd/api
 
-FROM alpine:3.20 AS runner
+FROM alpine:latest AS runner
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 

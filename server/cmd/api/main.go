@@ -10,9 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	httpAdapter "github.com/ftthreign/savoryx_app/server/internal/adapter/handler/http"
+	"github.com/ftthreign/savoryx_app/server/internal/adapter/repository/postgres"
+	"github.com/ftthreign/savoryx_app/server/internal/core/service"
 )
+
+const AppVersion = "1.0.0"
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -28,18 +31,27 @@ func main() {
 
 	logger.Info("starting Savoryx API server", "env", cfg.AppEnv, "port", cfg.Port)
 
-	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(30 * time.Second))
+	// Context for database initialization
+	initCtx, initCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer initCancel()
 
-	// Liveness Probe
-	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"healthy","service":"savoryx-api","version":"1.0.0"}`))
-	})
+	// Initialize Database Connection Pool
+	var dbConn *postgres.DB
+	if cfg.DatabaseURL != "" {
+		db, err := postgres.NewDB(initCtx, cfg.DatabaseURL)
+		if err != nil {
+			logger.Warn("database connection failed; continuing in degraded mode", "error", err.Error())
+		} else {
+			dbConn = db
+			logger.Info("database connection pool successfully established")
+		}
+	}
+
+	// Instantiate Domain Services
+	healthService := service.NewHealthService(dbConn)
+
+	// Configure Chi HTTP Router & Pipelines
+	r := httpAdapter.SetupRouter(logger, healthService, AppVersion, cfg.AppEnv)
 
 	serverAddr := fmt.Sprintf(":%d", cfg.Port)
 	srv := &http.Server{
@@ -75,6 +87,12 @@ func main() {
 			logger.Error("graceful shutdown failed; forcing termination", "error", err)
 			_ = srv.Close()
 		}
+
+		if dbConn != nil {
+			logger.Info("closing database connection pool")
+			dbConn.Close()
+		}
+
 		logger.Info("server shutdown completed successfully")
 	}
 }
