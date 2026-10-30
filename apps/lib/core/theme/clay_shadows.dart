@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'clay_colors.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
 
 /// Claymorphism Dual-Shadow Physics Calculator.
 /// Produces the signature soft, squishy tactile depth seen across Stitch screens.

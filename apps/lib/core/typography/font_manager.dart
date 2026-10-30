@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../features/settings/domain/entities/app_font_family.dart';
-import '../theme/clay_colors.dart';
+import 'package:savoryx/features/settings/domain/entities/app_font_family.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
 
 /// Multi-Font Switcher Engine.
 /// Dynamically provides typography bindings for the 6 official fonts with transparent caching.

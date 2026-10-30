@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/clay_colors.dart';
-import '../theme/clay_shadows.dart';
-import '../theme/clay_typography.dart';
-import 'clay_button.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_shadows.dart';
+import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/widgets/clay_button.dart';
 
 /// Navigation item model for ClayBottomNavBar.
 class ClayNavItem {
@@ -63,8 +63,14 @@ class ClayBottomNavBar extends StatelessWidget {
         ? ClayColors.surfaceContainerDarkLow
         : ClayColors.surfaceContainerLow;
 
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
+
     return Container(
-      padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 12.0),
+      padding: EdgeInsets.only(
+        left: 16.0,
+        right: 16.0,
+        bottom: 12.0 + (bottomInset > 0 ? bottomInset - 4.0 : 0.0),
+      ),
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,

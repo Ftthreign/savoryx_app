@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/clay_colors.dart';
-import '../theme/clay_shadows.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_shadows.dart';
 
 /// Tactile Neomorphic Pill Switch as seen in Stitch "Mark as Talangan".
 class ClayToggleSwitch extends StatelessWidget {

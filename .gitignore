@@ -75,6 +75,6 @@ lcov.info
 
 *.md 
 !README.md
-/SKILLS
 *-lock.json
 .agents
+/scripts

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../features/settings/domain/entities/app_font_family.dart';
-import '../../features/settings/domain/entities/app_theme_mode.dart';
-import '../typography/font_manager.dart';
-import 'clay_colors.dart';
+import 'package:savoryx/features/settings/domain/entities/app_font_family.dart';
+import 'package:savoryx/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:savoryx/core/typography/font_manager.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
 
 /// App-wide theme provider configuring Material 3 ThemeData with Claymorphism tokens,
 /// 3 surface modes (Light, Dark, OLED), and 6 dynamic fonts.

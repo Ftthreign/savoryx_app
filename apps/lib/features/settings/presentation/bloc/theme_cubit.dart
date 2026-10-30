@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
-import '../../domain/entities/app_font_family.dart';
-import '../../domain/entities/app_theme_mode.dart';
-import 'theme_state.dart';
+import 'package:savoryx/features/settings/domain/entities/app_font_family.dart';
+import 'package:savoryx/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:savoryx/features/settings/presentation/bloc/theme_state.dart';
 
 /// Dynamic Theme and Typography state management Cubit.
 /// Manages instant (<100ms) transitions between Light, Dark, OLED and 6 official fonts.

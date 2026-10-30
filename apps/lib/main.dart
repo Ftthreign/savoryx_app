@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'core/di/injection_container.dart';
-import 'core/theme/clay_colors.dart';
-import 'core/theme/clay_typography.dart';
-import 'core/utils/constants.dart';
-import 'core/utils/currency_formatter.dart';
-import 'core/widgets/clay_button.dart';
-import 'core/widgets/clay_card.dart';
-import 'core/widgets/clay_toggle_switch.dart';
-import 'features/navigation/presentation/screens/main_navigation_shell.dart';
-import 'features/settings/domain/entities/app_font_family.dart';
-import 'features/settings/domain/entities/app_theme_mode.dart';
-import 'features/settings/presentation/bloc/theme_cubit.dart';
-import 'features/settings/presentation/bloc/theme_state.dart';
+import 'package:savoryx/core/di/injection_container.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/utils/constants.dart';
+import 'package:savoryx/core/utils/currency_formatter.dart';
+import 'package:savoryx/core/widgets/clay_button.dart';
+import 'package:savoryx/core/widgets/clay_card.dart';
+import 'package:savoryx/core/widgets/clay_toggle_switch.dart';
+import 'package:savoryx/features/navigation/presentation/screens/main_navigation_shell.dart';
+import 'package:savoryx/features/settings/domain/entities/app_font_family.dart';
+import 'package:savoryx/features/settings/domain/entities/app_theme_mode.dart';
+import 'package:savoryx/features/settings/presentation/bloc/theme_cubit.dart';
+import 'package:savoryx/features/settings/presentation/bloc/theme_state.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -363,7 +363,7 @@ class _ClayShowcaseScreenState extends State<ClayShowcaseScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '+${CurrencyFormatter.formatCompactRupiah(_stashedCount)} Stashed ✨',
+                                  '+${CurrencyFormatter.formatCompactRupiah(_stashedCount)} Stashed',
                                   style: ClayTypography.labelSm(
                                     color: ClayColors.tertiaryChip,
                                   ),

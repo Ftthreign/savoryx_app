@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'clay_colors.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
 
 /// Official typography tokens and scale using GoogleFonts `Nunito Sans`.
 abstract final class ClayTypography {

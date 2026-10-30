@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/clay_colors.dart';
-import '../theme/clay_shadows.dart';
-import '../utils/constants.dart';
+import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_shadows.dart';
+import 'package:savoryx/core/utils/constants.dart';
 
 /// Tactile interactive Claymorphism button with 120ms spring compression,
 /// scale feedback (0.96), dual-shadow depth transition, and haptic impact.

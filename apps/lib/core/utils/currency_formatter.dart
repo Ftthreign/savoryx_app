@@ -1,8 +1,8 @@
 import 'package:intl/intl.dart';
-import 'constants.dart';
+import 'package:savoryx/core/utils/constants.dart';
+import 'package:savoryx/core/utils/financial_math.dart';
 
 /// Deterministic, zero-floating-point financial currency formatter.
-/// Conforms strictly to AGENTS.md §1.1 (Zero IEEE-754 float calculations on balances).
 abstract final class CurrencyFormatter {
   static final NumberFormat _idrFormat = NumberFormat.currency(
     locale: 'id_ID',
@@ -93,5 +93,18 @@ abstract final class CurrencyFormatter {
       return formatMinorUnit(minorAmount.toInt(), currency: currency);
     }
     return '$currency ${minorAmount.toString()}';
+  }
+
+  /// Parses monetary string into integer minor units without calling `double.parse()`.
+  static int parseToMinorUnit(String input, {String currency = 'IDR'}) {
+    final int decimalPlaces = currency.toUpperCase() == 'IDR' ? 0 : 2;
+    return FinancialMath.parseCurrencyToMinorUnits(input,
+        decimalPlaces: decimalPlaces);
+  }
+
+  /// Parses monetary string into BigInt minor units.
+  static BigInt parseToBigInt(String input, {String currency = 'IDR'}) {
+    final int minor = parseToMinorUnit(input, currency: currency);
+    return BigInt.from(minor);
   }
 }
