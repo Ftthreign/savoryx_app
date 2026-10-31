@@ -2,19 +2,62 @@ package http
 
 import (
 	"log/slog"
+	"net/http"
 	"time"
 
+	"github.com/ftthreign/savoryx_app/server/docs"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func SetupRouter(logger *slog.Logger, healthService port.HealthService, appVersion, appEnv string) *chi.Mux {
+type RouterOptions struct {
+	AuthService     port.AuthService
+	AccountService  port.AccountService
+	CategoryService port.CategoryService
+	TokenManager    port.TokenManager
+}
+
+type RouterOption func(*RouterOptions)
+
+func WithAuthService(authService port.AuthService) RouterOption {
+	return func(o *RouterOptions) {
+		o.AuthService = authService
+	}
+}
+
+func WithAccountService(accountService port.AccountService) RouterOption {
+	return func(o *RouterOptions) {
+		o.AccountService = accountService
+	}
+}
+
+func WithCategoryService(categoryService port.CategoryService) RouterOption {
+	return func(o *RouterOptions) {
+		o.CategoryService = categoryService
+	}
+}
+
+func WithTokenManager(tokenManager port.TokenManager) RouterOption {
+	return func(o *RouterOptions) {
+		o.TokenManager = tokenManager
+	}
+}
+
+func SetupRouter(
+	logger *slog.Logger,
+	healthService port.HealthService,
+	appVersion, appEnv string,
+	opts ...RouterOption,
+) *chi.Mux {
+	options := &RouterOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	// Deprecated in chi/v5
-	// r.Use(middleware.RealIP)
 	r.Use(StructuredLogger(logger))
 	r.Use(OopsRecoverer(logger))
 	r.Use(SecurityHeaders)
@@ -28,7 +71,94 @@ func SetupRouter(logger *slog.Logger, healthService port.HealthService, appVersi
 
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Get("/ping", healthHandler.Ping)
+
+		if options.AuthService != nil {
+			authHandler := NewAuthHandler(options.AuthService)
+			api.Route("/auth", func(auth chi.Router) {
+				auth.Post("/register-device", authHandler.RegisterDevice)
+			})
+		}
+
+		// Protected Domain Endpoints (Requires PASETO token)
+		if options.TokenManager != nil {
+			api.Group(func(protected chi.Router) {
+				protected.Use(AuthMiddleware(options.TokenManager))
+
+				if options.AccountService != nil {
+					accountHandler := NewAccountHandler(options.AccountService)
+					protected.Route("/accounts", func(acc chi.Router) {
+						acc.Get("/", accountHandler.ListAccounts)
+						acc.Post("/", accountHandler.CreateAccount)
+						acc.Get("/{id}", accountHandler.GetAccount)
+						acc.Put("/{id}", accountHandler.UpdateAccount)
+						acc.Put("/{id}/balance", accountHandler.UpdateBalance)
+						acc.Patch("/{id}/balance", accountHandler.UpdateBalance)
+						acc.Delete("/{id}", accountHandler.DeleteAccount)
+					})
+				}
+
+				if options.CategoryService != nil {
+					categoryHandler := NewCategoryHandler(options.CategoryService)
+					protected.Route("/categories", func(cat chi.Router) {
+						cat.Get("/", categoryHandler.ListCategories)
+						cat.Post("/", categoryHandler.CreateCategory)
+						cat.Get("/{id}", categoryHandler.GetCategory)
+						cat.Put("/{id}", categoryHandler.UpdateCategory)
+						cat.Delete("/{id}", categoryHandler.DeleteCategory)
+					})
+				}
+			})
+		}
 	})
+
+	// OpenAPI 3.0 Specification & Swagger UI (Spec-First)
+	r.Get("/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+		_, _ = w.Write(docs.OpenAPISpec)
+	})
+
+	serveSwaggerUI := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(swaggerUIHTML))
+	}
+
+	r.Get("/swagger", serveSwaggerUI)
+	r.Get("/swagger/", serveSwaggerUI)
+	r.Get("/swagger/*", serveSwaggerUI)
+	r.Get("/docs", serveSwaggerUI)
+	r.Get("/docs/", serveSwaggerUI)
 
 	return r
 }
+
+const swaggerUIHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Savoryx Financial OS — API Documentation</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+  <style>
+    body { margin: 0; background: #fafafa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .topbar { display: none; }
+  </style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin></script>
+<script>
+  window.onload = () => {
+    window.ui = SwaggerUIBundle({
+      url: '/docs/openapi.yaml',
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIBundle.SwaggerUIStandalonePreset
+      ],
+      layout: "BaseLayout"
+    });
+  };
+</script>
+</body>
+</html>`

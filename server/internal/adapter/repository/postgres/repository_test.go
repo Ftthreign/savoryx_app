@@ -139,5 +139,63 @@ func TestRepository_NilEntityGuards(t *testing.T) {
 		err := repo.Upsert(ctx, nil)
 		assert.ErrorIs(t, err, domain.ErrInvalidInput)
 	})
+
+	t.Run("DeviceRepository.Register rejects nil device", func(t *testing.T) {
+		repo := &DeviceRepository{}
+		err := repo.Register(ctx, nil)
+		assert.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
 }
+
+func TestToDomainDevice(t *testing.T) {
+	now := time.Now().UTC()
+	var testUUID [16]byte
+	copy(testUUID[:], []byte("device1234567890"))
+
+	t.Run("Active device with nil revoked_at", func(t *testing.T) {
+		dbDev := db.Device{
+			ID:               pgtype.UUID{Bytes: testUUID, Valid: true},
+			DeviceName:       "Pixel 8 Pro",
+			Platform:         "android",
+			AppVersion:       "1.0.0",
+			DeviceSecretHash: "hash123456",
+			CreatedAt:        pgtype.Timestamptz{Time: now, Valid: true},
+			LastActiveAt:     pgtype.Timestamptz{Time: now, Valid: true},
+			RevokedAt:        pgtype.Timestamptz{Valid: false},
+		}
+
+		domainDev := toDomainDevice(dbDev)
+
+		assert.NotNil(t, domainDev)
+		assert.Equal(t, domain.FromBytes(testUUID), domainDev.ID)
+		assert.Equal(t, "Pixel 8 Pro", domainDev.DeviceName)
+		assert.Equal(t, "android", domainDev.Platform)
+		assert.Equal(t, "1.0.0", domainDev.AppVersion)
+		assert.Equal(t, "hash123456", domainDev.DeviceSecretHash)
+		assert.True(t, domainDev.IsActive())
+		assert.Nil(t, domainDev.RevokedAt)
+	})
+
+	t.Run("Revoked device", func(t *testing.T) {
+		revokedTime := now.Add(time.Hour)
+		dbDev := db.Device{
+			ID:               pgtype.UUID{Bytes: testUUID, Valid: true},
+			DeviceName:       "Pixel 8 Pro",
+			Platform:         "android",
+			AppVersion:       "1.0.0",
+			DeviceSecretHash: "hash123456",
+			CreatedAt:        pgtype.Timestamptz{Time: now, Valid: true},
+			LastActiveAt:     pgtype.Timestamptz{Time: now, Valid: true},
+			RevokedAt:        pgtype.Timestamptz{Time: revokedTime, Valid: true},
+		}
+
+		domainDev := toDomainDevice(dbDev)
+
+		assert.NotNil(t, domainDev)
+		assert.False(t, domainDev.IsActive())
+		assert.NotNil(t, domainDev.RevokedAt)
+		assert.Equal(t, revokedTime, *domainDev.RevokedAt)
+	})
+}
+
 

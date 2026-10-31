@@ -119,3 +119,45 @@ func (q *Queries) SoftDeleteCategory(ctx context.Context, id pgtype.UUID) error 
 	_, err := q.db.Exec(ctx, softDeleteCategory, id)
 	return err
 }
+
+const updateCategory = `-- name: UpdateCategory :one
+UPDATE categories
+SET name = $2,
+    icon = $3,
+    color = $4,
+    is_wants = $5,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, name, icon, color, is_wants, created_at, updated_at, deleted_at
+`
+
+type UpdateCategoryParams struct {
+	ID      pgtype.UUID `json:"id"`
+	Name    string      `json:"name"`
+	Icon    string      `json:"icon"`
+	Color   string      `json:"color"`
+	IsWants bool        `json:"is_wants"`
+}
+
+func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error) {
+	row := q.db.QueryRow(ctx, updateCategory,
+		arg.ID,
+		arg.Name,
+		arg.Icon,
+		arg.Color,
+		arg.IsWants,
+	)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Icon,
+		&i.Color,
+		&i.IsWants,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+

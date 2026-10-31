@@ -87,10 +87,27 @@ func WriteDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrNotFound),
 		errors.Is(err, domain.ErrAccountNotFound),
 		errors.Is(err, domain.ErrCategoryNotFound),
-		errors.Is(err, domain.ErrPreferenceNotFound):
+		errors.Is(err, domain.ErrPreferenceNotFound),
+		errors.Is(err, domain.ErrDeviceNotFound):
 		statusCode = http.StatusNotFound
 		if errorCode == "internal_error" {
 			errorCode = "not_found"
+		}
+		errorMessage = err.Error()
+
+	case errors.Is(err, domain.ErrDeviceRevoked):
+		statusCode = http.StatusForbidden
+		if errorCode == "internal_error" {
+			errorCode = "forbidden"
+		}
+		errorMessage = err.Error()
+
+	case errors.Is(err, domain.ErrInvalidToken),
+		errors.Is(err, domain.ErrTokenExpired),
+		errors.Is(err, domain.ErrUnauthorized):
+		statusCode = http.StatusUnauthorized
+		if errorCode == "internal_error" {
+			errorCode = "unauthorized"
 		}
 		errorMessage = err.Error()
 
@@ -100,6 +117,13 @@ func WriteDomainError(w http.ResponseWriter, err error) {
 			errorCode = "invalid_input"
 		}
 		errorMessage = err.Error()
+
+	case errors.Is(err, domain.ErrConflict):
+		statusCode = http.StatusConflict
+		if errorCode == "internal_error" {
+			errorCode = "conflict"
+		}
+		errorMessage = "Resource already exists or device is already registered"
 
 	case errors.Is(err, domain.ErrDatabaseUnavailable):
 		statusCode = http.StatusServiceUnavailable

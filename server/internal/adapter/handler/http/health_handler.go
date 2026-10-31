@@ -45,7 +45,6 @@ func (h *HealthHandler) Readiness(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, httpStatus, payload)
 }
 
-// Liveness provides a lightweight check to determine if the process is running.
 func (h *HealthHandler) Liveness(w http.ResponseWriter, r *http.Request) {
 	payload := map[string]any{
 		"status":         "alive",

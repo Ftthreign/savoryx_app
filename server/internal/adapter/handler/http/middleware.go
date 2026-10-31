@@ -1,10 +1,15 @@
 package http
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
+	"github.com/ftthreign/savoryx_app/server/internal/port"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/samber/oops"
 )
@@ -89,5 +94,70 @@ func SecurityHeaders(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+type contextKey string
+
+const (
+	deviceIDContextKey contextKey = "device_id"
+)
+
+func GetDeviceIDFromContext(ctx context.Context) (domain.UUID, error) {
+	val := ctx.Value(deviceIDContextKey)
+	if val == nil {
+		return domain.NilUUID, domain.ErrUnauthorized
+	}
+	id, ok := val.(domain.UUID)
+	if !ok || id.IsZero() {
+		return domain.NilUUID, domain.ErrUnauthorized
+	}
+	return id, nil
+}
+
+func AuthMiddleware(tokenManager port.TokenManager) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if tokenManager == nil {
+				WriteError(w, http.StatusInternalServerError, "internal_error", "Token manager not configured")
+				return
+			}
+
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				WriteError(w, http.StatusUnauthorized, "unauthorized", "Missing Authorization header")
+				return
+			}
+
+			const prefix = "Bearer "
+			if !strings.HasPrefix(authHeader, prefix) {
+				WriteError(w, http.StatusUnauthorized, "unauthorized", "Authorization header must use Bearer scheme")
+				return
+			}
+
+			tokenStr := strings.TrimSpace(strings.TrimPrefix(authHeader, prefix))
+			if tokenStr == "" {
+				WriteError(w, http.StatusUnauthorized, "unauthorized", "Authorization token must not be empty")
+				return
+			}
+
+			claims, err := tokenManager.VerifyDeviceToken(tokenStr)
+			if err != nil {
+				if errors.Is(err, domain.ErrTokenExpired) {
+					WriteError(w, http.StatusUnauthorized, "token_expired", "Authorization token has expired")
+					return
+				}
+				WriteError(w, http.StatusUnauthorized, "unauthorized", "Invalid or expired authorization token")
+				return
+			}
+
+			if claims == nil || claims.DeviceID.IsZero() {
+				WriteError(w, http.StatusUnauthorized, "unauthorized", "Invalid token claims")
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), deviceIDContextKey, claims.DeviceID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 

@@ -1,11 +1,13 @@
 package domain
 
 import (
+	"crypto/rand"
 	"database/sql/driver"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 var (
@@ -17,6 +19,27 @@ var NilUUID = UUID{}
 
 type UUID [16]byte
 
+func NewUUIDv7() UUID {
+	var u UUID
+	now := time.Now().UnixMilli()
+
+	u[0] = byte(now >> 40)
+	u[1] = byte(now >> 32)
+	u[2] = byte(now >> 24)
+	u[3] = byte(now >> 16)
+	u[4] = byte(now >> 8)
+	u[5] = byte(now)
+
+	if _, err := rand.Read(u[6:]); err != nil {
+		panic(fmt.Sprintf("domain: failed to read crypto/rand entropy: %v", err))
+	}
+
+	u[6] = (u[6] & 0x0f) | 0x70 // Version 7
+	u[8] = (u[8] & 0x3f) | 0x80 // Variant 10 (RFC 9562)
+
+	return u
+}
+
 func FromBytes(b [16]byte) UUID {
 	return UUID(b)
 }
@@ -24,7 +47,7 @@ func FromBytes(b [16]byte) UUID {
 func ParseUUID(s string) (UUID, error) {
 	var u UUID
 	s = strings.TrimSpace(s)
-	if after, ok :=strings.CutPrefix(s, "urn:uuid:"); ok  {
+	if after, ok := strings.CutPrefix(s, "urn:uuid:"); ok {
 		s = after
 	}
 
@@ -50,6 +73,14 @@ func ParseUUID(s string) (UUID, error) {
 	default:
 		return NilUUID, fmt.Errorf("%w: expected 32 or 36 characters, got %d", ErrInvalidUUIDLength, len(s))
 	}
+}
+
+func MustParseUUID(s string) UUID {
+	u, err := ParseUUID(s)
+	if err != nil {
+		panic(fmt.Sprintf("domain: invalid UUID %q: %v", s, err))
+	}
+	return u
 }
 
 func (u UUID) String() string {

@@ -1,35 +1,21 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
+	"github.com/ftthreign/savoryx_app/server/internal/testutil"
+	"github.com/ftthreign/savoryx_app/server/internal/testutil/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
-type mockHealthService struct {
-	status string
-	err    error
-}
-
-func (m *mockHealthService) CheckHealth(ctx context.Context) (string, error) {
-	return m.status, m.err
-}
-
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
 func TestHealthHandler_Readiness_Healthy(t *testing.T) {
-	mockService := &mockHealthService{status: "healthy", err: nil}
-	r := SetupRouter(discardLogger(), mockService, "1.0.0", "test")
+	mockService := &mocks.MockHealthService{Status: "healthy", Err: nil}
+	r := SetupRouter(testutil.DiscardLogger(), mockService, "1.0.0", "test")
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -55,8 +41,8 @@ func TestHealthHandler_Readiness_Healthy(t *testing.T) {
 }
 
 func TestHealthHandler_Readiness_Degraded(t *testing.T) {
-	mockService := &mockHealthService{status: "degraded", err: errors.New("db unreachable")}
-	r := SetupRouter(discardLogger(), mockService, "1.0.0", "test")
+	mockService := &mocks.MockHealthService{Status: "degraded", Err: errors.New("db unreachable")}
+	r := SetupRouter(testutil.DiscardLogger(), mockService, "1.0.0", "test")
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -76,8 +62,8 @@ func TestHealthHandler_Readiness_Degraded(t *testing.T) {
 }
 
 func TestHealthHandler_Readiness_DatabaseUnavailable(t *testing.T) {
-	mockService := &mockHealthService{status: "degraded", err: domain.ErrDatabaseUnavailable}
-	r := SetupRouter(discardLogger(), mockService, "1.0.0", "test")
+	mockService := &mocks.MockHealthService{Status: "degraded", Err: domain.ErrDatabaseUnavailable}
+	r := SetupRouter(testutil.DiscardLogger(), mockService, "1.0.0", "test")
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -97,8 +83,8 @@ func TestHealthHandler_Readiness_DatabaseUnavailable(t *testing.T) {
 }
 
 func TestHealthHandler_Liveness(t *testing.T) {
-	mockService := &mockHealthService{status: "healthy", err: nil}
-	r := SetupRouter(discardLogger(), mockService, "1.0.0", "test")
+	mockService := &mocks.MockHealthService{Status: "healthy", Err: nil}
+	r := SetupRouter(testutil.DiscardLogger(), mockService, "1.0.0", "test")
 
 	req := httptest.NewRequest(http.MethodGet, "/livez", nil)
 	rec := httptest.NewRecorder()
@@ -117,8 +103,8 @@ func TestHealthHandler_Liveness(t *testing.T) {
 }
 
 func TestHealthHandler_Ping(t *testing.T) {
-	mockService := &mockHealthService{status: "healthy", err: nil}
-	r := SetupRouter(discardLogger(), mockService, "1.0.0", "test")
+	mockService := &mocks.MockHealthService{Status: "healthy", Err: nil}
+	r := SetupRouter(testutil.DiscardLogger(), mockService, "1.0.0", "test")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ping", nil)
 	rec := httptest.NewRecorder()

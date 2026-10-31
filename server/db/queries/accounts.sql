@@ -30,6 +30,14 @@ SET balance = $2,
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, name, type, currency, balance, created_at, updated_at, deleted_at;
 
+-- name: UpdateAccount :one
+UPDATE accounts
+SET name = $2,
+    type = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, name, type, currency, balance, created_at, updated_at, deleted_at;
+
 -- name: SoftDeleteAccount :exec
 UPDATE accounts
 SET deleted_at = CURRENT_TIMESTAMP,

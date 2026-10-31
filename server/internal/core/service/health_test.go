@@ -7,21 +7,14 @@ import (
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/core/service"
+	"github.com/ftthreign/savoryx_app/server/internal/testutil/mocks"
 )
-
-type mockDatabasePinger struct {
-	pingErr error
-}
-
-func (m *mockDatabasePinger) Ping(ctx context.Context) error {
-	return m.pingErr
-}
 
 func TestHealthService_CheckHealth(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("happy path - database is healthy", func(t *testing.T) {
-		mockDB := &mockDatabasePinger{pingErr: nil}
+		mockDB := &mocks.MockDatabasePinger{PingErr: nil}
 		svc := service.NewHealthService(mockDB)
 
 		status, err := svc.CheckHealth(ctx)
@@ -34,7 +27,7 @@ func TestHealthService_CheckHealth(t *testing.T) {
 	})
 
 	t.Run("failure path - database is unavailable", func(t *testing.T) {
-		mockDB := &mockDatabasePinger{pingErr: errors.New("connection refused")}
+		mockDB := &mocks.MockDatabasePinger{PingErr: errors.New("connection refused")}
 		svc := service.NewHealthService(mockDB)
 
 		status, err := svc.CheckHealth(ctx)

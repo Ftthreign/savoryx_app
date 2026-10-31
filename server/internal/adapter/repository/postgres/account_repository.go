@@ -145,6 +145,43 @@ func (r *AccountRepository) UpdateBalance(ctx context.Context, id domain.UUID, b
 	return nil
 }
 
+func (r *AccountRepository) Update(ctx context.Context, acc *domain.Account) error {
+	if acc == nil {
+		return oops.
+			In("account_repository").
+			Tags("database", "postgres").
+			Code("ERR_ACCOUNT_INVALID_INPUT").
+			Wrap(domain.ErrInvalidInput)
+	}
+
+	params := db.UpdateAccountParams{
+		ID:   pgtype.UUID{Bytes: acc.ID.Bytes(), Valid: true},
+		Name: acc.Name,
+		Type: db.AccountType(acc.Type),
+	}
+
+	updated, err := r.q.UpdateAccount(ctx, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return oops.
+				In("account_repository").
+				Tags("database", "postgres").
+				Code("ERR_ACCOUNT_NOT_FOUND").
+				With("account_id", acc.ID.String()).
+				Wrap(domain.ErrAccountNotFound)
+		}
+		return oops.
+			In("account_repository").
+			Tags("database", "postgres").
+			Code("ERR_ACCOUNT_UPDATE").
+			With("account_id", acc.ID.String()).
+			Wrapf(err, "failed to update account")
+	}
+
+	*acc = *toDomainAccount(updated)
+	return nil
+}
+
 func (r *AccountRepository) Delete(ctx context.Context, id domain.UUID) error {
 	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
 	err := r.q.SoftDeleteAccount(ctx, pgID)
