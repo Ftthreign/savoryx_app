@@ -12,6 +12,7 @@ import (
 
 	httpAdapter "github.com/ftthreign/savoryx_app/server/internal/adapter/handler/http"
 	"github.com/ftthreign/savoryx_app/server/internal/adapter/repository/postgres"
+	"github.com/ftthreign/savoryx_app/server/internal/adapter/security"
 	"github.com/ftthreign/savoryx_app/server/internal/core/service"
 )
 
@@ -50,8 +51,20 @@ func main() {
 	// Instantiate Domain Services
 	healthService := service.NewHealthService(dbConn)
 
+	var routerOpts []httpAdapter.RouterOption
+	if dbConn != nil {
+		deviceRepo := postgres.NewDeviceRepository(dbConn)
+		tokenManager, err := security.NewPasetoTokenManager("")
+		if err != nil {
+			logger.Error("failed to initialize paseto token manager", "error", err)
+		} else {
+			authService := service.NewAuthService(deviceRepo, tokenManager)
+			routerOpts = append(routerOpts, httpAdapter.WithAuthService(authService))
+		}
+	}
+
 	// Configure Chi HTTP Router & Pipelines
-	r := httpAdapter.SetupRouter(logger, healthService, AppVersion, cfg.AppEnv)
+	r := httpAdapter.SetupRouter(logger, healthService, AppVersion, cfg.AppEnv, routerOpts...)
 
 	serverAddr := fmt.Sprintf(":%d", cfg.Port)
 	srv := &http.Server{

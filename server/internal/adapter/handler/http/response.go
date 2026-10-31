@@ -87,10 +87,26 @@ func WriteDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrNotFound),
 		errors.Is(err, domain.ErrAccountNotFound),
 		errors.Is(err, domain.ErrCategoryNotFound),
-		errors.Is(err, domain.ErrPreferenceNotFound):
+		errors.Is(err, domain.ErrPreferenceNotFound),
+		errors.Is(err, domain.ErrDeviceNotFound):
 		statusCode = http.StatusNotFound
 		if errorCode == "internal_error" {
 			errorCode = "not_found"
+		}
+		errorMessage = err.Error()
+
+	case errors.Is(err, domain.ErrDeviceRevoked):
+		statusCode = http.StatusForbidden
+		if errorCode == "internal_error" {
+			errorCode = "forbidden"
+		}
+		errorMessage = err.Error()
+
+	case errors.Is(err, domain.ErrInvalidToken),
+		errors.Is(err, domain.ErrTokenExpired):
+		statusCode = http.StatusUnauthorized
+		if errorCode == "internal_error" {
+			errorCode = "unauthorized"
 		}
 		errorMessage = err.Error()
 

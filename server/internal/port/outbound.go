@@ -49,5 +49,8 @@ type DeviceClaims struct {
 type TokenManager interface {
 	GenerateDeviceToken(deviceID domain.UUID, ttl time.Duration) (string, error)
 	VerifyDeviceToken(tokenString string) (*DeviceClaims, error)
+	GenerateDeviceSecret() (string, error)
+	HashDeviceSecret(secret string) string
+	VerifyDeviceSecret(secret, expectedHash string) bool
 }
 

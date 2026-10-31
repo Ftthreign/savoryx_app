@@ -139,6 +139,18 @@ func (m *PasetoTokenManager) ExportKeyHex() string {
 	return m.key.ExportHex()
 }
 
+func (m *PasetoTokenManager) GenerateDeviceSecret() (string, error) {
+	return GenerateDeviceSecret()
+}
+
+func (m *PasetoTokenManager) HashDeviceSecret(secret string) string {
+	return HashDeviceSecret(secret)
+}
+
+func (m *PasetoTokenManager) VerifyDeviceSecret(secret, expectedHash string) bool {
+	return VerifyDeviceSecret(secret, expectedHash)
+}
+
 func GenerateDeviceSecret() (string, error) {
 	buf := make([]byte, 32)
 	_, err := rand.Read(buf)
