@@ -5,13 +5,20 @@ import 'package:injectable/injectable.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:savoryx/core/database/connection/native.dart' as impl;
+import 'package:savoryx/core/database/daos/account_dao.dart';
+import 'package:savoryx/core/database/daos/category_dao.dart';
+import 'package:savoryx/core/database/daos/transaction_dao.dart';
 import 'package:savoryx/core/database/tables/accounts_table.dart';
 import 'package:savoryx/core/database/tables/categories_table.dart';
+import 'package:savoryx/core/database/tables/transactions_table.dart';
 
 part 'app_database.g.dart';
 
 @lazySingleton
-@DriftDatabase(tables: [LocalAccounts, LocalCategories])
+@DriftDatabase(
+  tables: [LocalAccounts, LocalCategories, LocalTransactions],
+  daos: [AccountDao, CategoryDao, TransactionDao],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(impl.connect());
   AppDatabase.executor(super.executor);
