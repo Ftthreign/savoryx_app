@@ -12,43 +12,25 @@ import (
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
+	"github.com/ftthreign/savoryx_app/server/internal/testutil"
+	"github.com/ftthreign/savoryx_app/server/internal/testutil/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type mockAuthService struct {
-	registerDeviceFunc func(ctx context.Context, id domain.UUID, deviceName, platform, appVersion string) (*port.DeviceRegistrationResult, error)
-}
-
-func (m *mockAuthService) RegisterDevice(ctx context.Context, id domain.UUID, deviceName, platform, appVersion string) (*port.DeviceRegistrationResult, error) {
-	if m.registerDeviceFunc != nil {
-		return m.registerDeviceFunc(ctx, id, deviceName, platform, appVersion)
-	}
-	return nil, nil
-}
-
-var _ port.AuthService = (*mockAuthService)(nil)
-
-
 func TestAuthHandler_RegisterDevice_HappyPath(t *testing.T) {
-	deviceIDStr := "0192d6e2-5b9c-7000-8000-000000000001"
-	expectedUUID, _ := domain.ParseUUID(deviceIDStr)
+	deviceID := testutil.DefaultDeviceID
+	deviceIDStr := testutil.DefaultDeviceIDStr
 
-	mockSvc := &mockAuthService{
-		registerDeviceFunc: func(ctx context.Context, id domain.UUID, deviceName, platform, appVersion string) (*port.DeviceRegistrationResult, error) {
-			assert.Equal(t, expectedUUID, id)
+	mockSvc := &mocks.MockAuthService{
+		RegisterDeviceFunc: func(ctx context.Context, id domain.UUID, deviceName, platform, appVersion string) (*port.DeviceRegistrationResult, error) {
+			assert.Equal(t, deviceID, id)
 			assert.Equal(t, "Pixel 8 Pro", deviceName)
 			assert.Equal(t, "android", platform)
 			assert.Equal(t, "1.0.0", appVersion)
 
 			return &port.DeviceRegistrationResult{
-				Device: &domain.Device{
-					ID:         id,
-					DeviceName: deviceName,
-					Platform:   platform,
-					AppVersion: appVersion,
-					CreatedAt:  time.Now().UTC(),
-				},
+				Device:       testutil.NewTestDevice(id, deviceName, platform, appVersion),
 				Token:        "v4.local.mocked_token",
 				DeviceSecret: "mock_device_secret_base64",
 				ExpiresAt:    time.Now().UTC().Add(30 * 24 * time.Hour),
@@ -56,7 +38,7 @@ func TestAuthHandler_RegisterDevice_HappyPath(t *testing.T) {
 		},
 	}
 
-	router := SetupRouter(discardLogger(), nil, "1.0.0", "test", WithAuthService(mockSvc))
+	router := SetupRouter(testutil.DiscardLogger(), nil, "1.0.0", "test", WithAuthService(mockSvc))
 
 	reqBody := map[string]string{
 		"device_id":   deviceIDStr,
@@ -93,8 +75,8 @@ func TestAuthHandler_RegisterDevice_HappyPath(t *testing.T) {
 }
 
 func TestAuthHandler_RegisterDevice_InvalidJSON(t *testing.T) {
-	mockSvc := &mockAuthService{}
-	router := SetupRouter(discardLogger(), nil, "1.0.0", "test", WithAuthService(mockSvc))
+	mockSvc := &mocks.MockAuthService{}
+	router := SetupRouter(testutil.DiscardLogger(), nil, "1.0.0", "test", WithAuthService(mockSvc))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register-device", bytes.NewReader([]byte("{invalid json")))
 	req.Header.Set("Content-Type", "application/json")
@@ -111,8 +93,8 @@ func TestAuthHandler_RegisterDevice_InvalidJSON(t *testing.T) {
 }
 
 func TestAuthHandler_RegisterDevice_ValidationError(t *testing.T) {
-	mockSvc := &mockAuthService{}
-	router := SetupRouter(discardLogger(), nil, "1.0.0", "test", WithAuthService(mockSvc))
+	mockSvc := &mocks.MockAuthService{}
+	router := SetupRouter(testutil.DiscardLogger(), nil, "1.0.0", "test", WithAuthService(mockSvc))
 
 	t.Run("missing device ID", func(t *testing.T) {
 		reqBody := map[string]string{
@@ -150,15 +132,15 @@ func TestAuthHandler_RegisterDevice_ValidationError(t *testing.T) {
 }
 
 func TestAuthHandler_RegisterDevice_ServiceError(t *testing.T) {
-	mockSvc := &mockAuthService{
-		registerDeviceFunc: func(ctx context.Context, id domain.UUID, deviceName, platform, appVersion string) (*port.DeviceRegistrationResult, error) {
+	mockSvc := &mocks.MockAuthService{
+		RegisterDeviceFunc: func(ctx context.Context, id domain.UUID, deviceName, platform, appVersion string) (*port.DeviceRegistrationResult, error) {
 			return nil, errors.New("unexpected database dead-lock")
 		},
 	}
-	router := SetupRouter(discardLogger(), nil, "1.0.0", "test", WithAuthService(mockSvc))
+	router := SetupRouter(testutil.DiscardLogger(), nil, "1.0.0", "test", WithAuthService(mockSvc))
 
 	reqBody := map[string]string{
-		"device_id":   "0192d6e2-5b9c-7000-8000-000000000001",
+		"device_id":   testutil.DefaultDeviceIDStr,
 		"device_name": "Pixel 8 Pro",
 		"platform":    "android",
 		"app_version": "1.0.0",

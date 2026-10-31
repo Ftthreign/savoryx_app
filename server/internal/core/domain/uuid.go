@@ -24,7 +24,7 @@ func FromBytes(b [16]byte) UUID {
 func ParseUUID(s string) (UUID, error) {
 	var u UUID
 	s = strings.TrimSpace(s)
-	if after, ok :=strings.CutPrefix(s, "urn:uuid:"); ok  {
+	if after, ok := strings.CutPrefix(s, "urn:uuid:"); ok {
 		s = after
 	}
 
@@ -50,6 +50,14 @@ func ParseUUID(s string) (UUID, error) {
 	default:
 		return NilUUID, fmt.Errorf("%w: expected 32 or 36 characters, got %d", ErrInvalidUUIDLength, len(s))
 	}
+}
+
+func MustParseUUID(s string) UUID {
+	u, err := ParseUUID(s)
+	if err != nil {
+		panic(fmt.Sprintf("domain: invalid UUID %q: %v", s, err))
+	}
+	return u
 }
 
 func (u UUID) String() string {
