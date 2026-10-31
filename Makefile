@@ -6,7 +6,7 @@ DOCKER       := docker
 GO           := go
 FLUTTER      := flutter
 
-.PHONY: help dev-db dev-stack stop-db clean-db dev-server gen-sqlc test-server lint-server dev-mobile gen-mobile test-mobile lint-mobile build-sub10mb check-all
+.PHONY: help dev-db dev-stack stop-db clean-db migrate-up migrate-down seed-db dev-server gen-sqlc test-server lint-server dev-mobile gen-mobile test-mobile lint-mobile build-sub10mb check-all
 
 all: help
 
@@ -19,6 +19,9 @@ help:
 	@echo "   make dev-stack       - Jalankan PostgreSQL + API container di Docker"
 	@echo "   make stop-db         - Hentikan container PostgreSQL"
 	@echo "   make clean-db        - Hentikan container dan HAPUS volume data"
+	@echo "   make migrate-up      - Jalankan migrasi schema via golang-migrate"
+	@echo "   make migrate-down    - Rollback 1 langkah migrasi schema"
+	@echo "   make seed-db         - Jalankan database seeder (user prefs, accounts, categories, device)"
 	@echo ""
 	@echo " [Backend (Go)]"
 	@echo "   make dev-server      - Jalankan server API (port :8080)"
@@ -53,6 +56,18 @@ stop-db:
 clean-db:
 	@echo "Menghapus container dan volume data lokal..."
 	$(DOCKER) compose -f $(COMPOSE_FILE) down -v
+
+migrate-up:
+	@echo "Menerapkan migrasi database via golang-migrate..."
+	migrate -path $(SERVER_DIR)/db/migrations -database "postgres://savoryx_user:savoryx_secret@localhost:5433/savoryx_db?sslmode=disable" up
+
+migrate-down:
+	@echo "Rollback 1 langkah migrasi schema via golang-migrate..."
+	migrate -path $(SERVER_DIR)/db/migrations -database "postgres://savoryx_user:savoryx_secret@localhost:5433/savoryx_db?sslmode=disable" down 1
+
+seed-db:
+	@echo "Menjalankan database seeder Savoryx..."
+	cd $(SERVER_DIR) && $(GO) run ./cmd/seed
 
 dev-server:
 	@echo "Memulai Savoryx Go Backend..."
