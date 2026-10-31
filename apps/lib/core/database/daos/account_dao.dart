@@ -16,6 +16,9 @@ class AccountDao extends DatabaseAccessor<AppDatabase> with _$AccountDaoMixin {
         .watch();
   }
 
+  /// Alias for watchAllActiveAccounts.
+  Stream<List<LocalAccount>> watchAllAccounts() => watchAllActiveAccounts();
+
   /// Retrieves a snapshot of all active accounts ordered by name.
   Future<List<LocalAccount>> getAllActiveAccounts() {
     return (select(localAccounts)

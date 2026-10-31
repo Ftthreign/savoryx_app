@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:savoryx/core/database/app_database.dart';
+import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
@@ -7,9 +9,12 @@ import 'package:savoryx/core/utils/currency_formatter.dart';
 import 'package:savoryx/core/utils/math_evaluator.dart';
 import 'package:savoryx/core/widgets/clay_button.dart';
 import 'package:savoryx/core/widgets/clay_toggle_switch.dart';
+import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:savoryx/features/transaction/domain/usecases/create_transaction_usecase.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/account_chip_selector.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/category_selector_grid.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/clay_keypad.dart';
+import 'package:uuid/uuid.dart';
 
 class RapidInputModal extends StatefulWidget {
   const RapidInputModal({super.key});
@@ -365,16 +370,53 @@ class _RapidInputModalState extends State<RapidInputModal> {
             ClayButton(
               key: const Key('log_expense_submit_button'),
               isPrimaryCta: true,
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Logged: ${CurrencyFormatter.formatMinorUnit(amount)} ($_selectedCategory / $_selectedAccount)',
+              onTap: () async {
+                final txId = const Uuid().v7();
+                final now = DateTime.now().toUtc();
+
+                String targetAccountId = 'acc-bca-001';
+                if (getIt.isRegistered<AppDatabase>()) {
+                  final db = getIt<AppDatabase>();
+                  try {
+                    final accounts = await db.accountDao.watchAllAccounts().first;
+                    final matched = accounts.where((a) =>
+                        a.name.toLowerCase().contains(_selectedAccount.split(' ').first.toLowerCase()));
+                    if (matched.isNotEmpty) {
+                      targetAccountId = matched.first.id;
+                    } else if (accounts.isNotEmpty) {
+                      targetAccountId = accounts.first.id;
+                    }
+                  } catch (_) {}
+                }
+
+                if (getIt.isRegistered<CreateTransactionUseCase>()) {
+                  final entity = TransactionEntity(
+                    id: txId,
+                    accountId: targetAccountId,
+                    categoryId: _selectedCategory,
+                    amount: amount > 0 ? amount : 1000,
+                    type: TransactionType.expense,
+                    note: _isTalangan ? 'Talangan: $_selectedCategory' : _selectedCategory,
+                    transactionDate: now,
+                    createdAt: now,
+                    updatedAt: now,
+                  );
+                  try {
+                    await getIt<CreateTransactionUseCase>()(entity);
+                  } catch (_) {}
+                }
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Logged: ${CurrencyFormatter.formatMinorUnit(amount)} ($_selectedCategory / $_selectedAccount)',
+                      ),
+                      duration: const Duration(seconds: 1),
                     ),
-                    duration: const Duration(seconds: 1),
-                  ),
-                );
+                  );
+                }
               },
               child: Center(
                 child: Text(
