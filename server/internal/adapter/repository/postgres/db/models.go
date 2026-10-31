@@ -178,3 +178,15 @@ type UserPreference struct {
 	MonthlyIncomeNet decimal.Decimal    `json:"monthly_income_net"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
+
+type Device struct {
+	ID               pgtype.UUID        `json:"id"`
+	DeviceName       string             `json:"device_name"`
+	Platform         string             `json:"platform"`
+	AppVersion       string             `json:"app_version"`
+	DeviceSecretHash string             `json:"device_secret_hash"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	LastActiveAt     pgtype.Timestamptz `json:"last_active_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+

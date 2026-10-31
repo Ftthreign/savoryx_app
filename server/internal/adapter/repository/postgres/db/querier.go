@@ -16,12 +16,16 @@ type Querier interface {
 	GetAccountByID(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetAccountByIDForUpdate(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetCategoryByID(ctx context.Context, id pgtype.UUID) (Category, error)
+	GetDeviceByID(ctx context.Context, id pgtype.UUID) (Device, error)
 	GetUserPreferences(ctx context.Context, id pgtype.UUID) (UserPreference, error)
 	ListAccounts(ctx context.Context) ([]Account, error)
 	ListCategories(ctx context.Context) ([]Category, error)
+	RegisterDevice(ctx context.Context, arg RegisterDeviceParams) (Device, error)
+	RevokeDevice(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteAccount(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteCategory(ctx context.Context, id pgtype.UUID) error
 	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error)
+	UpdateDeviceLastActive(ctx context.Context, id pgtype.UUID) error
 	UpsertUserPreferences(ctx context.Context, arg UpsertUserPreferencesParams) (UserPreference, error)
 }
 

@@ -10,4 +10,7 @@ var (
 	ErrAccountNotFound     = errors.New("account not found")
 	ErrCategoryNotFound    = errors.New("category not found")
 	ErrPreferenceNotFound  = errors.New("user preference not found")
+	ErrDeviceNotFound      = errors.New("device not found")
+	ErrDeviceRevoked       = errors.New("device authorization has been revoked")
 )
+

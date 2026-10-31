@@ -31,3 +31,11 @@ type PreferenceRepository interface {
 	Get(ctx context.Context, id domain.UUID) (*domain.UserPreference, error)
 	Upsert(ctx context.Context, pref *domain.UserPreference) error
 }
+
+type DeviceRepository interface {
+	Register(ctx context.Context, dev *domain.Device) error
+	GetByID(ctx context.Context, id domain.UUID) (*domain.Device, error)
+	UpdateLastActive(ctx context.Context, id domain.UUID) error
+	Revoke(ctx context.Context, id domain.UUID) error
+}
+
