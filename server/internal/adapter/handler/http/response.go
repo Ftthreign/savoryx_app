@@ -103,7 +103,8 @@ func WriteDomainError(w http.ResponseWriter, err error) {
 		errorMessage = err.Error()
 
 	case errors.Is(err, domain.ErrInvalidToken),
-		errors.Is(err, domain.ErrTokenExpired):
+		errors.Is(err, domain.ErrTokenExpired),
+		errors.Is(err, domain.ErrUnauthorized):
 		statusCode = http.StatusUnauthorized
 		if errorCode == "internal_error" {
 			errorCode = "unauthorized"

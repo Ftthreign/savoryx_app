@@ -14,5 +14,6 @@ var (
 	ErrDeviceRevoked       = errors.New("device authorization has been revoked")
 	ErrInvalidToken        = errors.New("invalid or malformed authorization token")
 	ErrTokenExpired        = errors.New("authorization token has expired")
+	ErrUnauthorized        = errors.New("unauthorized: missing or invalid authentication credentials")
 )
 
