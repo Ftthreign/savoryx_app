@@ -38,6 +38,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  bloc_test: ^9.1.7
   flutter_lints: ^3.0.0
   build_runner: ^2.4.9
   injectable_generator: ^2.6.1
