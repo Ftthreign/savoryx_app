@@ -118,6 +118,13 @@ func WriteDomainError(w http.ResponseWriter, err error) {
 		}
 		errorMessage = err.Error()
 
+	case errors.Is(err, domain.ErrConflict):
+		statusCode = http.StatusConflict
+		if errorCode == "internal_error" {
+			errorCode = "conflict"
+		}
+		errorMessage = "Resource already exists or device is already registered"
+
 	case errors.Is(err, domain.ErrDatabaseUnavailable):
 		statusCode = http.StatusServiceUnavailable
 		if errorCode == "internal_error" {

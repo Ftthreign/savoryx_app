@@ -15,5 +15,6 @@ var (
 	ErrInvalidToken        = errors.New("invalid or malformed authorization token")
 	ErrTokenExpired        = errors.New("authorization token has expired")
 	ErrUnauthorized        = errors.New("unauthorized: missing or invalid authentication credentials")
+	ErrConflict            = errors.New("resource conflict: record already exists")
 )
 

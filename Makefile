@@ -6,7 +6,7 @@ DOCKER       := docker
 GO           := go
 FLUTTER      := flutter
 
-.PHONY: help dev-db dev-stack stop-db clean-db migrate-up migrate-down seed-db dev-server gen-sqlc test-server lint-server dev-mobile gen-mobile test-mobile lint-mobile build-sub10mb check-all
+.PHONY: help dev-db dev-stack stop-db clean-db migrate-up migrate-down seed-db dev-server swagger gen-sqlc test-server lint-server dev-mobile gen-mobile test-mobile lint-mobile build-sub10mb check-all
 
 all: help
 
@@ -25,6 +25,7 @@ help:
 	@echo ""
 	@echo " [Backend (Go)]"
 	@echo "   make dev-server      - Jalankan server API (port :8080)"
+	@echo "   make swagger         - Generate OpenAPI / Swagger docs dari Go annotations"
 	@echo "   make gen-sqlc        - Generate Go database code dari queries SQL"
 	@echo "   make test-server     - Jalankan unit testing backend"
 	@echo "   make lint-server     - Jalankan golangci-lint"
@@ -72,6 +73,10 @@ seed-db:
 dev-server:
 	@echo "Memulai Savoryx Go Backend..."
 	cd $(SERVER_DIR) && $(GO) run ./cmd/api
+
+swagger:
+	@echo "OpenAPI 3.0 specification berlokasi di: $(SERVER_DIR)/docs/openapi.yaml"
+	@echo "Swagger UI dapat diakses langsung pada: http://localhost:8080/swagger atau /docs"
 
 gen-sqlc:
 	@echo "Kompilasi query SQL ke Go code via sqlc..."

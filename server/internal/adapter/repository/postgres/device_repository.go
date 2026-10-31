@@ -9,6 +9,7 @@ import (
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/samber/oops"
 )
@@ -42,6 +43,16 @@ func (r *DeviceRepository) Register(ctx context.Context, dev *domain.Device) err
 
 	registered, err := r.q.RegisterDevice(ctx, params)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return oops.
+				In("device_repository").
+				Tags("database", "postgres").
+				Code("ERR_DEVICE_ALREADY_EXISTS").
+				With("device_id", dev.ID.String()).
+				Wrap(domain.ErrConflict)
+		}
+
 		return oops.
 			In("device_repository").
 			Tags("database", "postgres").

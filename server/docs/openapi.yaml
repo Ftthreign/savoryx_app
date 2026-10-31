@@ -1,0 +1,262 @@
+openapi: 3.0.3
+info:
+  title: Savoryx Financial OS Backend API
+  version: 1.0.0
+  description: |
+    Personal Offline-First Financial OS REST API Engine.
+    Provides device registration, account management, category hierarchy, and transactional ledger sync.
+servers:
+  - url: http://localhost:8080
+    description: Local Development Server
+
+tags:
+  - name: Health
+    description: Service availability, database pool readiness, and liveness probes
+  - name: Authentication
+    description: Device cryptographic handshakes and PASETO session token issuance
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: PASETO
+      description: |
+        PASETO v4 local session token obtained from `/api/v1/auth/register-device`.
+        Provide in the Authorization header as: `Bearer <token>`
+
+  schemas:
+    ResponseEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          description: Payload response data
+        meta:
+          type: object
+          description: Optional pagination or metadata
+      required:
+        - data
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+      required:
+        - error
+
+    ErrorBody:
+      type: object
+      properties:
+        code:
+          type: string
+          example: ERR_VALIDATION_FAILED
+        message:
+          type: string
+          example: Invalid input parameters provided
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+      required:
+        - code
+        - message
+
+    ErrorDetail:
+      type: object
+      properties:
+        field:
+          type: string
+          example: device_id
+        message:
+          type: string
+          example: device_id is required
+        code:
+          type: string
+          example: ERR_REQUIRED_FIELD
+
+    RegisterDeviceRequest:
+      type: object
+      properties:
+        device_id:
+          type: string
+          format: uuid
+          example: 01953bf6-2911-7000-8000-000000000001
+          description: Client-generated UUIDv7 identifier
+        device_name:
+          type: string
+          example: Chrome / Windows
+          description: Human-readable device descriptor
+        platform:
+          type: string
+          example: web
+          description: Operating system or platform (android, ios, web, desktop)
+        app_version:
+          type: string
+          example: 1.0.0
+          description: Client application semver
+      required:
+        - device_id
+        - device_name
+        - platform
+        - app_version
+
+    RegisterDeviceResponse:
+      type: object
+      properties:
+        device_id:
+          type: string
+          format: uuid
+          example: 01953bf6-2911-7000-8000-000000000001
+        token:
+          type: string
+          example: v4.local.example_paseto_v4_session_token_here
+          description: PASETO v4 local encrypted session token
+        device_secret:
+          type: string
+          example: a7f8d9b1c2e34567890abcdef1234567890abcdef1234567890abcdef1234567
+          description: Hex-encoded client HMAC secret for signing mutation payloads
+        expires_at:
+          type: string
+          format: date-time
+          example: "2026-11-07T10:00:00Z"
+      required:
+        - device_id
+        - token
+        - device_secret
+        - expires_at
+
+paths:
+  /healthz:
+    get:
+      summary: Readiness probe
+      description: Verifies that the HTTP service and PostgreSQL connection pool are healthy and ready to accept traffic.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy and PostgreSQL connection is established
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: healthy
+                      service:
+                        type: string
+                        example: savoryx-api
+                      version:
+                        type: string
+                        example: 1.0.0
+                      env:
+                        type: string
+                        example: development
+                      database:
+                        type: string
+                        example: connected
+        '503':
+          description: Service is degraded or database connection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseEnvelope'
+
+  /livez:
+    get:
+      summary: Liveness probe
+      description: Lightweight probe to verify that the HTTP process is actively running.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: alive
+                      service:
+                        type: string
+                        example: savoryx-api
+                      uptime_seconds:
+                        type: integer
+                        example: 120
+
+  /api/v1/ping:
+    get:
+      summary: Connectivity ping
+      description: Returns a lightweight pong response with UTC server timestamp for latency checks.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Pong response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: pong
+                      timestamp:
+                        type: string
+                        format: date-time
+                        example: "2026-10-31T10:50:00Z"
+
+  /api/v1/auth/register-device:
+    post:
+      summary: Register device handshake
+      description: |
+        Performs client-server handshake for initial device onboarding.
+        Returns a signed PASETO v4 session token and unique device secret for HMAC signing.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceRequest'
+      responses:
+        '201':
+          description: Device successfully registered
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /api/v1/devices/01953bf6-2911-7000-8000-000000000001
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RegisterDeviceResponse'
+        '400':
+          description: Invalid JSON body or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
