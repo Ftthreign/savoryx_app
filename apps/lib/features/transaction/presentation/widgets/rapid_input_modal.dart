@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:savoryx/core/database/app_database.dart';
+import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
 import 'package:savoryx/core/utils/currency_formatter.dart';
+import 'package:savoryx/core/utils/math_evaluator.dart';
 import 'package:savoryx/core/widgets/clay_button.dart';
 import 'package:savoryx/core/widgets/clay_toggle_switch.dart';
+import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:savoryx/features/transaction/domain/usecases/create_transaction_usecase.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/account_chip_selector.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/category_selector_grid.dart';
-import 'package:savoryx/features/transaction/presentation/widgets/keypad_grid.dart';
-import 'package:savoryx/features/transaction/presentation/widgets/quick_amount_grid.dart';
+import 'package:savoryx/features/transaction/presentation/widgets/clay_keypad.dart';
+import 'package:uuid/uuid.dart';
 
-/// Rapid Input & Calculator modal bottom sheet conforming to Stitch design specifications.
-/// Decomposed into SRP sub-components according to `flutter-fix-layout-issues` and `flutter-add-widget-test`.
 class RapidInputModal extends StatefulWidget {
   const RapidInputModal({super.key});
 
@@ -57,9 +60,28 @@ class _RapidInputModalState extends State<RapidInputModal> {
     HapticFeedback.selectionClick();
     setState(() {
       if (_currentRaw == '0') {
-        _currentRaw = digit;
-      } else if (_currentRaw.length < 10) {
+        _currentRaw = digit == '000' ? '0' : digit;
+      } else if (_currentRaw.length < 24) {
         _currentRaw += digit;
+      }
+    });
+  }
+
+  void _onOperatorPressed(String op) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      final trimmed = _currentRaw.trim();
+      if (trimmed.isEmpty) return;
+
+      if (trimmed.endsWith('+') ||
+          trimmed.endsWith('-') ||
+          trimmed.endsWith('×') ||
+          trimmed.endsWith('÷') ||
+          trimmed.endsWith('*') ||
+          trimmed.endsWith('/')) {
+        _currentRaw = '${trimmed.substring(0, trimmed.length - 1)} $op ';
+      } else {
+        _currentRaw = '$trimmed $op ';
       }
     });
   }
@@ -67,16 +89,16 @@ class _RapidInputModalState extends State<RapidInputModal> {
   void _onAddAccelerator(int add) {
     HapticFeedback.selectionClick();
     setState(() {
-      final current = int.tryParse(_currentRaw) ?? 0;
-      _currentRaw = (current + add).toString();
-    });
-  }
-
-  void _onTripleZero() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      if (_currentRaw != '0' && _currentRaw.length < 8) {
-        _currentRaw += '000';
+      if (MathEvaluator.hasOperator(_currentRaw)) {
+        final evaluated = MathEvaluator.evaluate(_currentRaw);
+        if (evaluated != null && evaluated.isValidInt) {
+          _currentRaw = (evaluated.toInt() + add).toString();
+        } else {
+          _currentRaw = '$_currentRaw + $add';
+        }
+      } else {
+        final current = int.tryParse(_currentRaw) ?? 0;
+        _currentRaw = (current + add).toString();
       }
     });
   }
@@ -84,8 +106,19 @@ class _RapidInputModalState extends State<RapidInputModal> {
   void _onBackspace() {
     HapticFeedback.selectionClick();
     setState(() {
-      if (_currentRaw.length > 1) {
-        _currentRaw = _currentRaw.substring(0, _currentRaw.length - 1);
+      String trimmed = _currentRaw.trimRight();
+      if (trimmed.length > 1) {
+        if (trimmed.endsWith('+') ||
+            trimmed.endsWith('-') ||
+            trimmed.endsWith('×') ||
+            trimmed.endsWith('÷') ||
+            trimmed.endsWith('*') ||
+            trimmed.endsWith('/')) {
+          trimmed = trimmed.substring(0, trimmed.length - 1).trimRight();
+          _currentRaw = trimmed.isEmpty ? '0' : trimmed;
+        } else {
+          _currentRaw = trimmed.substring(0, trimmed.length - 1);
+        }
       } else {
         _currentRaw = '0';
       }
@@ -100,7 +133,14 @@ class _RapidInputModalState extends State<RapidInputModal> {
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final int amount = int.tryParse(_currentRaw) ?? 0;
+    final bool hasOp = MathEvaluator.hasOperator(_currentRaw);
+    final BigInt? evaluated =
+        hasOp ? MathEvaluator.evaluate(_currentRaw) : null;
+    final String? livePreview =
+        hasOp ? MathEvaluator.tryFormatLivePreview(_currentRaw) : null;
+    final int amount = evaluated?.isValidInt == true
+        ? evaluated!.toInt()
+        : (int.tryParse(_currentRaw) ?? 0);
     final String workHours =
         CurrencyFormatter.calculateWorkHours(amount, hourlyWage: _wagePerHour);
 
@@ -161,26 +201,29 @@ class _RapidInputModalState extends State<RapidInputModal> {
             ),
             const SizedBox(height: 14.0),
 
-            // Category Selector
+            // Category Horizontal Selector
             CategorySelectorGrid(
               categories: _categories,
               selectedCategory: _selectedCategory,
-              onCategorySelected: (cat) => setState(() => _selectedCategory = cat),
+              onCategorySelected: (cat) =>
+                  setState(() => _selectedCategory = cat),
             ),
             const SizedBox(height: 10.0),
 
-            // Source Account Selector
+            // Source Account Horizontal Selector
             AccountChipSelector(
               accounts: _accounts,
               selectedAccount: _selectedAccount,
-              onAccountSelected: (acc) => setState(() => _selectedAccount = acc),
+              onAccountSelected: (acc) =>
+                  setState(() => _selectedAccount = acc),
             ),
             const SizedBox(height: 14.0),
 
-            // Giant Value Display Deck
+            // Giant Value Display Deck with Live Math Preview
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 16.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 18.0, horizontal: 16.0),
               decoration: BoxDecoration(
                 color: isDark
                     ? ClayColors.surfaceContainerDarkLow
@@ -195,27 +238,50 @@ class _RapidInputModalState extends State<RapidInputModal> {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(
-                        'Rp ',
-                        style: ClayTypography.headlineMd(
-                          color: ClayColors.onSurfaceVariant,
+                      if (!hasOp)
+                        Text(
+                          'Rp ',
+                          style: ClayTypography.headlineMd(
+                            color: ClayColors.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                      Text(
-                        CurrencyFormatter.formatMinorUnit(amount)
-                            .replaceAll('Rp', '')
-                            .trim(),
-                        key: const Key('amount_display_text'),
-                        style: ClayTypography.headlineXl(
-                          color: Theme.of(context).colorScheme.onSurface,
+                      Flexible(
+                        child: Text(
+                          hasOp
+                              ? _currentRaw
+                              : CurrencyFormatter.formatMinorUnit(amount)
+                                  .replaceAll('Rp', '')
+                                  .trim(),
+                          key: const Key('amount_display_text'),
+                          textAlign: TextAlign.center,
+                          style: hasOp
+                              ? ClayTypography.headlineLg(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                )
+                              : ClayTypography.headlineXl(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
                         ),
                       ),
                     ],
                   ),
+                  if (livePreview != null) ...[
+                    const SizedBox(height: 4.0),
+                    Text(
+                      '= $livePreview',
+                      key: const Key('live_preview_text'),
+                      style: ClayTypography.headlineSm(
+                        color: ClayColors.secondaryDeep,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8.0),
                   // Time-cost equivalence pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12.0, vertical: 4.0),
                     decoration: BoxDecoration(
                       color: ClayColors.secondaryContainer.withOpacity(0.85),
                       borderRadius: BorderRadius.circular(16.0),
@@ -243,25 +309,21 @@ class _RapidInputModalState extends State<RapidInputModal> {
             ),
             const SizedBox(height: 14.0),
 
-            // Quick Denomination Accelerator Pills
-            QuickAmountGrid(
-              acceleratorDenoms: _acceleratorDenoms,
-              onAddAccelerator: _onAddAccelerator,
-              onTripleZero: _onTripleZero,
-            ),
-            const SizedBox(height: 14.0),
-
-            // 4x3 Clay Numeric Keypad
-            KeypadGrid(
+            // Tactile 4x4 Clay Keypad with Accelerator Chips
+            ClayKeypad(
               onDigitPressed: _onDigitPressed,
+              onOperatorPressed: _onOperatorPressed,
               onClear: _onClear,
               onBackspace: _onBackspace,
+              onAcceleratorPressed: _onAddAccelerator,
+              acceleratorDenoms: _acceleratorDenoms,
             ),
             const SizedBox(height: 14.0),
 
             // Talangan Toggle Card
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
               decoration: BoxDecoration(
                 color: isDark
                     ? ClayColors.surfaceContainerDarkLow
@@ -308,16 +370,53 @@ class _RapidInputModalState extends State<RapidInputModal> {
             ClayButton(
               key: const Key('log_expense_submit_button'),
               isPrimaryCta: true,
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Logged: ${CurrencyFormatter.formatMinorUnit(amount)} ($_selectedCategory / $_selectedAccount)',
+              onTap: () async {
+                final txId = const Uuid().v7();
+                final now = DateTime.now().toUtc();
+
+                String targetAccountId = 'acc-bca-001';
+                if (getIt.isRegistered<AppDatabase>()) {
+                  final db = getIt<AppDatabase>();
+                  try {
+                    final accounts = await db.accountDao.watchAllAccounts().first;
+                    final matched = accounts.where((a) =>
+                        a.name.toLowerCase().contains(_selectedAccount.split(' ').first.toLowerCase()));
+                    if (matched.isNotEmpty) {
+                      targetAccountId = matched.first.id;
+                    } else if (accounts.isNotEmpty) {
+                      targetAccountId = accounts.first.id;
+                    }
+                  } catch (_) {}
+                }
+
+                if (getIt.isRegistered<CreateTransactionUseCase>()) {
+                  final entity = TransactionEntity(
+                    id: txId,
+                    accountId: targetAccountId,
+                    categoryId: _selectedCategory,
+                    amount: amount > 0 ? amount : 1000,
+                    type: TransactionType.expense,
+                    note: _isTalangan ? 'Talangan: $_selectedCategory' : _selectedCategory,
+                    transactionDate: now,
+                    createdAt: now,
+                    updatedAt: now,
+                  );
+                  try {
+                    await getIt<CreateTransactionUseCase>()(entity);
+                  } catch (_) {}
+                }
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Logged: ${CurrencyFormatter.formatMinorUnit(amount)} ($_selectedCategory / $_selectedAccount)',
+                      ),
+                      duration: const Duration(seconds: 1),
                     ),
-                    duration: const Duration(seconds: 1),
-                  ),
-                );
+                  );
+                }
               },
               child: Center(
                 child: Text(
