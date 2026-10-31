@@ -21,13 +21,18 @@ func NewHealthService(dbPinger port.DatabasePinger) port.HealthService {
 
 // CheckHealth verifies overall system health including database ping.
 func (s *healthService) CheckHealth(ctx context.Context) (string, error) {
-	if s.dbPinger != nil {
-		if err := s.dbPinger.Ping(ctx); err != nil {
-			return "degraded", oops.
-				Code("ERR_DATABASE_UNAVAILABLE").
-				In("health_service").
-				Wrapf(err, "database connectivity ping failed")
-		}
+	if s.dbPinger == nil {
+		return "degraded", oops.
+			Code("ERR_DATABASE_UNAVAILABLE").
+			In("health_service").
+			Wrap(domain.ErrDatabaseUnavailable)
+	}
+
+	if err := s.dbPinger.Ping(ctx); err != nil {
+		return "degraded", oops.
+			Code("ERR_DATABASE_UNAVAILABLE").
+			In("health_service").
+			Wrapf(err, "database connectivity ping failed")
 	}
 
 	return "healthy", nil
@@ -35,4 +40,3 @@ func (s *healthService) CheckHealth(ctx context.Context) (string, error) {
 
 // Ensure interface compliance
 var _ port.HealthService = (*healthService)(nil)
-var _ = domain.ErrInternal
