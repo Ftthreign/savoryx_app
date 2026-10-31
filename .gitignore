@@ -45,6 +45,8 @@ apps/build/
 
 apps/*.lock
 apps/.generated/
+apps/*.dll
+apps/*.def
 
 apps/android/.gradle/
 apps/android/local.properties

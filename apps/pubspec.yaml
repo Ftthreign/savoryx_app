@@ -1,10 +1,10 @@
 name: savoryx
 description: "Savoryx Personal Offline-First Financial OS."
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.3 <4.0.0'
+  sdk: ">=3.3.3 <4.0.0"
 
 dependencies:
   flutter:
@@ -26,6 +26,13 @@ dependencies:
   google_fonts: ^6.2.1
   intl: ^0.19.0
   flutter_svg: ^2.0.10+1
+  uuid: ^4.4.0
+
+  # Offline-First Persistence
+  drift: ^2.18.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.3
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:
@@ -36,6 +43,7 @@ dev_dependencies:
   injectable_generator: ^2.6.1
   freezed: ^2.5.2
   json_serializable: ^6.8.0
+  drift_dev: ^2.18.0
 
 flutter:
   uses-material-design: true
