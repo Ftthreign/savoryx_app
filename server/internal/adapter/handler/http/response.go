@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
@@ -36,7 +37,9 @@ func WriteJSON(w http.ResponseWriter, status int, data any) {
 	w.WriteHeader(status)
 
 	envelope := ResponseEnvelope{Data: data}
-	_ = json.NewEncoder(w).Encode(envelope)
+	if err := json.NewEncoder(w).Encode(envelope); err != nil {
+		slog.Error("failed to encode response json", "status", status, "error", err)
+	}
 }
 
 func WriteJSONWithMeta(w http.ResponseWriter, status int, data any, meta any) {
@@ -44,7 +47,9 @@ func WriteJSONWithMeta(w http.ResponseWriter, status int, data any, meta any) {
 	w.WriteHeader(status)
 
 	envelope := ResponseEnvelope{Data: data, Meta: meta}
-	_ = json.NewEncoder(w).Encode(envelope)
+	if err := json.NewEncoder(w).Encode(envelope); err != nil {
+		slog.Error("failed to encode response json with meta", "status", status, "error", err)
+	}
 }
 
 func WriteError(w http.ResponseWriter, status int, code, message string) {
@@ -57,7 +62,9 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 			Message: message,
 		},
 	}
-	_ = json.NewEncoder(w).Encode(envelope)
+	if err := json.NewEncoder(w).Encode(envelope); err != nil {
+		slog.Error("failed to encode error response json", "status", status, "code", code, "error", err)
+	}
 }
 
 func WriteDomainError(w http.ResponseWriter, err error) {
@@ -69,7 +76,8 @@ func WriteDomainError(w http.ResponseWriter, err error) {
 	errorCode := "internal_error"
 	errorMessage := "An unexpected error occurred"
 
-	if oopsErr, ok := err.(oops.OopsError); ok {
+	var oopsErr oops.OopsError
+	if errors.As(err, &oopsErr) {
 		if code := fmt.Sprintf("%v", oopsErr.Code()); code != "" && code != "<nil>" {
 			errorCode = code
 		}

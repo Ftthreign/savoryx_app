@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -96,4 +97,24 @@ func TestToDomainPreference(t *testing.T) {
 	assert.Equal(t, "IDR", domainPref.BaseCurrency)
 	assert.Equal(t, 160, domainPref.MonthlyWorkHours)
 	assert.True(t, domainPref.MonthlyIncomeNet.Equal(decimal.NewFromInt(25000000)))
+}
+
+func TestDB_Ping_Uninitialized(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("nil DB pointer returns ErrDatabaseUnavailable", func(t *testing.T) {
+		var d *DB
+		err := d.Ping(ctx)
+		assert.ErrorIs(t, err, domain.ErrDatabaseUnavailable)
+	})
+
+	t.Run("DB with nil Pool returns ErrDatabaseUnavailable", func(t *testing.T) {
+		d := &DB{Pool: nil}
+		err := d.Ping(ctx)
+		assert.ErrorIs(t, err, domain.ErrDatabaseUnavailable)
+		// Close on nil pool should not panic
+		assert.NotPanics(t, func() {
+			d.Close()
+		})
+	})
 }
