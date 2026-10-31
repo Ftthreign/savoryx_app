@@ -5,6 +5,7 @@ import (
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
+	"github.com/shopspring/decimal"
 )
 
 // MockHealthService implements port.HealthService for unit testing.
@@ -36,3 +37,50 @@ func (m *MockAuthService) RegisterDevice(ctx context.Context, id domain.UUID, de
 }
 
 var _ port.AuthService = (*MockAuthService)(nil)
+
+// MockAccountService implements port.AccountService for unit testing.
+type MockAccountService struct {
+	CreateAccountFunc func(ctx context.Context, acc *domain.Account) error
+	GetAccountFunc    func(ctx context.Context, id domain.UUID) (*domain.Account, error)
+	ListAccountsFunc  func(ctx context.Context) ([]*domain.Account, error)
+	UpdateBalanceFunc func(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error
+	DeleteAccountFunc func(ctx context.Context, id domain.UUID) error
+}
+
+func (m *MockAccountService) CreateAccount(ctx context.Context, acc *domain.Account) error {
+	if m.CreateAccountFunc != nil {
+		return m.CreateAccountFunc(ctx, acc)
+	}
+	return nil
+}
+
+func (m *MockAccountService) GetAccount(ctx context.Context, id domain.UUID) (*domain.Account, error) {
+	if m.GetAccountFunc != nil {
+		return m.GetAccountFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *MockAccountService) ListAccounts(ctx context.Context) ([]*domain.Account, error) {
+	if m.ListAccountsFunc != nil {
+		return m.ListAccountsFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockAccountService) UpdateBalance(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error {
+	if m.UpdateBalanceFunc != nil {
+		return m.UpdateBalanceFunc(ctx, id, newBalance)
+	}
+	return nil
+}
+
+func (m *MockAccountService) DeleteAccount(ctx context.Context, id domain.UUID) error {
+	if m.DeleteAccountFunc != nil {
+		return m.DeleteAccountFunc(ctx, id)
+	}
+	return nil
+}
+
+var _ port.AccountService = (*MockAccountService)(nil)
+

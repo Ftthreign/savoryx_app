@@ -17,6 +17,15 @@ const (
 	AccountTypeAsset      AccountType = "ASSET"
 )
 
+func (t AccountType) IsValid() bool {
+	switch t {
+	case AccountTypeCash, AccountTypeBank, AccountTypeEWallet, AccountTypeCreditCard, AccountTypeInvestment, AccountTypeAsset:
+		return true
+	default:
+		return false
+	}
+}
+
 type Account struct {
 	ID        UUID            `json:"id"`
 	Name      string          `json:"name"`

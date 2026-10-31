@@ -5,6 +5,7 @@ import (
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
+	"github.com/shopspring/decimal"
 )
 
 // MockDatabasePinger implements port.DatabasePinger for unit testing.
@@ -59,3 +60,58 @@ func (m *MockDeviceRepository) Revoke(ctx context.Context, id domain.UUID) error
 }
 
 var _ port.DeviceRepository = (*MockDeviceRepository)(nil)
+
+// MockAccountRepository implements port.AccountRepository for unit testing.
+type MockAccountRepository struct {
+	CreateFunc           func(ctx context.Context, acc *domain.Account) error
+	GetByIDFunc          func(ctx context.Context, id domain.UUID) (*domain.Account, error)
+	GetByIDForUpdateFunc func(ctx context.Context, id domain.UUID) (*domain.Account, error)
+	ListFunc             func(ctx context.Context) ([]*domain.Account, error)
+	UpdateBalanceFunc    func(ctx context.Context, id domain.UUID, balance decimal.Decimal) error
+	DeleteFunc           func(ctx context.Context, id domain.UUID) error
+}
+
+func (m *MockAccountRepository) Create(ctx context.Context, acc *domain.Account) error {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(ctx, acc)
+	}
+	return nil
+}
+
+func (m *MockAccountRepository) GetByID(ctx context.Context, id domain.UUID) (*domain.Account, error) {
+	if m.GetByIDFunc != nil {
+		return m.GetByIDFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *MockAccountRepository) GetByIDForUpdate(ctx context.Context, id domain.UUID) (*domain.Account, error) {
+	if m.GetByIDForUpdateFunc != nil {
+		return m.GetByIDForUpdateFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *MockAccountRepository) List(ctx context.Context) ([]*domain.Account, error) {
+	if m.ListFunc != nil {
+		return m.ListFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockAccountRepository) UpdateBalance(ctx context.Context, id domain.UUID, balance decimal.Decimal) error {
+	if m.UpdateBalanceFunc != nil {
+		return m.UpdateBalanceFunc(ctx, id, balance)
+	}
+	return nil
+}
+
+func (m *MockAccountRepository) Delete(ctx context.Context, id domain.UUID) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(ctx, id)
+	}
+	return nil
+}
+
+var _ port.AccountRepository = (*MockAccountRepository)(nil)
+

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
+	"github.com/shopspring/decimal"
 )
 
 type HealthService interface {
@@ -21,3 +22,12 @@ type DeviceRegistrationResult struct {
 type AuthService interface {
 	RegisterDevice(ctx context.Context, id domain.UUID, deviceName, platform, appVersion string) (*DeviceRegistrationResult, error)
 }
+
+type AccountService interface {
+	CreateAccount(ctx context.Context, acc *domain.Account) error
+	GetAccount(ctx context.Context, id domain.UUID) (*domain.Account, error)
+	ListAccounts(ctx context.Context) ([]*domain.Account, error)
+	UpdateBalance(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error
+	DeleteAccount(ctx context.Context, id domain.UUID) error
+}
+
