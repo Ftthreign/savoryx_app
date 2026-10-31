@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"time"
 
@@ -26,7 +25,7 @@ func NewCategoryRepository(d *DB) *CategoryRepository {
 
 func (r *CategoryRepository) Create(ctx context.Context, cat *domain.Category) error {
 	params := db.CreateCategoryParams{
-		ID:      pgtype.UUID{Bytes: cat.ID, Valid: true},
+		ID:      pgtype.UUID{Bytes: cat.ID.Bytes(), Valid: true},
 		Name:    cat.Name,
 		Icon:    cat.Icon,
 		Color:   cat.Color,
@@ -47,8 +46,8 @@ func (r *CategoryRepository) Create(ctx context.Context, cat *domain.Category) e
 	return nil
 }
 
-func (r *CategoryRepository) GetByID(ctx context.Context, id [16]byte) (*domain.Category, error) {
-	pgID := pgtype.UUID{Bytes: id, Valid: true}
+func (r *CategoryRepository) GetByID(ctx context.Context, id domain.UUID) (*domain.Category, error) {
+	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
 	row, err := r.q.GetCategoryByID(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -56,14 +55,14 @@ func (r *CategoryRepository) GetByID(ctx context.Context, id [16]byte) (*domain.
 				In("category_repository").
 				Tags("database", "postgres").
 				Code("ERR_CATEGORY_NOT_FOUND").
-				With("category_id", hex.EncodeToString(id[:])).
+				With("category_id", id.String()).
 				Wrap(domain.ErrCategoryNotFound)
 		}
 		return nil, oops.
 			In("category_repository").
 			Tags("database", "postgres").
 			Code("ERR_CATEGORY_GET").
-			With("category_id", hex.EncodeToString(id[:])).
+			With("category_id", id.String()).
 			Wrapf(err, "failed to get category by id")
 	}
 
@@ -87,15 +86,15 @@ func (r *CategoryRepository) List(ctx context.Context) ([]*domain.Category, erro
 	return result, nil
 }
 
-func (r *CategoryRepository) Delete(ctx context.Context, id [16]byte) error {
-	pgID := pgtype.UUID{Bytes: id, Valid: true}
+func (r *CategoryRepository) Delete(ctx context.Context, id domain.UUID) error {
+	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
 	err := r.q.SoftDeleteCategory(ctx, pgID)
 	if err != nil {
 		return oops.
 			In("category_repository").
 			Tags("database", "postgres").
 			Code("ERR_CATEGORY_DELETE").
-			With("category_id", hex.EncodeToString(id[:])).
+			With("category_id", id.String()).
 			Wrapf(err, "failed to soft delete category")
 	}
 
@@ -110,7 +109,7 @@ func toDomainCategory(row db.Category) *domain.Category {
 	}
 
 	return &domain.Category{
-		ID:        row.ID.Bytes,
+		ID:        domain.FromBytes(row.ID.Bytes),
 		Name:      row.Name,
 		Icon:      row.Icon,
 		Color:     row.Color,

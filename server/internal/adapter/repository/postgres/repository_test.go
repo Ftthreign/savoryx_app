@@ -30,7 +30,7 @@ func TestToDomainAccount(t *testing.T) {
 	domainAcc := toDomainAccount(dbAcc)
 
 	assert.NotNil(t, domainAcc)
-	assert.Equal(t, testUUID, domainAcc.ID)
+	assert.Equal(t, domain.FromBytes(testUUID), domainAcc.ID)
 	assert.Equal(t, "BCA Primary Checking", domainAcc.Name)
 	assert.Equal(t, domain.AccountTypeBank, domainAcc.Type)
 	assert.Equal(t, "IDR", domainAcc.Currency)
@@ -64,7 +64,7 @@ func TestToDomainCategory(t *testing.T) {
 	domainCat := toDomainCategory(dbCat)
 
 	assert.NotNil(t, domainCat)
-	assert.Equal(t, testUUID, domainCat.ID)
+	assert.Equal(t, domain.FromBytes(testUUID), domainCat.ID)
 	assert.Equal(t, "Food and Dining", domainCat.Name)
 	assert.Equal(t, "fastfood", domainCat.Icon)
 	assert.Equal(t, "#8DB355", domainCat.Color)
@@ -90,7 +90,7 @@ func TestToDomainPreference(t *testing.T) {
 	domainPref := toDomainPreference(dbPref)
 
 	assert.NotNil(t, domainPref)
-	assert.Equal(t, testUUID, domainPref.ID)
+	assert.Equal(t, domain.FromBytes(testUUID), domainPref.ID)
 	assert.Equal(t, domain.ThemePreferenceClayLight, domainPref.Theme)
 	assert.Equal(t, domain.FontFamilyNunitoSans, domainPref.FontFamily)
 	assert.Equal(t, "IDR", domainPref.BaseCurrency)
