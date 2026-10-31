@@ -84,3 +84,41 @@ func (m *MockAccountService) DeleteAccount(ctx context.Context, id domain.UUID) 
 
 var _ port.AccountService = (*MockAccountService)(nil)
 
+// MockCategoryService implements port.CategoryService for unit testing.
+type MockCategoryService struct {
+	CreateCategoryFunc func(ctx context.Context, cat *domain.Category) error
+	GetCategoryFunc    func(ctx context.Context, id domain.UUID) (*domain.Category, error)
+	ListCategoriesFunc func(ctx context.Context) ([]*domain.Category, error)
+	DeleteCategoryFunc func(ctx context.Context, id domain.UUID) error
+}
+
+func (m *MockCategoryService) CreateCategory(ctx context.Context, cat *domain.Category) error {
+	if m.CreateCategoryFunc != nil {
+		return m.CreateCategoryFunc(ctx, cat)
+	}
+	return nil
+}
+
+func (m *MockCategoryService) GetCategory(ctx context.Context, id domain.UUID) (*domain.Category, error) {
+	if m.GetCategoryFunc != nil {
+		return m.GetCategoryFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryService) ListCategories(ctx context.Context) ([]*domain.Category, error) {
+	if m.ListCategoriesFunc != nil {
+		return m.ListCategoriesFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryService) DeleteCategory(ctx context.Context, id domain.UUID) error {
+	if m.DeleteCategoryFunc != nil {
+		return m.DeleteCategoryFunc(ctx, id)
+	}
+	return nil
+}
+
+var _ port.CategoryService = (*MockCategoryService)(nil)
+

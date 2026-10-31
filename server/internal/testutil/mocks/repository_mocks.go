@@ -115,3 +115,41 @@ func (m *MockAccountRepository) Delete(ctx context.Context, id domain.UUID) erro
 
 var _ port.AccountRepository = (*MockAccountRepository)(nil)
 
+// MockCategoryRepository implements port.CategoryRepository for unit testing.
+type MockCategoryRepository struct {
+	CreateFunc  func(ctx context.Context, cat *domain.Category) error
+	GetByIDFunc func(ctx context.Context, id domain.UUID) (*domain.Category, error)
+	ListFunc    func(ctx context.Context) ([]*domain.Category, error)
+	DeleteFunc  func(ctx context.Context, id domain.UUID) error
+}
+
+func (m *MockCategoryRepository) Create(ctx context.Context, cat *domain.Category) error {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(ctx, cat)
+	}
+	return nil
+}
+
+func (m *MockCategoryRepository) GetByID(ctx context.Context, id domain.UUID) (*domain.Category, error) {
+	if m.GetByIDFunc != nil {
+		return m.GetByIDFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryRepository) List(ctx context.Context) ([]*domain.Category, error) {
+	if m.ListFunc != nil {
+		return m.ListFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryRepository) Delete(ctx context.Context, id domain.UUID) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(ctx, id)
+	}
+	return nil
+}
+
+var _ port.CategoryRepository = (*MockCategoryRepository)(nil)
+

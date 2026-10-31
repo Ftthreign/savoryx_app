@@ -31,3 +31,10 @@ type AccountService interface {
 	DeleteAccount(ctx context.Context, id domain.UUID) error
 }
 
+type CategoryService interface {
+	CreateCategory(ctx context.Context, cat *domain.Category) error
+	GetCategory(ctx context.Context, id domain.UUID) (*domain.Category, error)
+	ListCategories(ctx context.Context) ([]*domain.Category, error)
+	DeleteCategory(ctx context.Context, id domain.UUID) error
+}
+
