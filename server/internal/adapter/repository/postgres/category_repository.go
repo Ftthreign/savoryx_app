@@ -24,6 +24,14 @@ func NewCategoryRepository(d *DB) *CategoryRepository {
 }
 
 func (r *CategoryRepository) Create(ctx context.Context, cat *domain.Category) error {
+	if cat == nil {
+		return oops.
+			In("category_repository").
+			Tags("database", "postgres").
+			Code("ERR_CATEGORY_NIL").
+			Wrap(domain.ErrInvalidInput)
+	}
+
 	params := db.CreateCategoryParams{
 		ID:      pgtype.UUID{Bytes: cat.ID.Bytes(), Valid: true},
 		Name:    cat.Name,

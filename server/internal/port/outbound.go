@@ -14,6 +14,7 @@ type DatabasePinger interface {
 type AccountRepository interface {
 	Create(ctx context.Context, acc *domain.Account) error
 	GetByID(ctx context.Context, id domain.UUID) (*domain.Account, error)
+	GetByIDForUpdate(ctx context.Context, id domain.UUID) (*domain.Account, error)
 	List(ctx context.Context) ([]*domain.Account, error)
 	UpdateBalance(ctx context.Context, id domain.UUID, balance decimal.Decimal) error
 	Delete(ctx context.Context, id domain.UUID) error

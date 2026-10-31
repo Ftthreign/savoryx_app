@@ -25,6 +25,14 @@ func NewAccountRepository(d *DB) *AccountRepository {
 }
 
 func (r *AccountRepository) Create(ctx context.Context, acc *domain.Account) error {
+	if acc == nil {
+		return oops.
+			In("account_repository").
+			Tags("database", "postgres").
+			Code("ERR_ACCOUNT_NIL").
+			Wrap(domain.ErrInvalidInput)
+	}
+
 	params := db.CreateAccountParams{
 		ID:       pgtype.UUID{Bytes: acc.ID.Bytes(), Valid: true},
 		Name:     acc.Name,
@@ -65,6 +73,29 @@ func (r *AccountRepository) GetByID(ctx context.Context, id domain.UUID) (*domai
 			Code("ERR_ACCOUNT_GET").
 			With("account_id", id.String()).
 			Wrapf(err, "failed to get account by id")
+	}
+
+	return toDomainAccount(row), nil
+}
+
+func (r *AccountRepository) GetByIDForUpdate(ctx context.Context, id domain.UUID) (*domain.Account, error) {
+	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
+	row, err := r.q.GetAccountByIDForUpdate(ctx, pgID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, oops.
+				In("account_repository").
+				Tags("database", "postgres").
+				Code("ERR_ACCOUNT_NOT_FOUND").
+				With("account_id", id.String()).
+				Wrap(domain.ErrAccountNotFound)
+		}
+		return nil, oops.
+			In("account_repository").
+			Tags("database", "postgres").
+			Code("ERR_ACCOUNT_GET_FOR_UPDATE").
+			With("account_id", id.String()).
+			Wrapf(err, "failed to get account by id with row lock")
 	}
 
 	return toDomainAccount(row), nil

@@ -118,3 +118,26 @@ func TestDB_Ping_Uninitialized(t *testing.T) {
 		})
 	})
 }
+
+func TestRepository_NilEntityGuards(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("AccountRepository.Create rejects nil account", func(t *testing.T) {
+		repo := &AccountRepository{}
+		err := repo.Create(ctx, nil)
+		assert.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
+
+	t.Run("CategoryRepository.Create rejects nil category", func(t *testing.T) {
+		repo := &CategoryRepository{}
+		err := repo.Create(ctx, nil)
+		assert.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
+
+	t.Run("PreferenceRepository.Upsert rejects nil preference", func(t *testing.T) {
+		repo := &PreferenceRepository{}
+		err := repo.Upsert(ctx, nil)
+		assert.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
+}
+

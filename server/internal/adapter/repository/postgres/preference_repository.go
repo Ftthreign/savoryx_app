@@ -46,6 +46,14 @@ func (r *PreferenceRepository) Get(ctx context.Context, id domain.UUID) (*domain
 }
 
 func (r *PreferenceRepository) Upsert(ctx context.Context, pref *domain.UserPreference) error {
+	if pref == nil {
+		return oops.
+			In("preference_repository").
+			Tags("database", "postgres").
+			Code("ERR_PREFERENCE_NIL").
+			Wrap(domain.ErrInvalidInput)
+	}
+
 	params := db.UpsertUserPreferencesParams{
 		ID:               pgtype.UUID{Bytes: pref.ID.Bytes(), Valid: true},
 		Theme:            db.ThemePreference(pref.Theme),

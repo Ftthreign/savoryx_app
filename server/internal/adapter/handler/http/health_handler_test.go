@@ -38,6 +38,9 @@ func TestHealthHandler_Readiness_Healthy(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, "DENY", rec.Header().Get("X-Frame-Options"))
+	assert.Equal(t, "strict-origin-when-cross-origin", rec.Header().Get("Referrer-Policy"))
 
 	var res ResponseEnvelope
 	err := json.Unmarshal(rec.Body.Bytes(), &res)
