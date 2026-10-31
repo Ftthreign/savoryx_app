@@ -12,5 +12,7 @@ var (
 	ErrPreferenceNotFound  = errors.New("user preference not found")
 	ErrDeviceNotFound      = errors.New("device not found")
 	ErrDeviceRevoked       = errors.New("device authorization has been revoked")
+	ErrInvalidToken        = errors.New("invalid or malformed authorization token")
+	ErrTokenExpired        = errors.New("authorization token has expired")
 )
 

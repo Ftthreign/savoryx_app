@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"time"
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/shopspring/decimal"
@@ -37,5 +38,16 @@ type DeviceRepository interface {
 	GetByID(ctx context.Context, id domain.UUID) (*domain.Device, error)
 	UpdateLastActive(ctx context.Context, id domain.UUID) error
 	Revoke(ctx context.Context, id domain.UUID) error
+}
+
+type DeviceClaims struct {
+	DeviceID  domain.UUID
+	IssuedAt  time.Time
+	ExpiresAt time.Time
+}
+
+type TokenManager interface {
+	GenerateDeviceToken(deviceID domain.UUID, ttl time.Duration) (string, error)
+	VerifyDeviceToken(tokenString string) (*DeviceClaims, error)
 }
 
