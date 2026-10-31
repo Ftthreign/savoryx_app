@@ -94,6 +94,45 @@ func (r *CategoryRepository) List(ctx context.Context) ([]*domain.Category, erro
 	return result, nil
 }
 
+func (r *CategoryRepository) Update(ctx context.Context, cat *domain.Category) error {
+	if cat == nil {
+		return oops.
+			In("category_repository").
+			Tags("database", "postgres").
+			Code("ERR_CATEGORY_INVALID_INPUT").
+			Wrap(domain.ErrInvalidInput)
+	}
+
+	params := db.UpdateCategoryParams{
+		ID:      pgtype.UUID{Bytes: cat.ID.Bytes(), Valid: true},
+		Name:    cat.Name,
+		Icon:    cat.Icon,
+		Color:   cat.Color,
+		IsWants: cat.IsWants,
+	}
+
+	updated, err := r.q.UpdateCategory(ctx, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return oops.
+				In("category_repository").
+				Tags("database", "postgres").
+				Code("ERR_CATEGORY_NOT_FOUND").
+				With("category_id", cat.ID.String()).
+				Wrap(domain.ErrCategoryNotFound)
+		}
+		return oops.
+			In("category_repository").
+			Tags("database", "postgres").
+			Code("ERR_CATEGORY_UPDATE").
+			With("category_id", cat.ID.String()).
+			Wrapf(err, "failed to update category")
+	}
+
+	*cat = *toDomainCategory(updated)
+	return nil
+}
+
 func (r *CategoryRepository) Delete(ctx context.Context, id domain.UUID) error {
 	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
 	err := r.q.SoftDeleteCategory(ctx, pgID)

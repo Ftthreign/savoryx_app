@@ -43,6 +43,7 @@ type MockAccountService struct {
 	CreateAccountFunc func(ctx context.Context, acc *domain.Account) error
 	GetAccountFunc    func(ctx context.Context, id domain.UUID) (*domain.Account, error)
 	ListAccountsFunc  func(ctx context.Context) ([]*domain.Account, error)
+	UpdateAccountFunc func(ctx context.Context, id domain.UUID, name string, accType domain.AccountType) (*domain.Account, error)
 	UpdateBalanceFunc func(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error
 	DeleteAccountFunc func(ctx context.Context, id domain.UUID) error
 }
@@ -68,6 +69,13 @@ func (m *MockAccountService) ListAccounts(ctx context.Context) ([]*domain.Accoun
 	return nil, nil
 }
 
+func (m *MockAccountService) UpdateAccount(ctx context.Context, id domain.UUID, name string, accType domain.AccountType) (*domain.Account, error) {
+	if m.UpdateAccountFunc != nil {
+		return m.UpdateAccountFunc(ctx, id, name, accType)
+	}
+	return nil, nil
+}
+
 func (m *MockAccountService) UpdateBalance(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error {
 	if m.UpdateBalanceFunc != nil {
 		return m.UpdateBalanceFunc(ctx, id, newBalance)
@@ -89,6 +97,7 @@ type MockCategoryService struct {
 	CreateCategoryFunc func(ctx context.Context, cat *domain.Category) error
 	GetCategoryFunc    func(ctx context.Context, id domain.UUID) (*domain.Category, error)
 	ListCategoriesFunc func(ctx context.Context) ([]*domain.Category, error)
+	UpdateCategoryFunc func(ctx context.Context, id domain.UUID, name, icon, color string, isWants bool) (*domain.Category, error)
 	DeleteCategoryFunc func(ctx context.Context, id domain.UUID) error
 }
 
@@ -109,6 +118,13 @@ func (m *MockCategoryService) GetCategory(ctx context.Context, id domain.UUID) (
 func (m *MockCategoryService) ListCategories(ctx context.Context) ([]*domain.Category, error) {
 	if m.ListCategoriesFunc != nil {
 		return m.ListCategoriesFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryService) UpdateCategory(ctx context.Context, id domain.UUID, name, icon, color string, isWants bool) (*domain.Category, error) {
+	if m.UpdateCategoryFunc != nil {
+		return m.UpdateCategoryFunc(ctx, id, name, icon, color, isWants)
 	}
 	return nil, nil
 }

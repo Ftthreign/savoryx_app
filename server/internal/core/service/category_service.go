@@ -123,7 +123,80 @@ func (s *categoryService) ListCategories(ctx context.Context) ([]*domain.Categor
 	return categories, nil
 }
 
-// DeleteCategory soft-deletes a category after verifying its existence.
+func (s *categoryService) UpdateCategory(
+	ctx context.Context,
+	id domain.UUID,
+	name, icon, color string,
+	isWants bool,
+) (*domain.Category, error) {
+	if id.IsZero() {
+		return nil, oops.
+			In("category_service").
+			Code("ERR_INVALID_CATEGORY_ID").
+			Wrapf(domain.ErrInvalidInput, "category ID cannot be nil or zero")
+	}
+
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		return nil, oops.
+			In("category_service").
+			Code("ERR_CATEGORY_NAME_REQUIRED").
+			Wrapf(domain.ErrInvalidInput, "category name cannot be empty")
+	}
+	if len(trimmedName) > 64 {
+		return nil, oops.
+			In("category_service").
+			Code("ERR_CATEGORY_NAME_TOO_LONG").
+			Wrapf(domain.ErrInvalidInput, "category name exceeds maximum length of 64 characters")
+	}
+
+	trimmedIcon := strings.TrimSpace(icon)
+	if trimmedIcon == "" {
+		return nil, oops.
+			In("category_service").
+			Code("ERR_CATEGORY_ICON_REQUIRED").
+			Wrapf(domain.ErrInvalidInput, "category icon cannot be empty")
+	}
+	if len(trimmedIcon) > 32 {
+		return nil, oops.
+			In("category_service").
+			Code("ERR_CATEGORY_ICON_TOO_LONG").
+			Wrapf(domain.ErrInvalidInput, "category icon exceeds maximum length of 32 characters")
+	}
+
+	trimmedColor := strings.TrimSpace(color)
+	if !hexColorRegex.MatchString(trimmedColor) {
+		return nil, oops.
+			In("category_service").
+			Code("ERR_INVALID_HEX_COLOR").
+			With("color", color).
+			Wrapf(domain.ErrInvalidInput, "category color must be a valid hex color format (#RGB or #RRGGBB)")
+	}
+
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, oops.
+			In("category_service").
+			Code("ERR_CATEGORY_NOT_FOUND").
+			With("category_id", id.String()).
+			Wrap(domain.ErrCategoryNotFound)
+	}
+
+	existing.Name = trimmedName
+	existing.Icon = trimmedIcon
+	existing.Color = trimmedColor
+	existing.IsWants = isWants
+
+	if err := s.repo.Update(ctx, existing); err != nil {
+		return nil, err
+	}
+
+	return existing, nil
+}
+
 func (s *categoryService) DeleteCategory(ctx context.Context, id domain.UUID) error {
 	if id.IsZero() {
 		return oops.

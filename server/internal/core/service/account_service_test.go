@@ -385,3 +385,74 @@ func TestAccountService_DeleteAccount(t *testing.T) {
 		assert.True(t, errors.Is(err, dbErr))
 	})
 }
+
+func TestAccountService_UpdateAccount(t *testing.T) {
+	ctx := context.Background()
+	validID := testutil.DefaultDeviceID
+
+	t.Run("happy path - updates name and type", func(t *testing.T) {
+		repo := &mocks.MockAccountRepository{
+			GetByIDFunc: func(ctx context.Context, id domain.UUID) (*domain.Account, error) {
+				return &domain.Account{
+					ID:       id,
+					Name:     "BCA Old",
+					Type:     domain.AccountTypeCash,
+					Currency: "IDR",
+				}, nil
+			},
+			UpdateFunc: func(ctx context.Context, acc *domain.Account) error {
+				assert.Equal(t, "BCA New", acc.Name)
+				assert.Equal(t, domain.AccountTypeBank, acc.Type)
+				return nil
+			},
+		}
+		svc := service.NewAccountService(repo)
+
+		updated, err := svc.UpdateAccount(ctx, validID, "BCA New", domain.AccountTypeBank)
+		assert.NoError(t, err)
+		assert.NotNil(t, updated)
+		assert.Equal(t, "BCA New", updated.Name)
+		assert.Equal(t, domain.AccountTypeBank, updated.Type)
+	})
+
+	t.Run("validation failure - zero ID", func(t *testing.T) {
+		repo := &mocks.MockAccountRepository{}
+		svc := service.NewAccountService(repo)
+
+		_, err := svc.UpdateAccount(ctx, domain.NilUUID, "Name", domain.AccountTypeBank)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrInvalidInput))
+	})
+
+	t.Run("validation failure - empty name", func(t *testing.T) {
+		repo := &mocks.MockAccountRepository{}
+		svc := service.NewAccountService(repo)
+
+		_, err := svc.UpdateAccount(ctx, validID, "   ", domain.AccountTypeBank)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrInvalidInput))
+	})
+
+	t.Run("validation failure - invalid account type", func(t *testing.T) {
+		repo := &mocks.MockAccountRepository{}
+		svc := service.NewAccountService(repo)
+
+		_, err := svc.UpdateAccount(ctx, validID, "Valid Name", domain.AccountType("INVALID"))
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrInvalidInput))
+	})
+
+	t.Run("account not found", func(t *testing.T) {
+		repo := &mocks.MockAccountRepository{
+			GetByIDFunc: func(ctx context.Context, id domain.UUID) (*domain.Account, error) {
+				return nil, nil
+			},
+		}
+		svc := service.NewAccountService(repo)
+
+		_, err := svc.UpdateAccount(ctx, validID, "Name", domain.AccountTypeBank)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrAccountNotFound))
+	})
+}
+

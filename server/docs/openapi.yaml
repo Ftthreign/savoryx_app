@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     Personal Offline-First Financial OS REST API Engine.
-    Provides device registration, account management, category hierarchy, and transactional ledger sync.
+    Provides device registration, multi-currency accounts, category hierarchy, and transactional ledger sync.
 servers:
   - url: http://localhost:8080
     description: Local Development Server
@@ -14,6 +14,10 @@ tags:
     description: Service availability, database pool readiness, and liveness probes
   - name: Authentication
     description: Device cryptographic handshakes and PASETO session token issuance
+  - name: Accounts
+    description: Multi-currency financial account management with strict decimal precision
+  - name: Categories
+    description: Transaction categorization and Needs vs Wants classification
 
 components:
   securitySchemes:
@@ -68,10 +72,10 @@ components:
       properties:
         field:
           type: string
-          example: device_id
+          example: name
         message:
           type: string
-          example: device_id is required
+          example: name is required
         code:
           type: string
           example: ERR_REQUIRED_FIELD
@@ -127,6 +131,182 @@ components:
         - device_secret
         - expires_at
 
+    CreateAccountRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 01953bf6-2911-7000-8000-000000000010
+          description: Optional client-generated UUIDv7 identifier
+        name:
+          type: string
+          example: Bank BCA Utama
+          description: Account display name (1-64 characters)
+        type:
+          type: string
+          enum: [CASH, BANK, E_WALLET, CREDIT_CARD, INVESTMENT, ASSET]
+          example: BANK
+          description: Account classification type
+        currency:
+          type: string
+          example: IDR
+          description: 3-letter ISO 4217 currency code
+        balance:
+          type: string
+          example: "15000000.00"
+          description: Initial balance formatted as decimal string
+      required:
+        - name
+        - type
+
+    UpdateAccountRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Bank BCA Tabungan Bisnis
+          description: Updated account display name (1-64 characters)
+        type:
+          type: string
+          enum: [CASH, BANK, E_WALLET, CREDIT_CARD, INVESTMENT, ASSET]
+          example: BANK
+          description: Updated account classification type
+      required:
+        - name
+        - type
+
+    UpdateBalanceRequest:
+      type: object
+      properties:
+        balance:
+          type: string
+          example: "17500000.50"
+          description: Reconciled new balance decimal value
+      required:
+        - balance
+
+    AccountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 01953bf6-2911-7000-8000-000000000010
+        name:
+          type: string
+          example: Bank BCA Utama
+        type:
+          type: string
+          example: BANK
+        currency:
+          type: string
+          example: IDR
+        balance:
+          type: string
+          example: "15000000.00"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - type
+        - currency
+        - balance
+        - created_at
+        - updated_at
+
+    CreateCategoryRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 01953bf6-2911-7000-8000-000000000020
+          description: Optional client-generated UUIDv7 identifier
+        name:
+          type: string
+          example: Makan & Minum
+          description: Category display name (1-64 characters)
+        icon:
+          type: string
+          example: utensils
+          description: Category icon identifier or name
+        color:
+          type: string
+          example: "#FF5733"
+          description: Hex color code (#RGB or #RRGGBB)
+        is_wants:
+          type: boolean
+          example: false
+          description: Needs vs Wants classification (false = Needs, true = Wants)
+      required:
+        - name
+        - icon
+        - color
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Makan & Kuliner
+          description: Updated category display name (1-64 characters)
+        icon:
+          type: string
+          example: utensils
+          description: Updated category icon identifier or name
+        color:
+          type: string
+          example: "#FF5733"
+          description: Updated hex color code (#RGB or #RRGGBB)
+        is_wants:
+          type: boolean
+          example: false
+          description: Updated Needs vs Wants classification
+      required:
+        - name
+        - icon
+        - color
+
+    CategoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 01953bf6-2911-7000-8000-000000000020
+        name:
+          type: string
+          example: Makan & Minum
+        icon:
+          type: string
+          example: utencils
+        color:
+          type: string
+          example: "#FF5733"
+        is_wants:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - icon
+        - color
+        - is_wants
+        - created_at
+        - updated_at
+
 paths:
   /healthz:
     get:
@@ -137,29 +317,6 @@ paths:
       responses:
         '200':
           description: Service is healthy and PostgreSQL connection is established
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      status:
-                        type: string
-                        example: healthy
-                      service:
-                        type: string
-                        example: savoryx-api
-                      version:
-                        type: string
-                        example: 1.0.0
-                      env:
-                        type: string
-                        example: development
-                      database:
-                        type: string
-                        example: connected
         '503':
           description: Service is degraded or database connection failed
           content:
@@ -176,23 +333,6 @@ paths:
       responses:
         '200':
           description: Process is alive
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      status:
-                        type: string
-                        example: alive
-                      service:
-                        type: string
-                        example: savoryx-api
-                      uptime_seconds:
-                        type: integer
-                        example: 120
 
   /api/v1/ping:
     get:
@@ -203,21 +343,6 @@ paths:
       responses:
         '200':
           description: Pong response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      message:
-                        type: string
-                        example: pong
-                      timestamp:
-                        type: string
-                        format: date-time
-                        example: "2026-10-31T10:50:00Z"
 
   /api/v1/auth/register-device:
     post:
@@ -254,8 +379,423 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Device ID already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/v1/accounts:
+    get:
+      summary: List all active accounts
+      description: Retrieves all active accounts for the authenticated device.
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of active accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AccountResponse'
+        '401':
+          description: Unauthorized or expired PASETO token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+    post:
+      summary: Create new financial account
+      description: Creates a new account with specified currency and initial balance.
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Account created successfully
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /api/v1/accounts/01953bf6-2911-7000-8000-000000000010
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Validation error or invalid monetary format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/v1/accounts/{id}:
+    get:
+      summary: Get account by ID
+      description: Retrieves account details by unique UUID.
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccountResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+    put:
+      summary: Update account metadata
+      description: Updates account display name and account classification type.
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAccountRequest'
+      responses:
+        '200':
+          description: Account updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+    delete:
+      summary: Soft delete account
+      description: Marks account as soft-deleted without purging historical ledger records.
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Account soft deleted successfully
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/v1/accounts/{id}/balance:
+    put:
+      summary: Reconcile account balance
+      description: Updates account balance with pessimistic row-locking to ensure monetary integrity.
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBalanceRequest'
+      responses:
+        '200':
+          description: Balance updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Invalid balance decimal format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+    patch:
+      summary: Reconcile account balance (Patch alias)
+      description: Equivalent to PUT /api/v1/accounts/{id}/balance for partial mutation semantics.
+      tags:
+        - Accounts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBalanceRequest'
+      responses:
+        '200':
+          description: Balance updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccountResponse'
+
+  /api/v1/categories:
+    get:
+      summary: List all active categories
+      description: Retrieves all active categories including Needs/Wants classifications.
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of active categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CategoryResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+    post:
+      summary: Create new custom category
+      description: Creates a new transaction category with custom icon, hex color, and Wants classification.
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '201':
+          description: Category created successfully
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /api/v1/categories/01953bf6-2911-7000-8000-000000000020
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          description: Validation error (e.g. invalid hex color or missing name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/v1/categories/{id}:
+    get:
+      summary: Get category by ID
+      description: Retrieves category details by unique UUID.
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CategoryResponse'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+    put:
+      summary: Update category properties
+      description: Updates category name, icon, hex color code, and wants classification.
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+      responses:
+        '200':
+          description: Category updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+    delete:
+      summary: Soft delete category
+      description: Marks category as soft-deleted.
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Category soft deleted successfully
+        '404':
+          description: Category not found
           content:
             application/json:
               schema:

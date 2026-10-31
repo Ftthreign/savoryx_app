@@ -172,3 +172,35 @@ func (q *Queries) UpdateAccountBalance(ctx context.Context, arg UpdateAccountBal
 	)
 	return i, err
 }
+
+const updateAccount = `-- name: UpdateAccount :one
+UPDATE accounts
+SET name = $2,
+    type = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, name, type, currency, balance, created_at, updated_at, deleted_at
+`
+
+type UpdateAccountParams struct {
+	ID   pgtype.UUID `json:"id"`
+	Name string      `json:"name"`
+	Type AccountType `json:"type"`
+}
+
+func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {
+	row := q.db.QueryRow(ctx, updateAccount, arg.ID, arg.Name, arg.Type)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Type,
+		&i.Currency,
+		&i.Balance,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+

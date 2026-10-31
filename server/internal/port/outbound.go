@@ -17,6 +17,7 @@ type AccountRepository interface {
 	GetByID(ctx context.Context, id domain.UUID) (*domain.Account, error)
 	GetByIDForUpdate(ctx context.Context, id domain.UUID) (*domain.Account, error)
 	List(ctx context.Context) ([]*domain.Account, error)
+	Update(ctx context.Context, acc *domain.Account) error
 	UpdateBalance(ctx context.Context, id domain.UUID, balance decimal.Decimal) error
 	Delete(ctx context.Context, id domain.UUID) error
 }
@@ -25,6 +26,7 @@ type CategoryRepository interface {
 	Create(ctx context.Context, cat *domain.Category) error
 	GetByID(ctx context.Context, id domain.UUID) (*domain.Category, error)
 	List(ctx context.Context) ([]*domain.Category, error)
+	Update(ctx context.Context, cat *domain.Category) error
 	Delete(ctx context.Context, id domain.UUID) error
 }
 

@@ -120,6 +120,63 @@ func (s *accountService) ListAccounts(ctx context.Context) ([]*domain.Account, e
 	return accounts, nil
 }
 
+// UpdateAccount updates account metadata (name and type) after verifying existence and input constraints.
+func (s *accountService) UpdateAccount(
+	ctx context.Context,
+	id domain.UUID,
+	name string,
+	accType domain.AccountType,
+) (*domain.Account, error) {
+	if id.IsZero() {
+		return nil, oops.
+			In("account_service").
+			Code("ERR_INVALID_ACCOUNT_ID").
+			Wrapf(domain.ErrInvalidInput, "account ID cannot be nil or zero")
+	}
+
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		return nil, oops.
+			In("account_service").
+			Code("ERR_ACCOUNT_NAME_REQUIRED").
+			Wrapf(domain.ErrInvalidInput, "account name cannot be empty")
+	}
+	if len(trimmedName) > 64 {
+		return nil, oops.
+			In("account_service").
+			Code("ERR_ACCOUNT_NAME_TOO_LONG").
+			Wrapf(domain.ErrInvalidInput, "account name exceeds maximum length of 64 characters")
+	}
+
+	if !accType.IsValid() {
+		return nil, oops.
+			In("account_service").
+			Code("ERR_INVALID_ACCOUNT_TYPE").
+			Wrapf(domain.ErrInvalidInput, "invalid account type: %s", accType)
+	}
+
+	existing, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, oops.
+			In("account_service").
+			Code("ERR_ACCOUNT_NOT_FOUND").
+			With("account_id", id.String()).
+			Wrap(domain.ErrAccountNotFound)
+	}
+
+	existing.Name = trimmedName
+	existing.Type = accType
+
+	if err := s.repo.Update(ctx, existing); err != nil {
+		return nil, err
+	}
+
+	return existing, nil
+}
+
 // UpdateBalance applies a new balance to an account using pessimistic row locking to prevent race conditions.
 func (s *accountService) UpdateBalance(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error {
 	if id.IsZero() {

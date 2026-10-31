@@ -396,3 +396,77 @@ func TestCategoryService_DeleteCategory(t *testing.T) {
 		assert.True(t, errors.Is(err, dbErr))
 	})
 }
+
+func TestCategoryService_UpdateCategory(t *testing.T) {
+	ctx := context.Background()
+	validID := testutil.DefaultDeviceID
+
+	t.Run("happy path - updates category properties", func(t *testing.T) {
+		repo := &mocks.MockCategoryRepository{
+			GetByIDFunc: func(ctx context.Context, id domain.UUID) (*domain.Category, error) {
+				return &domain.Category{
+					ID:      id,
+					Name:    "Old Name",
+					Icon:    "old_icon",
+					Color:   "#111111",
+					IsWants: false,
+				}, nil
+			},
+			UpdateFunc: func(ctx context.Context, cat *domain.Category) error {
+				assert.Equal(t, "New Name", cat.Name)
+				assert.Equal(t, "new_icon", cat.Icon)
+				assert.Equal(t, "#222222", cat.Color)
+				assert.Equal(t, true, cat.IsWants)
+				return nil
+			},
+		}
+		svc := service.NewCategoryService(repo)
+
+		updated, err := svc.UpdateCategory(ctx, validID, "New Name", "new_icon", "#222222", true)
+		assert.NoError(t, err)
+		assert.NotNil(t, updated)
+		assert.Equal(t, "New Name", updated.Name)
+		assert.Equal(t, true, updated.IsWants)
+	})
+
+	t.Run("validation failure - zero ID", func(t *testing.T) {
+		repo := &mocks.MockCategoryRepository{}
+		svc := service.NewCategoryService(repo)
+
+		_, err := svc.UpdateCategory(ctx, domain.NilUUID, "Name", "icon", "#FFFFFF", false)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrInvalidInput))
+	})
+
+	t.Run("validation failure - empty name", func(t *testing.T) {
+		repo := &mocks.MockCategoryRepository{}
+		svc := service.NewCategoryService(repo)
+
+		_, err := svc.UpdateCategory(ctx, validID, "   ", "icon", "#FFFFFF", false)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrInvalidInput))
+	})
+
+	t.Run("validation failure - invalid hex color", func(t *testing.T) {
+		repo := &mocks.MockCategoryRepository{}
+		svc := service.NewCategoryService(repo)
+
+		_, err := svc.UpdateCategory(ctx, validID, "Name", "icon", "red", false)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrInvalidInput))
+	})
+
+	t.Run("category not found", func(t *testing.T) {
+		repo := &mocks.MockCategoryRepository{
+			GetByIDFunc: func(ctx context.Context, id domain.UUID) (*domain.Category, error) {
+				return nil, nil
+			},
+		}
+		svc := service.NewCategoryService(repo)
+
+		_, err := svc.UpdateCategory(ctx, validID, "Name", "icon", "#FFFFFF", false)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrCategoryNotFound))
+	})
+}
+

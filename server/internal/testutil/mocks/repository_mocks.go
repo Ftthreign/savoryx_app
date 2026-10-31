@@ -67,6 +67,7 @@ type MockAccountRepository struct {
 	GetByIDFunc          func(ctx context.Context, id domain.UUID) (*domain.Account, error)
 	GetByIDForUpdateFunc func(ctx context.Context, id domain.UUID) (*domain.Account, error)
 	ListFunc             func(ctx context.Context) ([]*domain.Account, error)
+	UpdateFunc           func(ctx context.Context, acc *domain.Account) error
 	UpdateBalanceFunc    func(ctx context.Context, id domain.UUID, balance decimal.Decimal) error
 	DeleteFunc           func(ctx context.Context, id domain.UUID) error
 }
@@ -99,6 +100,13 @@ func (m *MockAccountRepository) List(ctx context.Context) ([]*domain.Account, er
 	return nil, nil
 }
 
+func (m *MockAccountRepository) Update(ctx context.Context, acc *domain.Account) error {
+	if m.UpdateFunc != nil {
+		return m.UpdateFunc(ctx, acc)
+	}
+	return nil
+}
+
 func (m *MockAccountRepository) UpdateBalance(ctx context.Context, id domain.UUID, balance decimal.Decimal) error {
 	if m.UpdateBalanceFunc != nil {
 		return m.UpdateBalanceFunc(ctx, id, balance)
@@ -120,6 +128,7 @@ type MockCategoryRepository struct {
 	CreateFunc  func(ctx context.Context, cat *domain.Category) error
 	GetByIDFunc func(ctx context.Context, id domain.UUID) (*domain.Category, error)
 	ListFunc    func(ctx context.Context) ([]*domain.Category, error)
+	UpdateFunc  func(ctx context.Context, cat *domain.Category) error
 	DeleteFunc  func(ctx context.Context, id domain.UUID) error
 }
 
@@ -142,6 +151,13 @@ func (m *MockCategoryRepository) List(ctx context.Context) ([]*domain.Category, 
 		return m.ListFunc(ctx)
 	}
 	return nil, nil
+}
+
+func (m *MockCategoryRepository) Update(ctx context.Context, cat *domain.Category) error {
+	if m.UpdateFunc != nil {
+		return m.UpdateFunc(ctx, cat)
+	}
+	return nil
 }
 
 func (m *MockCategoryRepository) Delete(ctx context.Context, id domain.UUID) error {

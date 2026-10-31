@@ -54,12 +54,23 @@ func main() {
 	var routerOpts []httpAdapter.RouterOption
 	if dbConn != nil {
 		deviceRepo := postgres.NewDeviceRepository(dbConn)
+		accountRepo := postgres.NewAccountRepository(dbConn)
+		categoryRepo := postgres.NewCategoryRepository(dbConn)
+
 		tokenManager, err := security.NewPasetoTokenManager("")
 		if err != nil {
 			logger.Error("failed to initialize paseto token manager", "error", err)
 		} else {
 			authService := service.NewAuthService(deviceRepo, tokenManager)
-			routerOpts = append(routerOpts, httpAdapter.WithAuthService(authService))
+			accountService := service.NewAccountService(accountRepo)
+			categoryService := service.NewCategoryService(categoryRepo)
+
+			routerOpts = append(routerOpts,
+				httpAdapter.WithAuthService(authService),
+				httpAdapter.WithAccountService(accountService),
+				httpAdapter.WithCategoryService(categoryService),
+				httpAdapter.WithTokenManager(tokenManager),
+			)
 		}
 	}
 

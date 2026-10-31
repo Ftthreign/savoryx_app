@@ -12,7 +12,10 @@ import (
 )
 
 type RouterOptions struct {
-	AuthService port.AuthService
+	AuthService     port.AuthService
+	AccountService  port.AccountService
+	CategoryService port.CategoryService
+	TokenManager    port.TokenManager
 }
 
 type RouterOption func(*RouterOptions)
@@ -20,6 +23,24 @@ type RouterOption func(*RouterOptions)
 func WithAuthService(authService port.AuthService) RouterOption {
 	return func(o *RouterOptions) {
 		o.AuthService = authService
+	}
+}
+
+func WithAccountService(accountService port.AccountService) RouterOption {
+	return func(o *RouterOptions) {
+		o.AccountService = accountService
+	}
+}
+
+func WithCategoryService(categoryService port.CategoryService) RouterOption {
+	return func(o *RouterOptions) {
+		o.CategoryService = categoryService
+	}
+}
+
+func WithTokenManager(tokenManager port.TokenManager) RouterOption {
+	return func(o *RouterOptions) {
+		o.TokenManager = tokenManager
 	}
 }
 
@@ -55,6 +76,37 @@ func SetupRouter(
 			authHandler := NewAuthHandler(options.AuthService)
 			api.Route("/auth", func(auth chi.Router) {
 				auth.Post("/register-device", authHandler.RegisterDevice)
+			})
+		}
+
+		// Protected Domain Endpoints (Requires PASETO token)
+		if options.TokenManager != nil {
+			api.Group(func(protected chi.Router) {
+				protected.Use(AuthMiddleware(options.TokenManager))
+
+				if options.AccountService != nil {
+					accountHandler := NewAccountHandler(options.AccountService)
+					protected.Route("/accounts", func(acc chi.Router) {
+						acc.Get("/", accountHandler.ListAccounts)
+						acc.Post("/", accountHandler.CreateAccount)
+						acc.Get("/{id}", accountHandler.GetAccount)
+						acc.Put("/{id}", accountHandler.UpdateAccount)
+						acc.Put("/{id}/balance", accountHandler.UpdateBalance)
+						acc.Patch("/{id}/balance", accountHandler.UpdateBalance)
+						acc.Delete("/{id}", accountHandler.DeleteAccount)
+					})
+				}
+
+				if options.CategoryService != nil {
+					categoryHandler := NewCategoryHandler(options.CategoryService)
+					protected.Route("/categories", func(cat chi.Router) {
+						cat.Get("/", categoryHandler.ListCategories)
+						cat.Post("/", categoryHandler.CreateCategory)
+						cat.Get("/{id}", categoryHandler.GetCategory)
+						cat.Put("/{id}", categoryHandler.UpdateCategory)
+						cat.Delete("/{id}", categoryHandler.DeleteCategory)
+					})
+				}
 			})
 		}
 	})
