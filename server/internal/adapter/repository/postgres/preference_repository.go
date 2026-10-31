@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 
 	"github.com/ftthreign/savoryx_app/server/internal/adapter/repository/postgres/db"
@@ -23,8 +22,8 @@ func NewPreferenceRepository(d *DB) *PreferenceRepository {
 	}
 }
 
-func (r *PreferenceRepository) Get(ctx context.Context, id [16]byte) (*domain.UserPreference, error) {
-	pgID := pgtype.UUID{Bytes: id, Valid: true}
+func (r *PreferenceRepository) Get(ctx context.Context, id domain.UUID) (*domain.UserPreference, error) {
+	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
 	row, err := r.q.GetUserPreferences(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -32,14 +31,14 @@ func (r *PreferenceRepository) Get(ctx context.Context, id [16]byte) (*domain.Us
 				In("preference_repository").
 				Tags("database", "postgres").
 				Code("ERR_PREFERENCE_NOT_FOUND").
-				With("user_id", hex.EncodeToString(id[:])).
+				With("user_id", id.String()).
 				Wrap(domain.ErrPreferenceNotFound)
 		}
 		return nil, oops.
 			In("preference_repository").
 			Tags("database", "postgres").
 			Code("ERR_PREFERENCE_GET").
-			With("user_id", hex.EncodeToString(id[:])).
+			With("user_id", id.String()).
 			Wrapf(err, "failed to get user preferences")
 	}
 
@@ -47,8 +46,16 @@ func (r *PreferenceRepository) Get(ctx context.Context, id [16]byte) (*domain.Us
 }
 
 func (r *PreferenceRepository) Upsert(ctx context.Context, pref *domain.UserPreference) error {
+	if pref == nil {
+		return oops.
+			In("preference_repository").
+			Tags("database", "postgres").
+			Code("ERR_PREFERENCE_NIL").
+			Wrap(domain.ErrInvalidInput)
+	}
+
 	params := db.UpsertUserPreferencesParams{
-		ID:               pgtype.UUID{Bytes: pref.ID, Valid: true},
+		ID:               pgtype.UUID{Bytes: pref.ID.Bytes(), Valid: true},
 		Theme:            db.ThemePreference(pref.Theme),
 		FontFamily:       db.FontFamilyType(pref.FontFamily),
 		BaseCurrency:     pref.BaseCurrency,
@@ -62,7 +69,7 @@ func (r *PreferenceRepository) Upsert(ctx context.Context, pref *domain.UserPref
 			In("preference_repository").
 			Tags("database", "postgres").
 			Code("ERR_PREFERENCE_UPSERT").
-			With("user_id", hex.EncodeToString(pref.ID[:])).
+			With("user_id", pref.ID.String()).
 			Wrapf(err, "failed to upsert user preferences")
 	}
 
@@ -72,7 +79,7 @@ func (r *PreferenceRepository) Upsert(ctx context.Context, pref *domain.UserPref
 
 func toDomainPreference(row db.UserPreference) *domain.UserPreference {
 	return &domain.UserPreference{
-		ID:               row.ID.Bytes,
+		ID:               domain.FromBytes(row.ID.Bytes),
 		Theme:            domain.ThemePreference(row.Theme),
 		FontFamily:       domain.FontFamilyType(row.FontFamily),
 		BaseCurrency:     row.BaseCurrency,

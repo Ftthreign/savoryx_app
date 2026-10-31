@@ -13,9 +13,11 @@ func SetupRouter(logger *slog.Logger, healthService port.HealthService, appVersi
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	// Deprecated in chi/v5
+	// r.Use(middleware.RealIP)
 	r.Use(StructuredLogger(logger))
 	r.Use(OopsRecoverer(logger))
+	r.Use(SecurityHeaders)
 	r.Use(CORS)
 	r.Use(middleware.Timeout(30 * time.Second))
 

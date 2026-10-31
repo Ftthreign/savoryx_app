@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/samber/oops"
@@ -54,8 +55,8 @@ func NewDB(ctx context.Context, databaseURL string) (*DB, error) {
 }
 
 func (d *DB) Ping(ctx context.Context) error {
-	if d.Pool == nil {
-		return fmt.Errorf("database connection pool is uninitialized")
+	if d == nil || d.Pool == nil {
+		return fmt.Errorf("%w: connection pool is uninitialized", domain.ErrDatabaseUnavailable)
 	}
 	return d.Pool.Ping(ctx)
 }

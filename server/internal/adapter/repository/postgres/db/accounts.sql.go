@@ -73,6 +73,29 @@ func (q *Queries) GetAccountByID(ctx context.Context, id pgtype.UUID) (Account, 
 	return i, err
 }
 
+const getAccountByIDForUpdate = `-- name: GetAccountByIDForUpdate :one
+SELECT id, name, type, currency, balance, created_at, updated_at, deleted_at
+FROM accounts
+WHERE id = $1 AND deleted_at IS NULL LIMIT 1
+FOR UPDATE
+`
+
+func (q *Queries) GetAccountByIDForUpdate(ctx context.Context, id pgtype.UUID) (Account, error) {
+	row := q.db.QueryRow(ctx, getAccountByIDForUpdate, id)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Type,
+		&i.Currency,
+		&i.Balance,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const listAccounts = `-- name: ListAccounts :many
 SELECT id, name, type, currency, balance, created_at, updated_at, deleted_at
 FROM accounts

@@ -37,7 +37,7 @@ const (
 )
 
 type Account struct {
-	ID        [16]byte        `json:"id"`
+	ID        UUID            `json:"id"`
 	Name      string          `json:"name"`
 	Type      AccountType     `json:"type"`
 	Currency  string          `json:"currency"`
@@ -48,7 +48,7 @@ type Account struct {
 }
 
 type Category struct {
-	ID        [16]byte   `json:"id"`
+	ID        UUID       `json:"id"`
 	Name      string     `json:"name"`
 	Icon      string     `json:"icon"`
 	Color     string     `json:"color"`
@@ -59,7 +59,7 @@ type Category struct {
 }
 
 type UserPreference struct {
-	ID               [16]byte        `json:"id"`
+	ID               UUID            `json:"id"`
 	Theme            ThemePreference `json:"theme"`
 	FontFamily       FontFamilyType  `json:"font_family"`
 	BaseCurrency     string          `json:"base_currency"`

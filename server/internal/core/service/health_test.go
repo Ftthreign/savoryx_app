@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/core/service"
 )
 
@@ -45,15 +46,18 @@ func TestHealthService_CheckHealth(t *testing.T) {
 		}
 	})
 
-	t.Run("happy path - nil database pinger returns healthy", func(t *testing.T) {
+	t.Run("degraded path - nil database pinger returns degraded and ErrDatabaseUnavailable", func(t *testing.T) {
 		svc := service.NewHealthService(nil)
 
 		status, err := svc.CheckHealth(ctx)
-		if err != nil {
-			t.Fatalf("expected nil error, got %v", err)
+		if err == nil {
+			t.Fatal("expected error, got nil")
 		}
-		if status != "healthy" {
-			t.Errorf("expected status 'healthy', got %s", status)
+		if !errors.Is(err, domain.ErrDatabaseUnavailable) {
+			t.Errorf("expected error domain.ErrDatabaseUnavailable, got %v", err)
+		}
+		if status != "degraded" {
+			t.Errorf("expected status 'degraded', got %s", status)
 		}
 	})
 }

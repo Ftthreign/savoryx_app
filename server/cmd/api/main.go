@@ -85,7 +85,9 @@ func main() {
 
 		if err := srv.Shutdown(ctx); err != nil {
 			logger.Error("graceful shutdown failed; forcing termination", "error", err)
-			_ = srv.Close()
+			if closeErr := srv.Close(); closeErr != nil {
+				logger.Warn("forceful server close encountered error", "error", closeErr)
+			}
 		}
 
 		if dbConn != nil {

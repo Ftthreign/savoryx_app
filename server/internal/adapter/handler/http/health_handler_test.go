@@ -38,6 +38,9 @@ func TestHealthHandler_Readiness_Healthy(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, "DENY", rec.Header().Get("X-Frame-Options"))
+	assert.Equal(t, "strict-origin-when-cross-origin", rec.Header().Get("Referrer-Policy"))
 
 	var res ResponseEnvelope
 	err := json.Unmarshal(rec.Body.Bytes(), &res)
@@ -53,6 +56,27 @@ func TestHealthHandler_Readiness_Healthy(t *testing.T) {
 
 func TestHealthHandler_Readiness_Degraded(t *testing.T) {
 	mockService := &mockHealthService{status: "degraded", err: errors.New("db unreachable")}
+	r := SetupRouter(discardLogger(), mockService, "1.0.0", "test")
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+
+	var res ResponseEnvelope
+	err := json.Unmarshal(rec.Body.Bytes(), &res)
+	assert.NoError(t, err)
+
+	dataMap, ok := res.Data.(map[string]any)
+	assert.True(t, ok)
+	assert.Equal(t, "degraded", dataMap["status"])
+	assert.Equal(t, "disconnected", dataMap["database"])
+}
+
+func TestHealthHandler_Readiness_DatabaseUnavailable(t *testing.T) {
+	mockService := &mockHealthService{status: "degraded", err: domain.ErrDatabaseUnavailable}
 	r := SetupRouter(discardLogger(), mockService, "1.0.0", "test")
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)

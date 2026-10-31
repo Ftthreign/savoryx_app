@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ func TestToDomainAccount(t *testing.T) {
 	domainAcc := toDomainAccount(dbAcc)
 
 	assert.NotNil(t, domainAcc)
-	assert.Equal(t, testUUID, domainAcc.ID)
+	assert.Equal(t, domain.FromBytes(testUUID), domainAcc.ID)
 	assert.Equal(t, "BCA Primary Checking", domainAcc.Name)
 	assert.Equal(t, domain.AccountTypeBank, domainAcc.Type)
 	assert.Equal(t, "IDR", domainAcc.Currency)
@@ -64,7 +65,7 @@ func TestToDomainCategory(t *testing.T) {
 	domainCat := toDomainCategory(dbCat)
 
 	assert.NotNil(t, domainCat)
-	assert.Equal(t, testUUID, domainCat.ID)
+	assert.Equal(t, domain.FromBytes(testUUID), domainCat.ID)
 	assert.Equal(t, "Food and Dining", domainCat.Name)
 	assert.Equal(t, "fastfood", domainCat.Icon)
 	assert.Equal(t, "#8DB355", domainCat.Color)
@@ -90,10 +91,53 @@ func TestToDomainPreference(t *testing.T) {
 	domainPref := toDomainPreference(dbPref)
 
 	assert.NotNil(t, domainPref)
-	assert.Equal(t, testUUID, domainPref.ID)
+	assert.Equal(t, domain.FromBytes(testUUID), domainPref.ID)
 	assert.Equal(t, domain.ThemePreferenceClayLight, domainPref.Theme)
 	assert.Equal(t, domain.FontFamilyNunitoSans, domainPref.FontFamily)
 	assert.Equal(t, "IDR", domainPref.BaseCurrency)
 	assert.Equal(t, 160, domainPref.MonthlyWorkHours)
 	assert.True(t, domainPref.MonthlyIncomeNet.Equal(decimal.NewFromInt(25000000)))
 }
+
+func TestDB_Ping_Uninitialized(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("nil DB pointer returns ErrDatabaseUnavailable", func(t *testing.T) {
+		var d *DB
+		err := d.Ping(ctx)
+		assert.ErrorIs(t, err, domain.ErrDatabaseUnavailable)
+	})
+
+	t.Run("DB with nil Pool returns ErrDatabaseUnavailable", func(t *testing.T) {
+		d := &DB{Pool: nil}
+		err := d.Ping(ctx)
+		assert.ErrorIs(t, err, domain.ErrDatabaseUnavailable)
+		// Close on nil pool should not panic
+		assert.NotPanics(t, func() {
+			d.Close()
+		})
+	})
+}
+
+func TestRepository_NilEntityGuards(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("AccountRepository.Create rejects nil account", func(t *testing.T) {
+		repo := &AccountRepository{}
+		err := repo.Create(ctx, nil)
+		assert.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
+
+	t.Run("CategoryRepository.Create rejects nil category", func(t *testing.T) {
+		repo := &CategoryRepository{}
+		err := repo.Create(ctx, nil)
+		assert.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
+
+	t.Run("PreferenceRepository.Upsert rejects nil preference", func(t *testing.T) {
+		repo := &PreferenceRepository{}
+		err := repo.Upsert(ctx, nil)
+		assert.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
+}
+

@@ -13,20 +13,21 @@ type DatabasePinger interface {
 
 type AccountRepository interface {
 	Create(ctx context.Context, acc *domain.Account) error
-	GetByID(ctx context.Context, id [16]byte) (*domain.Account, error)
+	GetByID(ctx context.Context, id domain.UUID) (*domain.Account, error)
+	GetByIDForUpdate(ctx context.Context, id domain.UUID) (*domain.Account, error)
 	List(ctx context.Context) ([]*domain.Account, error)
-	UpdateBalance(ctx context.Context, id [16]byte, balance decimal.Decimal) error
-	Delete(ctx context.Context, id [16]byte) error
+	UpdateBalance(ctx context.Context, id domain.UUID, balance decimal.Decimal) error
+	Delete(ctx context.Context, id domain.UUID) error
 }
 
 type CategoryRepository interface {
 	Create(ctx context.Context, cat *domain.Category) error
-	GetByID(ctx context.Context, id [16]byte) (*domain.Category, error)
+	GetByID(ctx context.Context, id domain.UUID) (*domain.Category, error)
 	List(ctx context.Context) ([]*domain.Category, error)
-	Delete(ctx context.Context, id [16]byte) error
+	Delete(ctx context.Context, id domain.UUID) error
 }
 
 type PreferenceRepository interface {
-	Get(ctx context.Context, id [16]byte) (*domain.UserPreference, error)
+	Get(ctx context.Context, id domain.UUID) (*domain.UserPreference, error)
 	Upsert(ctx context.Context, pref *domain.UserPreference) error
 }

@@ -14,6 +14,7 @@ type Querier interface {
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	GetAccountByID(ctx context.Context, id pgtype.UUID) (Account, error)
+	GetAccountByIDForUpdate(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetCategoryByID(ctx context.Context, id pgtype.UUID) (Category, error)
 	GetUserPreferences(ctx context.Context, id pgtype.UUID) (UserPreference, error)
 	ListAccounts(ctx context.Context) ([]Account, error)
