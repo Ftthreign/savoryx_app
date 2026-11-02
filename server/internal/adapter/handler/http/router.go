@@ -12,10 +12,11 @@ import (
 )
 
 type RouterOptions struct {
-	AuthService     port.AuthService
-	AccountService  port.AccountService
-	CategoryService port.CategoryService
-	TokenManager    port.TokenManager
+	AuthService         port.AuthService
+	AccountService      port.AccountService
+	CategoryService     port.CategoryService
+	ExchangeRateService port.ExchangeRateService
+	TokenManager        port.TokenManager
 }
 
 type RouterOption func(*RouterOptions)
@@ -41,6 +42,12 @@ func WithCategoryService(categoryService port.CategoryService) RouterOption {
 func WithTokenManager(tokenManager port.TokenManager) RouterOption {
 	return func(o *RouterOptions) {
 		o.TokenManager = tokenManager
+	}
+}
+
+func WithExchangeRateService(exchangeRateService port.ExchangeRateService) RouterOption {
+	return func(o *RouterOptions) {
+		o.ExchangeRateService = exchangeRateService
 	}
 }
 
@@ -107,6 +114,15 @@ func SetupRouter(
 						cat.Delete("/{id}", categoryHandler.DeleteCategory)
 					})
 				}
+			})
+		}
+
+		if options.ExchangeRateService != nil {
+			fxHandler := NewFXHandler(options.ExchangeRateService)
+			api.Get("/currencies", fxHandler.ListCurrencies)
+			api.Route("/rates", func(rates chi.Router) {
+				rates.Get("/latest", fxHandler.GetLatestRates)
+				rates.Get("/historical", fxHandler.GetHistoricalRate)
 			})
 		}
 	})

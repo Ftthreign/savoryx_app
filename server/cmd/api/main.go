@@ -81,6 +81,9 @@ func main() {
 		exchangeRateRepo := postgres.NewExchangeRateRepository(dbConn)
 		fxClient := fx.NewFrankfurterClient()
 		fxCache := cache.NewMemoryFXCache(cache.DefaultCacheTTL)
+		fxService := service.NewExchangeRateService(exchangeRateRepo, fxCache, fxClient)
+		routerOpts = append(routerOpts, httpAdapter.WithExchangeRateService(fxService))
+
 		fxWorker = worker.NewFXCronWorker(exchangeRateRepo, fxClient, logger, worker.WithCache(fxCache))
 		if err := fxWorker.Start(context.Background()); err != nil {
 			logger.Error("failed to start fx cron worker", "error", err)
