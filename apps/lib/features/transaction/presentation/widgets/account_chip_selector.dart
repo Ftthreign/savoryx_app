@@ -3,19 +3,19 @@ import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
 import 'package:savoryx/core/widgets/clay_button.dart';
 
-/// Account source selector chip row with Claymorphism styling.
-/// Prevents layout overflows via horizontal scroll view.
 class AccountChipSelector extends StatelessWidget {
   const AccountChipSelector({
     super.key,
     required this.accounts,
     required this.selectedAccount,
     required this.onAccountSelected,
+    this.accountBalances,
   });
 
   final List<String> accounts;
   final String selectedAccount;
   final ValueChanged<String> onAccountSelected;
+  final Map<String, String>? accountBalances;
 
   @override
   Widget build(BuildContext context) {
@@ -47,13 +47,14 @@ class AccountChipSelector extends StatelessWidget {
                 Icon(
                   Icons.account_balance_wallet_outlined,
                   size: 14.0,
-                  color: isSelected
-                      ? Colors.white
-                      : ClayColors.onSurfaceVariant,
+                  color:
+                      isSelected ? Colors.white : ClayColors.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6.0),
                 Text(
-                  account,
+                  accountBalances != null && accountBalances![account] != null
+                      ? '$account (${accountBalances![account]})'
+                      : account,
                   style: ClayTypography.labelSm(
                     color: isSelected
                         ? Colors.white

@@ -9,11 +9,13 @@ class CategorySelectorGrid extends StatelessWidget {
     required this.categories,
     required this.selectedCategory,
     required this.onCategorySelected,
+    this.isWantsMap,
   });
 
   final List<String> categories;
   final String selectedCategory;
   final ValueChanged<String> onCategorySelected;
+  final Map<String, bool>? isWantsMap;
 
   @override
   Widget build(BuildContext context) {
@@ -39,15 +41,31 @@ class CategorySelectorGrid extends StatelessWidget {
                     ? ClayColors.surfaceContainerDark
                     : ClayColors.surfaceContainerLow),
             onTap: () => onCategorySelected(cat),
-            child: Center(
-              child: Text(
-                cat,
-                style: ClayTypography.labelMd(
-                  color: isSelected
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.onSurface,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isWantsMap != null && isWantsMap![cat] != null) ...[
+                  Container(
+                    width: 6.0,
+                    height: 6.0,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isWantsMap![cat]!
+                          ? ClayColors.secondary
+                          : ClayColors.tertiary,
+                    ),
+                  ),
+                  const SizedBox(width: 6.0),
+                ],
+                Text(
+                  cat,
+                  style: ClayTypography.labelMd(
+                    color: isSelected
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
+              ],
             ),
           );
         },

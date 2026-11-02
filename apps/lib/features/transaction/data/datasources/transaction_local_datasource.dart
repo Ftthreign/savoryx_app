@@ -10,8 +10,15 @@ abstract interface class TransactionLocalDataSource {
   Future<TransactionEntity?> getTransactionById(String id);
 }
 
+abstract interface class TransactionSyncLocalDataSource {
+  Future<List<TransactionEntity>> getPendingSyncRecords();
+  Future<void> markAsSynced(List<String> ids);
+  Future<void> reconcileRemoteTombstones(List<String> deletedIds);
+}
+
 @LazySingleton(as: TransactionLocalDataSource)
-class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
+class TransactionLocalDataSourceImpl
+    implements TransactionLocalDataSource, TransactionSyncLocalDataSource {
   final AppDatabase _db;
 
   TransactionLocalDataSourceImpl(this._db);
@@ -74,6 +81,22 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   Future<TransactionEntity?> getTransactionById(String id) async {
     final record = await _db.transactionDao.getTransactionById(id);
     return record != null ? _mapToEntity(record) : null;
+  }
+
+  @override
+  Future<List<TransactionEntity>> getPendingSyncRecords() async {
+    final records = await _db.transactionDao.getPendingSyncTransactions();
+    return records.map(_mapToEntity).toList();
+  }
+
+  @override
+  Future<void> markAsSynced(List<String> ids) {
+    return _db.transactionDao.markTransactionsAsSynced(ids);
+  }
+
+  @override
+  Future<void> reconcileRemoteTombstones(List<String> deletedIds) {
+    return _db.transactionDao.reconcileRemoteTombstones(deletedIds);
   }
 
   TransactionEntity _mapToEntity(LocalTransaction tx) {

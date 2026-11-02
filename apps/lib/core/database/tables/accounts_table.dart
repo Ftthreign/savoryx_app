@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 
 @DataClassName('LocalAccount')
+@TableIndex(name: 'idx_local_acc_active_name', columns: {#deletedAt, #name})
+@TableIndex(name: 'idx_local_acc_sync', columns: {#isSynced})
 class LocalAccounts extends Table {
   TextColumn get id => text()();
   TextColumn get name => text().withLength(min: 1, max: 64)();

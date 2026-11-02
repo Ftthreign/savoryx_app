@@ -182,5 +182,62 @@ void main() {
         expect(failedTx, isNull);
       });
     });
+
+    group('Database Indexing & Tombstone Query Optimization (Task #153)', () {
+      test('sqlite_master registers composite and sync indexes', () async {
+        final result = await database
+            .customSelect("SELECT name FROM sqlite_master WHERE type='index'")
+            .get();
+        final indexNames = result.map((row) => row.read<String>('name')).toSet();
+
+        // Verify composite index for active tombstone & time on transactions
+        expect(indexNames, contains('idx_local_tx_active_time'));
+        expect(indexNames, contains('idx_local_tx_acc_active_time'));
+        expect(indexNames, contains('idx_local_tx_sync'));
+
+        // Verify accounts index
+        expect(indexNames, contains('idx_local_acc_active_name'));
+        expect(indexNames, contains('idx_local_acc_sync'));
+
+        // Verify categories index
+        expect(indexNames, contains('idx_local_cat_active_wants'));
+        expect(indexNames, contains('idx_local_cat_sync'));
+      });
+
+      test('watchRecentTransactions and watchTransactionsByAccount leverage indexes',
+          () async {
+        final txDao = database.transactionDao;
+        final accDao = database.accountDao;
+        final accounts = await accDao.getAllActiveAccounts();
+        final acc = accounts.first;
+
+        final now = DateTime.now().toUtc();
+
+        // Insert 3 transactions at different times
+        for (int i = 0; i < 3; i++) {
+          await database.into(database.localTransactions).insert(
+                LocalTransactionsCompanion.insert(
+                  id: uuid.v7(),
+                  accountId: acc.id,
+                  amount: BigInt.from((i + 1) * 100000),
+                  baseAmount: BigInt.from((i + 1) * 100000),
+                  type: 'EXPENSE',
+                  transactionTime: now.add(Duration(minutes: i)),
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              );
+        }
+
+        final recent = await txDao.watchRecentTransactions(limit: 10).first;
+        expect(recent.length, equals(3));
+        // Verify chronological descending order
+        expect(recent.first.transactionTime.isAfter(recent.last.transactionTime),
+            isTrue);
+
+        final byAcc = await txDao.watchTransactionsByAccount(acc.id).first;
+        expect(byAcc.length, equals(3));
+      });
+    });
   });
 }

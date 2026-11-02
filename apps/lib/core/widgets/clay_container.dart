@@ -3,8 +3,6 @@ import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/utils/constants.dart';
 
-/// Fundamental Claymorphism container widget.
-/// Encapsulates dual-shadow depth, custom bevel curves, and surface specular reflection.
 class ClayContainer extends StatelessWidget {
   const ClayContainer({
     super.key,
@@ -15,9 +13,11 @@ class ClayContainer extends StatelessWidget {
     this.margin,
     this.width,
     this.height,
+    this.constraints,
     this.isPressed = false,
     this.showSpecularGlint = true,
     this.customShadows,
+    this.semanticLabel,
   });
 
   final Widget child;
@@ -27,15 +27,19 @@ class ClayContainer extends StatelessWidget {
   final EdgeInsetsGeometry? margin;
   final double? width;
   final double? height;
+  final BoxConstraints? constraints;
   final bool isPressed;
   final bool showSpecularGlint;
   final List<BoxShadow>? customShadows;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color effectiveColor = color ??
-        (isDark ? ClayColors.surfaceContainerDark : ClayColors.surfaceContainerLowest);
+        (isDark
+            ? ClayColors.surfaceContainerDark
+            : ClayColors.surfaceContainerLowest);
     final BorderRadius effectiveRadius =
         borderRadius ?? BorderRadius.circular(AppConstants.clayBorderRadius);
 
@@ -44,9 +48,10 @@ class ClayContainer extends StatelessWidget {
             ? ClayShadows.pressed(isDark: isDark)
             : ClayShadows.elevated(isDark: isDark));
 
-    return Container(
+    final Widget containerWidget = Container(
       width: width,
       height: height,
+      constraints: constraints,
       margin: margin,
       decoration: BoxDecoration(
         color: effectiveColor,
@@ -73,5 +78,15 @@ class ClayContainer extends StatelessWidget {
         ),
       ),
     );
+
+    if (semanticLabel != null) {
+      return Semantics(
+        label: semanticLabel,
+        container: true,
+        child: containerWidget,
+      );
+    }
+
+    return containerWidget;
   }
 }
