@@ -18,6 +18,9 @@ class ClayButton extends StatefulWidget {
     this.height,
     this.isPrimaryCta = false,
     this.enableHaptic = true,
+    this.semanticLabel,
+    this.semanticHint,
+    this.minTouchTarget = false,
   });
 
   final Widget child;
@@ -29,6 +32,9 @@ class ClayButton extends StatefulWidget {
   final double? height;
   final bool isPrimaryCta;
   final bool enableHaptic;
+  final String? semanticLabel;
+  final String? semanticHint;
+  final bool minTouchTarget;
 
   @override
   State<ClayButton> createState() => _ClayButtonState();
@@ -114,7 +120,7 @@ class _ClayButtonState extends State<ClayButton>
             ? ClayShadows.pressed(isDark: isDark)
             : ClayShadows.elevated(isDark: isDark));
 
-    return Listener(
+    final Widget buttonCore = Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: _onPointerDown,
       onPointerUp: _onPointerUp,
@@ -132,6 +138,9 @@ class _ClayButtonState extends State<ClayButton>
             curve: Curves.easeOutCubic,
             width: widget.width,
             height: widget.height,
+            constraints: widget.minTouchTarget
+                ? const BoxConstraints(minWidth: 48.0, minHeight: 48.0)
+                : null,
             padding: widget.padding ??
                 const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0),
             decoration: BoxDecoration(
@@ -143,6 +152,14 @@ class _ClayButtonState extends State<ClayButton>
           ),
         ),
       ),
+    );
+
+    return Semantics(
+      button: true,
+      enabled: widget.onTap != null,
+      label: widget.semanticLabel,
+      hint: widget.semanticHint,
+      child: buttonCore,
     );
   }
 }

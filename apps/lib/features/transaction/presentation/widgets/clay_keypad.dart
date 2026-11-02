@@ -70,6 +70,7 @@ class ClayKeypad extends StatelessWidget {
                 key: Key('clay_chip_${denom ~/ 1000}k'),
                 height: 38.0,
                 padding: EdgeInsets.zero,
+                semanticLabel: 'Tambah ${denom ~/ 1000} ribu Rupiah',
                 color: isDark
                     ? ClayColors.surfaceContainerDarkHigh
                     : ClayColors.tertiaryFixed,
@@ -101,6 +102,7 @@ class ClayKeypad extends StatelessWidget {
               child: ClayButton(
                 key: const Key('clay_key_backspace'),
                 padding: EdgeInsets.zero,
+                semanticLabel: 'Hapus satu digit',
                 color: isDark
                     ? ClayColors.surfaceContainerDark
                     : ClayColors.surfaceContainerLow,
@@ -125,28 +127,28 @@ class ClayKeypad extends StatelessWidget {
 
   static const List<List<_KeyItem>> _keypadRows = [
     [
-      _KeyItem(label: '7', type: _KeyType.digit, keyId: '7'),
-      _KeyItem(label: '8', type: _KeyType.digit, keyId: '8'),
-      _KeyItem(label: '9', type: _KeyType.digit, keyId: '9'),
-      _KeyItem(label: '÷', type: _KeyType.operator, keyId: 'divide'),
+      _KeyItem(label: '7', type: _KeyType.digit, keyId: '7', semanticLabel: 'Angka 7'),
+      _KeyItem(label: '8', type: _KeyType.digit, keyId: '8', semanticLabel: 'Angka 8'),
+      _KeyItem(label: '9', type: _KeyType.digit, keyId: '9', semanticLabel: 'Angka 9'),
+      _KeyItem(label: '÷', type: _KeyType.operator, keyId: 'divide', semanticLabel: 'Operasi Pembagian'),
     ],
     [
-      _KeyItem(label: '4', type: _KeyType.digit, keyId: '4'),
-      _KeyItem(label: '5', type: _KeyType.digit, keyId: '5'),
-      _KeyItem(label: '6', type: _KeyType.digit, keyId: '6'),
-      _KeyItem(label: '\u00D7', type: _KeyType.operator, keyId: 'multiply'),
+      _KeyItem(label: '4', type: _KeyType.digit, keyId: '4', semanticLabel: 'Angka 4'),
+      _KeyItem(label: '5', type: _KeyType.digit, keyId: '5', semanticLabel: 'Angka 5'),
+      _KeyItem(label: '6', type: _KeyType.digit, keyId: '6', semanticLabel: 'Angka 6'),
+      _KeyItem(label: '\u00D7', type: _KeyType.operator, keyId: 'multiply', semanticLabel: 'Operasi Perkalian'),
     ],
     [
-      _KeyItem(label: '1', type: _KeyType.digit, keyId: '1'),
-      _KeyItem(label: '2', type: _KeyType.digit, keyId: '2'),
-      _KeyItem(label: '3', type: _KeyType.digit, keyId: '3'),
-      _KeyItem(label: '-', type: _KeyType.operator, keyId: 'minus'),
+      _KeyItem(label: '1', type: _KeyType.digit, keyId: '1', semanticLabel: 'Angka 1'),
+      _KeyItem(label: '2', type: _KeyType.digit, keyId: '2', semanticLabel: 'Angka 2'),
+      _KeyItem(label: '3', type: _KeyType.digit, keyId: '3', semanticLabel: 'Angka 3'),
+      _KeyItem(label: '-', type: _KeyType.operator, keyId: 'minus', semanticLabel: 'Operasi Pengurangan'),
     ],
     [
-      _KeyItem(label: 'C', type: _KeyType.clear, keyId: 'clear'),
-      _KeyItem(label: '0', type: _KeyType.digit, keyId: '0'),
-      _KeyItem(label: '000', type: _KeyType.digit, keyId: '000'),
-      _KeyItem(label: '+', type: _KeyType.operator, keyId: 'plus'),
+      _KeyItem(label: 'C', type: _KeyType.clear, keyId: 'clear', semanticLabel: 'Hapus Semua Nominal'),
+      _KeyItem(label: '0', type: _KeyType.digit, keyId: '0', semanticLabel: 'Angka 0'),
+      _KeyItem(label: '000', type: _KeyType.digit, keyId: '000', semanticLabel: 'Tiga Nol Ribu'),
+      _KeyItem(label: '+', type: _KeyType.operator, keyId: 'plus', semanticLabel: 'Operasi Penjumlahan'),
     ],
   ];
 
@@ -210,6 +212,7 @@ class ClayKeypad extends StatelessWidget {
       key: Key('clay_key_${item.keyId}'),
       height: 52.0,
       padding: EdgeInsets.zero,
+      semanticLabel: item.semanticLabel,
       color: buttonColor,
       borderRadius: BorderRadius.circular(16.0),
       onTap: () {
@@ -250,10 +253,12 @@ class _KeyItem {
   final String label;
   final _KeyType type;
   final String keyId;
+  final String? semanticLabel;
 
   const _KeyItem({
     required this.label,
     required this.type,
     required this.keyId,
+    this.semanticLabel,
   });
 }

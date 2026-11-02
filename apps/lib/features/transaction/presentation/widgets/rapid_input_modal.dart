@@ -205,6 +205,8 @@ class _RapidInputModalState extends State<RapidInputModal> {
                   height: 36.0,
                   padding: EdgeInsets.zero,
                   borderRadius: BorderRadius.circular(18.0),
+                  semanticLabel: 'Tutup formulir transaksi',
+                  minTouchTarget: true,
                   onTap: () => Navigator.pop(context),
                   child: Icon(
                     Icons.close,
@@ -433,6 +435,9 @@ class _RapidInputModalState extends State<RapidInputModal> {
             ClayButton(
               key: const Key('log_expense_submit_button'),
               isPrimaryCta: true,
+              semanticLabel: 'Simpan transaksi pengeluaran',
+              semanticHint: 'Menyimpan catatan transaksi ke database lokal',
+              minTouchTarget: true,
               onTap: () async {
                 await HapticFeedback.mediumImpact();
                 final txId = const Uuid().v7();

@@ -15,8 +15,11 @@ class ClayCard extends StatelessWidget {
     this.margin,
     this.width,
     this.height,
+    this.constraints,
     this.isHero = false,
     this.onTap,
+    this.semanticLabel,
+    this.semanticHint,
   });
 
   final Widget child;
@@ -26,8 +29,11 @@ class ClayCard extends StatelessWidget {
   final EdgeInsetsGeometry? margin;
   final double? width;
   final double? height;
+  final BoxConstraints? constraints;
   final bool isHero;
   final VoidCallback? onTap;
+  final String? semanticLabel;
+  final String? semanticHint;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +58,7 @@ class ClayCard extends StatelessWidget {
     Widget cardWidget = ClayContainer(
       width: width,
       height: height,
+      constraints: constraints,
       color: effectiveColor,
       borderRadius: effectiveRadius,
       margin: margin,
@@ -61,9 +68,20 @@ class ClayCard extends StatelessWidget {
     );
 
     if (onTap != null) {
-      return GestureDetector(
+      cardWidget = GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
+        child: cardWidget,
+      );
+    }
+
+    if (semanticLabel != null || onTap != null) {
+      return Semantics(
+        container: true,
+        button: onTap != null,
+        enabled: onTap != null,
+        label: semanticLabel,
+        hint: semanticHint,
         child: cardWidget,
       );
     }
