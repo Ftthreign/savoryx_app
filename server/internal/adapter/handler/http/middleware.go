@@ -96,6 +96,26 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+func RequireJSONContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
+			contentType := r.Header.Get("Content-Type")
+			if contentType == "" {
+				WriteError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
+				return
+			}
+
+			mediaType := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+			if mediaType != "application/json" {
+				WriteError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 type contextKey string
 
 const (

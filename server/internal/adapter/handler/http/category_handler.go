@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -23,8 +22,7 @@ func NewCategoryHandler(categoryService port.CategoryService) *CategoryHandler {
 
 func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateCategoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request JSON body")
+	if err := DecodeJSON(w, r, &req); err != nil {
 		return
 	}
 
@@ -79,8 +77,7 @@ func (h *CategoryHandler) UpdateCategory(w http.ResponseWriter, r *http.Request)
 	}
 
 	var req dto.UpdateCategoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request JSON body")
+	if err := DecodeJSON(w, r, &req); err != nil {
 		return
 	}
 

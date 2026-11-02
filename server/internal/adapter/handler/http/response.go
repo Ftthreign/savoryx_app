@@ -67,6 +67,23 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 	}
 }
 
+const MaxRequestBodyBytes int64 = 64 * 1024
+
+func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(dst); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			WriteError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "Request payload exceeds maximum allowed size of 64KB")
+			return err
+		}
+		WriteError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request JSON body")
+		return err
+	}
+	return nil
+}
+
 func WriteDomainError(w http.ResponseWriter, err error) {
 	if err == nil {
 		return
