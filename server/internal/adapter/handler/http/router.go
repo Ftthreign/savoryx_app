@@ -62,6 +62,7 @@ func SetupRouter(
 	r.Use(OopsRecoverer(logger))
 	r.Use(SecurityHeaders)
 	r.Use(CORS)
+	r.Use(RequireJSONContentType)
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	healthHandler := NewHealthHandler(healthService, appVersion, appEnv)
@@ -79,7 +80,6 @@ func SetupRouter(
 			})
 		}
 
-		// Protected Domain Endpoints (Requires PASETO token)
 		if options.TokenManager != nil {
 			api.Group(func(protected chi.Router) {
 				protected.Use(AuthMiddleware(options.TokenManager))

@@ -147,13 +147,17 @@ func TestAccountHandler_ListAccounts(t *testing.T) {
 		}
 
 		var resp struct {
-			Data []map[string]any `json:"data"`
+			Data []map[string]any           `json:"data"`
+			Meta httpAdapter.PaginationMeta `json:"meta"`
 		}
 		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 		if len(resp.Data) != 1 {
 			t.Fatalf("expected 1 account, got %d", len(resp.Data))
+		}
+		if resp.Meta.Total != 1 || resp.Meta.Limit != 50 || resp.Meta.Offset != 0 {
+			t.Fatalf("unexpected pagination meta: %+v", resp.Meta)
 		}
 	})
 }

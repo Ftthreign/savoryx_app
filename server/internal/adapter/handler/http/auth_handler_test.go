@@ -105,6 +105,7 @@ func TestAuthHandler_RegisterDevice_ValidationError(t *testing.T) {
 		bodyBytes, _ := json.Marshal(reqBody)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register-device", bytes.NewReader(bodyBytes))
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -124,6 +125,7 @@ func TestAuthHandler_RegisterDevice_ValidationError(t *testing.T) {
 		bodyBytes, _ := json.Marshal(reqBody)
 
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register-device", bytes.NewReader(bodyBytes))
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -148,6 +150,7 @@ func TestAuthHandler_RegisterDevice_ServiceError(t *testing.T) {
 	bodyBytes, _ := json.Marshal(reqBody)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register-device", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

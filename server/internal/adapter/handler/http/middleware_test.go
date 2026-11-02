@@ -289,21 +289,72 @@ func TestAuthMiddleware(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, expectedID, captured)
 	})
+
+	t.Run("revoked device error returns 401 device_revoked", func(t *testing.T) {
+		var captured domain.UUID
+		mockTM := &mocks.MockTokenManager{
+			VerifyDeviceTokenFunc: func(tokenString string) (*port.DeviceClaims, error) {
+				return nil, domain.ErrDeviceRevoked
+			},
+		}
+		handler := httpAdapter.AuthMiddleware(mockTM)(dummyNextHandler(&captured))
+
+		req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+		req.Header.Set("Authorization", "Bearer revoked.device.token")
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rec.Code)
+		var errResp httpAdapter.ErrorEnvelope
+		err := json.Unmarshal(rec.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+		assert.Equal(t, "device_revoked", errResp.Error.Code)
+		assert.Equal(t, "Device authorization has been revoked", errResp.Error.Message)
+	})
 }
 
-func TestGetDeviceIDFromContext(t *testing.T) {
-	t.Run("nil context or missing key returns ErrUnauthorized", func(t *testing.T) {
-		id, err := httpAdapter.GetDeviceIDFromContext(context.Background())
+func TestDeviceIDContextExtraction(t *testing.T) {
+	validID := testutil.DefaultDeviceID
+
+	t.Run("WithDeviceID and DeviceIDFromContext happy path", func(t *testing.T) {
+		ctx := httpAdapter.WithDeviceID(context.Background(), validID)
+		extracted, err := httpAdapter.DeviceIDFromContext(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, validID, extracted)
+
+		// Test backward-compatible alias GetDeviceIDFromContext
+		extractedAlias, err := httpAdapter.GetDeviceIDFromContext(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, validID, extractedAlias)
+	})
+
+	t.Run("nil context returns ErrUnauthorized", func(t *testing.T) {
+		id, err := httpAdapter.DeviceIDFromContext(context.TODO())
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, domain.ErrUnauthorized))
 		assert.Equal(t, domain.NilUUID, id)
 	})
 
-	t.Run("context with wrong value type returns ErrUnauthorized", func(t *testing.T) {
-		// Context with an unexported key or string instead of domain.UUID
-		type otherKey string
-		ctx := context.WithValue(context.Background(), otherKey("device_id"), "not-a-uuid")
-		id, err := httpAdapter.GetDeviceIDFromContext(ctx)
+	t.Run("empty context returns ErrUnauthorized", func(t *testing.T) {
+		id, err := httpAdapter.DeviceIDFromContext(context.Background())
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrUnauthorized))
+		assert.Equal(t, domain.NilUUID, id)
+	})
+
+	t.Run("context with zero UUID returns ErrUnauthorized", func(t *testing.T) {
+		ctx := httpAdapter.WithDeviceID(context.Background(), domain.NilUUID)
+		id, err := httpAdapter.DeviceIDFromContext(ctx)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, domain.ErrUnauthorized))
+		assert.Equal(t, domain.NilUUID, id)
+	})
+
+	t.Run("key isolation - raw string key does not collide with private struct key", func(t *testing.T) {
+		type stringKey string
+		ctx := context.WithValue(context.Background(), stringKey("device_id"), validID)
+		id, err := httpAdapter.DeviceIDFromContext(ctx)
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, domain.ErrUnauthorized))
 		assert.Equal(t, domain.NilUUID, id)

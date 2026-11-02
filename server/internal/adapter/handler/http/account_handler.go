@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -23,8 +22,7 @@ func NewAccountHandler(accountService port.AccountService) *AccountHandler {
 
 func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateAccountRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request JSON body")
+	if err := DecodeJSON(w, r, &req); err != nil {
 		return
 	}
 
@@ -50,7 +48,13 @@ func (h *AccountHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, dto.ToAccountResponseList(accounts))
+	resList := dto.ToAccountResponseList(accounts)
+	meta := PaginationMeta{
+		Total:  len(resList),
+		Limit:  50,
+		Offset: 0,
+	}
+	WriteJSONWithMeta(w, http.StatusOK, resList, meta)
 }
 
 func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
@@ -79,8 +83,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.UpdateAccountRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request JSON body")
+	if err := DecodeJSON(w, r, &req); err != nil {
 		return
 	}
 
@@ -108,8 +111,7 @@ func (h *AccountHandler) UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.UpdateBalanceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request JSON body")
+	if err := DecodeJSON(w, r, &req); err != nil {
 		return
 	}
 

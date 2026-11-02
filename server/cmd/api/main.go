@@ -61,8 +61,9 @@ func main() {
 		if err != nil {
 			logger.Error("failed to initialize paseto token manager", "error", err)
 		} else {
+			txManager := postgres.NewTxManager(dbConn)
 			authService := service.NewAuthService(deviceRepo, tokenManager)
-			accountService := service.NewAccountService(accountRepo)
+			accountService := service.NewAccountService(accountRepo, txManager)
 			categoryService := service.NewCategoryService(categoryRepo)
 
 			routerOpts = append(routerOpts,
@@ -74,16 +75,16 @@ func main() {
 		}
 	}
 
-	// Configure Chi HTTP Router & Pipelines
 	r := httpAdapter.SetupRouter(logger, healthService, AppVersion, cfg.AppEnv, routerOpts...)
 
 	serverAddr := fmt.Sprintf(":%d", cfg.Port)
 	srv := &http.Server{
-		Addr:         serverAddr,
-		Handler:      r,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              serverAddr,
+		Handler:           r,
+		ReadHeaderTimeout: 3 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	serverErrors := make(chan error, 1)

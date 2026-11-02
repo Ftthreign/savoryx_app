@@ -24,6 +24,13 @@ func NewAccountRepository(d *DB) *AccountRepository {
 	}
 }
 
+func (r *AccountRepository) queries(ctx context.Context) *db.Queries {
+	if tx := ExtractTx(ctx); tx != nil {
+		return r.q.WithTx(tx)
+	}
+	return r.q
+}
+
 func (r *AccountRepository) Create(ctx context.Context, acc *domain.Account) error {
 	if acc == nil {
 		return oops.
@@ -41,7 +48,7 @@ func (r *AccountRepository) Create(ctx context.Context, acc *domain.Account) err
 		Balance:  acc.Balance,
 	}
 
-	created, err := r.q.CreateAccount(ctx, params)
+	created, err := r.queries(ctx).CreateAccount(ctx, params)
 	if err != nil {
 		return oops.
 			In("account_repository").
@@ -57,7 +64,7 @@ func (r *AccountRepository) Create(ctx context.Context, acc *domain.Account) err
 
 func (r *AccountRepository) GetByID(ctx context.Context, id domain.UUID) (*domain.Account, error) {
 	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
-	row, err := r.q.GetAccountByID(ctx, pgID)
+	row, err := r.queries(ctx).GetAccountByID(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, oops.
@@ -80,7 +87,7 @@ func (r *AccountRepository) GetByID(ctx context.Context, id domain.UUID) (*domai
 
 func (r *AccountRepository) GetByIDForUpdate(ctx context.Context, id domain.UUID) (*domain.Account, error) {
 	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
-	row, err := r.q.GetAccountByIDForUpdate(ctx, pgID)
+	row, err := r.queries(ctx).GetAccountByIDForUpdate(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, oops.
@@ -102,7 +109,7 @@ func (r *AccountRepository) GetByIDForUpdate(ctx context.Context, id domain.UUID
 }
 
 func (r *AccountRepository) List(ctx context.Context) ([]*domain.Account, error) {
-	rows, err := r.q.ListAccounts(ctx)
+	rows, err := r.queries(ctx).ListAccounts(ctx)
 	if err != nil {
 		return nil, oops.
 			In("account_repository").
@@ -124,7 +131,7 @@ func (r *AccountRepository) UpdateBalance(ctx context.Context, id domain.UUID, b
 		Balance: balance,
 	}
 
-	_, err := r.q.UpdateAccountBalance(ctx, params)
+	_, err := r.queries(ctx).UpdateAccountBalance(ctx, params)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return oops.
@@ -160,7 +167,7 @@ func (r *AccountRepository) Update(ctx context.Context, acc *domain.Account) err
 		Type: db.AccountType(acc.Type),
 	}
 
-	updated, err := r.q.UpdateAccount(ctx, params)
+	updated, err := r.queries(ctx).UpdateAccount(ctx, params)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return oops.
@@ -184,7 +191,7 @@ func (r *AccountRepository) Update(ctx context.Context, acc *domain.Account) err
 
 func (r *AccountRepository) Delete(ctx context.Context, id domain.UUID) error {
 	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
-	err := r.q.SoftDeleteAccount(ctx, pgID)
+	err := r.queries(ctx).SoftDeleteAccount(ctx, pgID)
 	if err != nil {
 		return oops.
 			In("account_repository").

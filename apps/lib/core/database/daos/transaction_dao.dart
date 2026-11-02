@@ -20,7 +20,6 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         .watch();
   }
 
-  /// Emits a continuous stream of transactions belonging to a specific account.
   Stream<List<LocalTransaction>> watchTransactionsByAccount(String accountId) {
     return (select(localTransactions)
           ..where((t) => t.deletedAt.isNull() & t.accountId.equals(accountId))
@@ -28,29 +27,23 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         .watch();
   }
 
-  /// Finds a transaction record by its unique UUID string.
   Future<LocalTransaction?> getTransactionById(String id) {
     return (select(localTransactions)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
   }
 
-  /// Inserts a transaction record directly without balance adjustment.
   Future<int> insertTransaction(LocalTransactionsCompanion companion) {
     return into(localTransactions).insert(companion);
   }
 
-  /// Atomically inserts a transaction record and adjusts the associated account balance.
-  /// Guarantees that neither record is updated without the other (zero desync).
   Future<void> createTransactionWithBalanceAdjustment({
     required LocalTransactionsCompanion transactionCompanion,
     required String accountId,
     required BigInt balanceDelta,
   }) {
     return transaction(() async {
-      // 1. Insert transaction into append-only ledger
       await into(localTransactions).insert(transactionCompanion);
 
-      // 2. Fetch target account for balance adjustment
       final account = await (select(localAccounts)
             ..where((t) => t.id.equals(accountId)))
           .getSingleOrNull();
@@ -58,10 +51,8 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         throw StateError('Cannot adjust balance: account $accountId not found');
       }
 
-      // 3. Calculate new balance using deterministic integer math
       final newBalance = account.balance + balanceDelta;
 
-      // 4. Update account balance with tombstone-safe query
       await (update(localAccounts)..where((t) => t.id.equals(accountId))).write(
         LocalAccountsCompanion(
           balance: Value(newBalance),
@@ -72,7 +63,6 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  /// Atomically soft-deletes a transaction and reverses its balance effect on the account.
   Future<void> softDeleteTransactionWithBalanceReversal({
     required String transactionId,
     required String accountId,
@@ -81,7 +71,6 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     return transaction(() async {
       final now = DateTime.now().toUtc();
 
-      // 1. Mark transaction as soft-deleted
       await (update(localTransactions)
             ..where((t) => t.id.equals(transactionId)))
           .write(
@@ -92,7 +81,6 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
-      // 2. Reverse balance impact on the account
       final account = await (select(localAccounts)
             ..where((t) => t.id.equals(accountId)))
           .getSingleOrNull();

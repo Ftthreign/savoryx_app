@@ -16,6 +16,12 @@ type ResponseEnvelope struct {
 	Meta any `json:"meta,omitempty"`
 }
 
+type PaginationMeta struct {
+	Total  int `json:"total"`
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
 type ErrorDetail struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
@@ -65,6 +71,23 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 	if err := json.NewEncoder(w).Encode(envelope); err != nil {
 		slog.Error("failed to encode error response json", "status", status, "code", code, "error", err)
 	}
+}
+
+const MaxRequestBodyBytes int64 = 64 * 1024
+
+func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(dst); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			WriteError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "Request payload exceeds maximum allowed size of 64KB")
+			return err
+		}
+		WriteError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request JSON body")
+		return err
+	}
+	return nil
 }
 
 func WriteDomainError(w http.ResponseWriter, err error) {

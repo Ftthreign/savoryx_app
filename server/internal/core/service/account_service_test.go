@@ -268,6 +268,42 @@ func TestAccountService_UpdateBalance(t *testing.T) {
 		assert.True(t, balanceUpdated, "must update balance")
 	})
 
+	t.Run("happy path - executes within transaction when txManager is provided", func(t *testing.T) {
+		lockAcquired := false
+		balanceUpdated := false
+		txManagerExecuted := false
+
+		repo := &mocks.MockAccountRepository{
+			GetByIDForUpdateFunc: func(ctx context.Context, id domain.UUID) (*domain.Account, error) {
+				lockAcquired = true
+				return &domain.Account{
+					ID:      id,
+					Name:    "Mandiri Checking",
+					Balance: decimal.NewFromInt(10000000),
+				}, nil
+			},
+			UpdateBalanceFunc: func(ctx context.Context, id domain.UUID, balance decimal.Decimal) error {
+				balanceUpdated = true
+				return nil
+			},
+		}
+
+		txMgr := &mocks.MockTxManager{
+			RunInTxFunc: func(ctx context.Context, fn func(ctx context.Context) error) error {
+				txManagerExecuted = true
+				return fn(ctx)
+			},
+		}
+
+		svc := service.NewAccountService(repo, txMgr)
+
+		err := svc.UpdateBalance(ctx, validID, newBal)
+		require.NoError(t, err)
+		assert.True(t, txManagerExecuted, "must execute inside transaction manager")
+		assert.True(t, lockAcquired, "must acquire pessimistic row lock")
+		assert.True(t, balanceUpdated, "must update balance")
+	})
+
 	t.Run("validation failure - zero ID", func(t *testing.T) {
 		repo := &mocks.MockAccountRepository{}
 		svc := service.NewAccountService(repo)

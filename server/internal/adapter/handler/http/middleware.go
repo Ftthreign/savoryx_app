@@ -96,14 +96,37 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-type contextKey string
+func RequireJSONContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
+			contentType := r.Header.Get("Content-Type")
+			if contentType == "" {
+				WriteError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
+				return
+			}
 
-const (
-	deviceIDContextKey contextKey = "device_id"
-)
+			mediaType := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+			if mediaType != "application/json" {
+				WriteError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
+				return
+			}
+		}
 
-func GetDeviceIDFromContext(ctx context.Context) (domain.UUID, error) {
-	val := ctx.Value(deviceIDContextKey)
+		next.ServeHTTP(w, r)
+	})
+}
+
+type deviceCtxKey struct{}
+
+func WithDeviceID(ctx context.Context, id domain.UUID) context.Context {
+	return context.WithValue(ctx, deviceCtxKey{}, id)
+}
+
+func DeviceIDFromContext(ctx context.Context) (domain.UUID, error) {
+	if ctx == nil {
+		return domain.NilUUID, domain.ErrUnauthorized
+	}
+	val := ctx.Value(deviceCtxKey{})
 	if val == nil {
 		return domain.NilUUID, domain.ErrUnauthorized
 	}
@@ -112,6 +135,10 @@ func GetDeviceIDFromContext(ctx context.Context) (domain.UUID, error) {
 		return domain.NilUUID, domain.ErrUnauthorized
 	}
 	return id, nil
+}
+
+func GetDeviceIDFromContext(ctx context.Context) (domain.UUID, error) {
+	return DeviceIDFromContext(ctx)
 }
 
 func AuthMiddleware(tokenManager port.TokenManager) func(next http.Handler) http.Handler {
@@ -146,6 +173,10 @@ func AuthMiddleware(tokenManager port.TokenManager) func(next http.Handler) http
 					WriteError(w, http.StatusUnauthorized, "token_expired", "Authorization token has expired")
 					return
 				}
+				if errors.Is(err, domain.ErrDeviceRevoked) {
+					WriteError(w, http.StatusUnauthorized, "device_revoked", "Device authorization has been revoked")
+					return
+				}
 				WriteError(w, http.StatusUnauthorized, "unauthorized", "Invalid or expired authorization token")
 				return
 			}
@@ -155,7 +186,7 @@ func AuthMiddleware(tokenManager port.TokenManager) func(next http.Handler) http
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), deviceIDContextKey, claims.DeviceID)
+			ctx := WithDeviceID(r.Context(), claims.DeviceID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
