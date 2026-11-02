@@ -12,6 +12,8 @@ require (
 	github.com/stretchr/testify v1.12.1
 )
 
+require github.com/robfig/cron/v3 v3.0.1 
+
 require (
 	aidanwoods.dev/go-result v0.3.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
