@@ -74,3 +74,12 @@ type FXProvider interface {
 	FetchHistoricalRates(ctx context.Context, base string, date time.Time) ([]*domain.ExchangeRate, error)
 }
 
+type FXCache interface {
+	GetRate(ctx context.Context, base, target string) (*domain.ExchangeRate, bool)
+	SetRate(ctx context.Context, rate *domain.ExchangeRate, ttl time.Duration)
+	GetLatestRates(ctx context.Context, base string) ([]*domain.ExchangeRate, bool)
+	SetLatestRates(ctx context.Context, base string, rates []*domain.ExchangeRate, ttl time.Duration)
+	Invalidate(ctx context.Context, base string)
+	InvalidateAll(ctx context.Context)
+}
+

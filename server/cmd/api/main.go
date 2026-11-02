@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ftthreign/savoryx_app/server/internal/adapter/cache"
 	"github.com/ftthreign/savoryx_app/server/internal/adapter/fx"
 	httpAdapter "github.com/ftthreign/savoryx_app/server/internal/adapter/handler/http"
 	"github.com/ftthreign/savoryx_app/server/internal/adapter/repository/postgres"
@@ -79,7 +80,8 @@ func main() {
 
 		exchangeRateRepo := postgres.NewExchangeRateRepository(dbConn)
 		fxClient := fx.NewFrankfurterClient()
-		fxWorker = worker.NewFXCronWorker(exchangeRateRepo, fxClient, logger)
+		fxCache := cache.NewMemoryFXCache(cache.DefaultCacheTTL)
+		fxWorker = worker.NewFXCronWorker(exchangeRateRepo, fxClient, logger, worker.WithCache(fxCache))
 		if err := fxWorker.Start(context.Background()); err != nil {
 			logger.Error("failed to start fx cron worker", "error", err)
 		}

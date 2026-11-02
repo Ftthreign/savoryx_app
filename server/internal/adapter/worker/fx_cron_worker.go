@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	// DefaultFXSchedule runs daily at 00:05 UTC.
 	DefaultFXSchedule  = "5 0 * * *"
 	DefaultSyncTimeout = 2 * time.Minute
 )
@@ -24,6 +23,7 @@ var defaultBaseCurrencies = []string{"USD", "EUR"}
 type FXCronWorker struct {
 	repo           port.ExchangeRateRepository
 	provider       port.FXProvider
+	cache          port.FXCache
 	logger         *slog.Logger
 	schedule       string
 	baseCurrencies []string
@@ -37,6 +37,12 @@ type FXCronWorker struct {
 }
 
 type WorkerOption func(*FXCronWorker)
+
+func WithCache(cache port.FXCache) WorkerOption {
+	return func(w *FXCronWorker) {
+		w.cache = cache
+	}
+}
 
 func WithSchedule(schedule string) WorkerOption {
 	return func(w *FXCronWorker) {
@@ -140,6 +146,9 @@ func (w *FXCronWorker) SyncRates(ctx context.Context) error {
 		}
 
 		totalUpserted += upsertCount
+		if w.cache != nil {
+			w.cache.Invalidate(ctx, base)
+		}
 		w.logger.Info("synchronized fx rates for base currency",
 			"base", base,
 			"rates_count", upsertCount,
