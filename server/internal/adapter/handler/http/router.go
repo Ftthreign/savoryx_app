@@ -12,10 +12,12 @@ import (
 )
 
 type RouterOptions struct {
-	AuthService     port.AuthService
-	AccountService  port.AccountService
-	CategoryService port.CategoryService
-	TokenManager    port.TokenManager
+	AuthService         port.AuthService
+	AccountService      port.AccountService
+	CategoryService     port.CategoryService
+	ExchangeRateService port.ExchangeRateService
+	TokenManager        port.TokenManager
+	FXRateLimiter       *RateLimiter
 }
 
 type RouterOption func(*RouterOptions)
@@ -41,6 +43,19 @@ func WithCategoryService(categoryService port.CategoryService) RouterOption {
 func WithTokenManager(tokenManager port.TokenManager) RouterOption {
 	return func(o *RouterOptions) {
 		o.TokenManager = tokenManager
+	}
+}
+
+func WithExchangeRateService(exchangeRateService port.ExchangeRateService) RouterOption {
+	return func(o *RouterOptions) {
+		o.ExchangeRateService = exchangeRateService
+	}
+}
+
+// WithFXRateLimiter overrides the default per-device limiter guarding FX endpoints.
+func WithFXRateLimiter(limiter *RateLimiter) RouterOption {
+	return func(o *RouterOptions) {
+		o.FXRateLimiter = limiter
 	}
 }
 
@@ -105,6 +120,23 @@ func SetupRouter(
 						cat.Get("/{id}", categoryHandler.GetCategory)
 						cat.Put("/{id}", categoryHandler.UpdateCategory)
 						cat.Delete("/{id}", categoryHandler.DeleteCategory)
+					})
+				}
+
+				if options.ExchangeRateService != nil {
+					fxLimiter := options.FXRateLimiter
+					if fxLimiter == nil {
+						fxLimiter = NewRateLimiter(DefaultRateLimitPerMinute)
+					}
+
+					fxHandler := NewFXHandler(options.ExchangeRateService)
+					protected.Group(func(fx chi.Router) {
+						fx.Use(RateLimitMiddleware(fxLimiter))
+						fx.Get("/currencies", fxHandler.ListCurrencies)
+						fx.Route("/rates", func(rates chi.Router) {
+							rates.Get("/latest", fxHandler.GetLatestRates)
+							rates.Get("/historical", fxHandler.GetHistoricalRate)
+						})
 					})
 				}
 			})

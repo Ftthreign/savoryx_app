@@ -191,4 +191,3 @@ func AuthMiddleware(tokenManager port.TokenManager) func(next http.Handler) http
 		})
 	}
 }
-

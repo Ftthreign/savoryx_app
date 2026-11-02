@@ -137,4 +137,3 @@ func (m *MockCategoryService) DeleteCategory(ctx context.Context, id domain.UUID
 }
 
 var _ port.CategoryService = (*MockCategoryService)(nil)
-

@@ -197,5 +197,3 @@ func TestToDomainDevice(t *testing.T) {
 		assert.Equal(t, revokedTime, *domainDev.RevokedAt)
 	})
 }
-
-

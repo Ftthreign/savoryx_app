@@ -60,3 +60,25 @@ type TxManager interface {
 	RunInTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
+type ExchangeRateRepository interface {
+	UpsertRate(ctx context.Context, rate *domain.ExchangeRate) error
+	GetLatestRate(ctx context.Context, base, target string) (*domain.ExchangeRate, error)
+	GetHistoricalRate(ctx context.Context, base, target string, date time.Time) (*domain.ExchangeRate, error)
+	ListLatestRates(ctx context.Context, base string) ([]*domain.ExchangeRate, error)
+	ListSupportedCurrencies(ctx context.Context) ([]*domain.Currency, error)
+	GetCurrency(ctx context.Context, code string) (*domain.Currency, error)
+}
+
+type FXProvider interface {
+	FetchLatestRates(ctx context.Context, base string) ([]*domain.ExchangeRate, error)
+	FetchHistoricalRates(ctx context.Context, base string, date time.Time) ([]*domain.ExchangeRate, error)
+}
+
+type FXCache interface {
+	GetRate(ctx context.Context, base, target string) (*domain.ExchangeRate, bool)
+	SetRate(ctx context.Context, rate *domain.ExchangeRate, ttl time.Duration)
+	GetLatestRates(ctx context.Context, base string) ([]*domain.ExchangeRate, bool)
+	SetLatestRates(ctx context.Context, base string, rates []*domain.ExchangeRate, ttl time.Duration)
+	Invalidate(ctx context.Context, base string)
+	InvalidateAll(ctx context.Context)
+}

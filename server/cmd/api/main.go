@@ -10,9 +10,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ftthreign/savoryx_app/server/internal/adapter/cache"
+	"github.com/ftthreign/savoryx_app/server/internal/adapter/fx"
 	httpAdapter "github.com/ftthreign/savoryx_app/server/internal/adapter/handler/http"
 	"github.com/ftthreign/savoryx_app/server/internal/adapter/repository/postgres"
 	"github.com/ftthreign/savoryx_app/server/internal/adapter/security"
+	"github.com/ftthreign/savoryx_app/server/internal/adapter/worker"
 	"github.com/ftthreign/savoryx_app/server/internal/core/service"
 )
 
@@ -51,6 +54,7 @@ func main() {
 	// Instantiate Domain Services
 	healthService := service.NewHealthService(dbConn)
 
+	var fxWorker *worker.FXCronWorker
 	var routerOpts []httpAdapter.RouterOption
 	if dbConn != nil {
 		deviceRepo := postgres.NewDeviceRepository(dbConn)
@@ -72,6 +76,17 @@ func main() {
 				httpAdapter.WithCategoryService(categoryService),
 				httpAdapter.WithTokenManager(tokenManager),
 			)
+		}
+
+		exchangeRateRepo := postgres.NewExchangeRateRepository(dbConn)
+		fxClient := fx.NewFrankfurterClient()
+		fxCache := cache.NewMemoryFXCache(cache.DefaultCacheTTL)
+		fxService := service.NewExchangeRateService(exchangeRateRepo, fxCache, fxClient)
+		routerOpts = append(routerOpts, httpAdapter.WithExchangeRateService(fxService))
+
+		fxWorker = worker.NewFXCronWorker(exchangeRateRepo, fxClient, logger, worker.WithCache(fxCache))
+		if err := fxWorker.Start(context.Background()); err != nil {
+			logger.Error("failed to start fx cron worker", "error", err)
 		}
 	}
 
@@ -112,6 +127,16 @@ func main() {
 			logger.Error("graceful shutdown failed; forcing termination", "error", err)
 			if closeErr := srv.Close(); closeErr != nil {
 				logger.Warn("forceful server close encountered error", "error", closeErr)
+			}
+		}
+
+		if fxWorker != nil {
+			logger.Info("stopping fx cron worker")
+			select {
+			case <-fxWorker.Stop().Done():
+				logger.Info("fx cron worker stopped gracefully")
+			case <-time.After(5 * time.Second):
+				logger.Warn("fx cron worker stop timed out")
 			}
 		}
 

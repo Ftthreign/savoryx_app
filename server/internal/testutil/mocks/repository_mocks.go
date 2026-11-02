@@ -181,4 +181,3 @@ func (m *MockTxManager) RunInTx(ctx context.Context, fn func(ctx context.Context
 }
 
 var _ port.TxManager = (*MockTxManager)(nil)
-

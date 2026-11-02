@@ -18,6 +18,8 @@ tags:
     description: Multi-currency financial account management with strict decimal precision
   - name: Categories
     description: Transaction categorization and Needs vs Wants classification
+  - name: Exchange Rates
+    description: Daily foreign exchange snapshots and supported currencies (rate limited to 60 requests per minute per device)
 
 components:
   securitySchemes:
@@ -28,6 +30,25 @@ components:
       description: |
         PASETO v4 local session token obtained from `/api/v1/auth/register-device`.
         Provide in the Authorization header as: `Bearer <token>`
+
+  responses:
+    TooManyRequests:
+      description: Per-device rate limit exceeded (60 requests per minute, token bucket)
+      headers:
+        Retry-After:
+          description: Seconds to wait before the next request will be accepted
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: rate_limit_exceeded
+              message: Too many requests, please retry later
 
   schemas:
     ResponseEnvelope:
@@ -326,6 +347,96 @@ components:
         - is_wants
         - created_at
         - updated_at
+
+    ExchangeRateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 01953bf6-2911-7000-8000-000000000030
+        base_currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          example: USD
+          description: 3-letter ISO 4217 base currency code
+        target_currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          example: IDR
+          description: 3-letter ISO 4217 target currency code
+        rate:
+          type: string
+          pattern: '^[0-9]+(\.[0-9]+)?$'
+          example: "16234.567891"
+          description: |
+            Units of target currency per one unit of base currency, serialized as a
+            decimal string (NUMERIC(18,6) precision). Never a JSON number, so clients
+            must parse it with a fixed-point or decimal type and never as a float.
+        effective_date:
+          type: string
+          format: date
+          example: "2026-11-02"
+          description: UTC calendar date the snapshot is valid for
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - base_currency
+        - target_currency
+        - rate
+        - effective_date
+        - updated_at
+
+    CurrencyResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          example: IDR
+        name:
+          type: string
+          example: Indonesian Rupiah
+        symbol:
+          type: string
+          example: Rp
+        decimal_places:
+          type: integer
+          example: 0
+          description: Number of minor unit digits used by the currency
+        is_active:
+          type: boolean
+          example: true
+      required:
+        - code
+        - name
+        - symbol
+        - decimal_places
+        - is_active
+
+    RateListMeta:
+      type: object
+      properties:
+        base:
+          type: string
+          example: USD
+        total:
+          type: integer
+          example: 15
+      required:
+        - base
+        - total
+
+    CurrencyListMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 15
+      required:
+        - total
 
 paths:
   /healthz:
@@ -830,3 +941,177 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/v1/currencies:
+    get:
+      summary: List supported currencies
+      description: Retrieves the master list of supported ISO 4217 currencies. Counts toward the per-device rate limit.
+      tags:
+        - Exchange Rates
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Supported currencies with total metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CurrencyResponse'
+                  meta:
+                    $ref: '#/components/schemas/CurrencyListMeta'
+                required:
+                  - data
+                  - meta
+        '401':
+          description: Unauthorized or expired PASETO token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/rates/latest:
+    get:
+      summary: Get latest exchange rates
+      description: |
+        Returns the most recent exchange rate snapshot(s) for a base currency.
+
+        - With `target`: responds with a single rate object.
+        - Without `target`: responds with every available rate for `base`, plus list metadata.
+
+        Rates are decimal strings; see the `ExchangeRateResponse.rate` schema.
+      tags:
+        - Exchange Rates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: base
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Za-z]{3}$'
+            default: USD
+          description: 3-letter ISO 4217 base currency code (case-insensitive)
+        - name: target
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Za-z]{3}$'
+          description: 3-letter ISO 4217 target currency code. Omit to list all targets.
+      responses:
+        '200':
+          description: Single rate when `target` is supplied, otherwise a rate collection
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ExchangeRateResponse'
+                    required:
+                      - data
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ExchangeRateResponse'
+                      meta:
+                        $ref: '#/components/schemas/RateListMeta'
+                    required:
+                      - data
+                      - meta
+        '400':
+          description: Invalid currency code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthorized or expired PASETO token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: No exchange rate available for the requested pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/rates/historical:
+    get:
+      summary: Get historical exchange rate
+      description: Returns the exchange rate snapshot for a base and target currency on a past UTC date.
+      tags:
+        - Exchange Rates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: base
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Za-z]{3}$'
+            default: USD
+          description: 3-letter ISO 4217 base currency code (case-insensitive)
+        - name: target
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Za-z]{3}$'
+          description: 3-letter ISO 4217 target currency code
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-10-30"
+          description: Snapshot date in YYYY-MM-DD format. Future dates are rejected.
+      responses:
+        '200':
+          description: Historical exchange rate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ExchangeRateResponse'
+                required:
+                  - data
+        '400':
+          description: Missing or invalid currency code or date parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthorized or expired PASETO token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: No snapshot exists for the requested pair and date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'

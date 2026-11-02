@@ -17,4 +17,3 @@ var (
 	ErrUnauthorized        = errors.New("unauthorized: missing or invalid authentication credentials")
 	ErrConflict            = errors.New("resource conflict: record already exists")
 )
-
