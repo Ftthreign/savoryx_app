@@ -16,7 +16,6 @@ type Currency struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-// NewCurrency constructs a validated Currency domain entity.
 func NewCurrency(code, name, symbol string, decimalPlaces int) (*Currency, error) {
 	trimmedCode := strings.ToUpper(strings.TrimSpace(code))
 	if len(trimmedCode) != 3 {
@@ -47,8 +46,6 @@ func NewCurrency(code, name, symbol string, decimalPlaces int) (*Currency, error
 	}, nil
 }
 
-// ExchangeRate represents a deterministic point-in-time exchange rate between a base currency and target currency.
-// Uses shopspring/decimal to ensure zero floating-point imprecision.
 type ExchangeRate struct {
 	ID             UUID            `json:"id"`
 	BaseCurrency   string          `json:"base_currency"`
@@ -59,7 +56,6 @@ type ExchangeRate struct {
 	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
-// NewExchangeRate constructs a validated ExchangeRate domain entity.
 func NewExchangeRate(base, target string, rate decimal.Decimal, effectiveDate time.Time) (*ExchangeRate, error) {
 	base = strings.ToUpper(strings.TrimSpace(base))
 	target = strings.ToUpper(strings.TrimSpace(target))
@@ -88,12 +84,10 @@ func NewExchangeRate(base, target string, rate decimal.Decimal, effectiveDate ti
 	}, nil
 }
 
-// Convert converts a base amount to target currency using this exchange rate: target_amount = amount * rate.
 func (e *ExchangeRate) Convert(amount decimal.Decimal) decimal.Decimal {
 	return amount.Mul(e.Rate)
 }
 
-// ConvertInverse converts target amount back to base currency: base_amount = amount / rate.
 func (e *ExchangeRate) ConvertInverse(amount decimal.Decimal) (decimal.Decimal, error) {
 	if e.Rate.IsZero() {
 		return decimal.Zero, ErrInvalidInput
