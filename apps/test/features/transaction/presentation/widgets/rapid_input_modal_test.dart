@@ -1,5 +1,8 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:savoryx/core/database/app_database.dart';
+import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/account_chip_selector.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/category_selector_grid.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/clay_keypad.dart';
@@ -204,6 +207,27 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'renders dynamic accounts and categories from AppDatabase when registered',
+        (WidgetTester tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      getIt.allowReassignment = true;
+      getIt.registerSingleton<AppDatabase>(db);
+
+      setMobileScreen(tester);
+      await tester.pumpWidget(buildTestableModal());
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Kas Tunai'), findsOneWidget);
+      expect(find.textContaining('Rekening BCA'), findsOneWidget);
+      expect(find.text('Makan Pokok'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 100));
+      await db.close();
+      await getIt.unregister<AppDatabase>();
     });
   });
 }
