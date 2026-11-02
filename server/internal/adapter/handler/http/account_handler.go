@@ -48,7 +48,13 @@ func (h *AccountHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, dto.ToAccountResponseList(accounts))
+	resList := dto.ToAccountResponseList(accounts)
+	meta := PaginationMeta{
+		Total:  len(resList),
+		Limit:  50,
+		Offset: 0,
+	}
+	WriteJSONWithMeta(w, http.StatusOK, resList, meta)
 }
 
 func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {

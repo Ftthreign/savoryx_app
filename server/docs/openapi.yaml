@@ -42,6 +42,26 @@ components:
       required:
         - data
 
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 4
+          description: Total number of records matching the query
+        limit:
+          type: integer
+          example: 50
+          description: Maximum items returned in the collection
+        offset:
+          type: integer
+          example: 0
+          description: Offset of the initial record in the collection
+      required:
+        - total
+        - limit
+        - offset
+
     ErrorEnvelope:
       type: object
       properties:
@@ -402,7 +422,7 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: List of active accounts
+          description: List of active accounts with pagination metadata
           content:
             application/json:
               schema:
@@ -412,6 +432,11 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/AccountResponse'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+                required:
+                  - data
+                  - meta
         '401':
           description: Unauthorized or expired PASETO token
           content:
@@ -644,7 +669,7 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: List of active categories
+          description: List of active categories with pagination metadata
           content:
             application/json:
               schema:
@@ -654,6 +679,11 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/CategoryResponse'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+                required:
+                  - data
+                  - meta
         '401':
           description: Unauthorized
           content:

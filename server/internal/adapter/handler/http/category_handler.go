@@ -48,7 +48,13 @@ func (h *CategoryHandler) ListCategories(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, dto.ToCategoryResponseList(categories))
+	resList := dto.ToCategoryResponseList(categories)
+	meta := PaginationMeta{
+		Total:  len(resList),
+		Limit:  50,
+		Offset: 0,
+	}
+	WriteJSONWithMeta(w, http.StatusOK, resList, meta)
 }
 
 func (h *CategoryHandler) GetCategory(w http.ResponseWriter, r *http.Request) {

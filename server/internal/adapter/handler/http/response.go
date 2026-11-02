@@ -16,6 +16,12 @@ type ResponseEnvelope struct {
 	Meta any `json:"meta,omitempty"`
 }
 
+type PaginationMeta struct {
+	Total  int `json:"total"`
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
 type ErrorDetail struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
