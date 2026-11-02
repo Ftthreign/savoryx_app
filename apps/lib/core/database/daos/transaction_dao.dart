@@ -34,6 +34,11 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         .getSingleOrNull();
   }
 
+  /// Inserts a transaction record directly without balance adjustment.
+  Future<int> insertTransaction(LocalTransactionsCompanion companion) {
+    return into(localTransactions).insert(companion);
+  }
+
   /// Atomically inserts a transaction record and adjusts the associated account balance.
   /// Guarantees that neither record is updated without the other (zero desync).
   Future<void> createTransactionWithBalanceAdjustment({
@@ -103,5 +108,34 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+  }
+
+  Future<List<LocalTransaction>> getPendingSyncTransactions() {
+    return (select(localTransactions)
+          ..where((t) => t.isSynced.equals(false))
+          ..orderBy([(t) => OrderingTerm.asc(t.updatedAt)]))
+        .get();
+  }
+
+  Future<int> markTransactionsAsSynced(List<String> ids) {
+    if (ids.isEmpty) return Future.value(0);
+    return (update(localTransactions)..where((t) => t.id.isIn(ids))).write(
+      const LocalTransactionsCompanion(
+        isSynced: Value(true),
+      ),
+    );
+  }
+
+  Future<int> reconcileRemoteTombstones(List<String> deletedIds) {
+    if (deletedIds.isEmpty) return Future.value(0);
+    final now = DateTime.now().toUtc();
+    return (update(localTransactions)..where((t) => t.id.isIn(deletedIds)))
+        .write(
+      LocalTransactionsCompanion(
+        deletedAt: Value(now),
+        updatedAt: Value(now),
+        isSynced: const Value(true),
+      ),
+    );
   }
 }

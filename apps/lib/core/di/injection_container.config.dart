@@ -14,18 +14,22 @@ import 'package:injectable/injectable.dart' as _i2;
 import '../../features/settings/presentation/bloc/theme_cubit.dart' as _i4;
 import '../../features/transaction/data/datasources/transaction_local_datasource.dart'
     as _i5;
+import '../../features/transaction/data/repositories/syncable_repository_impl.dart'
+    as _i9;
 import '../../features/transaction/data/repositories/transaction_repository_impl.dart'
     as _i7;
+import '../../features/transaction/domain/repositories/syncable_repository.dart'
+    as _i8;
 import '../../features/transaction/domain/repositories/transaction_repository.dart'
     as _i6;
 import '../../features/transaction/domain/usecases/create_transaction_usecase.dart'
-    as _i8;
-import '../../features/transaction/domain/usecases/delete_transaction_usecase.dart'
-    as _i9;
-import '../../features/transaction/domain/usecases/watch_recent_transactions_usecase.dart'
     as _i10;
-import '../../features/transaction/presentation/bloc/transaction_bloc.dart'
+import '../../features/transaction/domain/usecases/delete_transaction_usecase.dart'
     as _i11;
+import '../../features/transaction/domain/usecases/watch_recent_transactions_usecase.dart'
+    as _i12;
+import '../../features/transaction/presentation/bloc/transaction_bloc.dart'
+    as _i13;
 import '../database/app_database.dart' as _i3;
 
 extension GetItInjectableX on _i1.GetIt {
@@ -45,17 +49,20 @@ extension GetItInjectableX on _i1.GetIt {
         () => _i5.TransactionLocalDataSourceImpl(gh<_i3.AppDatabase>()));
     gh.lazySingleton<_i6.TransactionRepository>(() =>
         _i7.TransactionRepositoryImpl(gh<_i5.TransactionLocalDataSource>()));
-    gh.lazySingleton<_i8.CreateTransactionUseCase>(
-        () => _i8.CreateTransactionUseCase(gh<_i6.TransactionRepository>()));
-    gh.lazySingleton<_i9.DeleteTransactionUseCase>(
-        () => _i9.DeleteTransactionUseCase(gh<_i6.TransactionRepository>()));
-    gh.lazySingleton<_i10.WatchRecentTransactionsUseCase>(() =>
-        _i10.WatchRecentTransactionsUseCase(gh<_i6.TransactionRepository>()));
-    gh.lazySingleton<_i11.TransactionBloc>(() => _i11.TransactionBloc(
-          createTransactionUseCase: gh<_i8.CreateTransactionUseCase>(),
+    gh.lazySingleton<_i8.TransactionSyncableRepository>(() =>
+        _i9.TransactionSyncableRepositoryImpl(
+            gh<_i5.TransactionLocalDataSource>()));
+    gh.lazySingleton<_i10.CreateTransactionUseCase>(
+        () => _i10.CreateTransactionUseCase(gh<_i6.TransactionRepository>()));
+    gh.lazySingleton<_i11.DeleteTransactionUseCase>(
+        () => _i11.DeleteTransactionUseCase(gh<_i6.TransactionRepository>()));
+    gh.lazySingleton<_i12.WatchRecentTransactionsUseCase>(() =>
+        _i12.WatchRecentTransactionsUseCase(gh<_i6.TransactionRepository>()));
+    gh.lazySingleton<_i13.TransactionBloc>(() => _i13.TransactionBloc(
+          createTransactionUseCase: gh<_i10.CreateTransactionUseCase>(),
           watchRecentTransactionsUseCase:
-              gh<_i10.WatchRecentTransactionsUseCase>(),
-          deleteTransactionUseCase: gh<_i9.DeleteTransactionUseCase>(),
+              gh<_i12.WatchRecentTransactionsUseCase>(),
+          deleteTransactionUseCase: gh<_i11.DeleteTransactionUseCase>(),
         ));
     return this;
   }
