@@ -12,17 +12,21 @@ import (
 )
 
 type accountService struct {
-	repo port.AccountRepository
+	repo      port.AccountRepository
+	txManager port.TxManager
 }
 
-// NewAccountService instantiates a new AccountService domain service implementation.
-func NewAccountService(repo port.AccountRepository) port.AccountService {
+func NewAccountService(repo port.AccountRepository, txManager ...port.TxManager) port.AccountService {
+	var txMgr port.TxManager
+	if len(txManager) > 0 {
+		txMgr = txManager[0]
+	}
 	return &accountService{
-		repo: repo,
+		repo:      repo,
+		txManager: txMgr,
 	}
 }
 
-// CreateAccount validates domain rules and persists a new financial account.
 func (s *accountService) CreateAccount(ctx context.Context, acc *domain.Account) error {
 	if acc == nil {
 		return oops.
@@ -177,7 +181,6 @@ func (s *accountService) UpdateAccount(
 	return existing, nil
 }
 
-// UpdateBalance applies a new balance to an account using pessimistic row locking to prevent race conditions.
 func (s *accountService) UpdateBalance(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error {
 	if id.IsZero() {
 		return oops.
@@ -186,31 +189,38 @@ func (s *accountService) UpdateBalance(ctx context.Context, id domain.UUID, newB
 			Wrapf(domain.ErrInvalidInput, "account ID cannot be nil or zero")
 	}
 
-	// Acquire pessimistic row-lock to avoid double-spending race condition
-	acc, err := s.repo.GetByIDForUpdate(ctx, id)
-	if err != nil {
-		return err
-	}
-	if acc == nil {
-		return oops.
-			In("account_service").
-			Code("ERR_ACCOUNT_NOT_FOUND").
-			With("account_id", id.String()).
-			Wrap(domain.ErrAccountNotFound)
+	operation := func(opCtx context.Context) error {
+		// Acquire pessimistic row-lock to avoid double-spending race condition
+		acc, err := s.repo.GetByIDForUpdate(opCtx, id)
+		if err != nil {
+			return err
+		}
+		if acc == nil {
+			return oops.
+				In("account_service").
+				Code("ERR_ACCOUNT_NOT_FOUND").
+				With("account_id", id.String()).
+				Wrap(domain.ErrAccountNotFound)
+		}
+
+		if err := s.repo.UpdateBalance(opCtx, id, newBalance); err != nil {
+			return oops.
+				In("account_service").
+				Code("ERR_UPDATE_BALANCE_FAILED").
+				With("account_id", id.String()).
+				Wrapf(err, "failed to update account balance")
+		}
+
+		return nil
 	}
 
-	if err := s.repo.UpdateBalance(ctx, id, newBalance); err != nil {
-		return oops.
-			In("account_service").
-			Code("ERR_UPDATE_BALANCE_FAILED").
-			With("account_id", id.String()).
-			Wrapf(err, "failed to update account balance")
+	if s.txManager != nil {
+		return s.txManager.RunInTx(ctx, operation)
 	}
 
-	return nil
+	return operation(ctx)
 }
 
-// DeleteAccount soft-deletes an account after verifying its existence.
 func (s *accountService) DeleteAccount(ctx context.Context, id domain.UUID) error {
 	if id.IsZero() {
 		return oops.

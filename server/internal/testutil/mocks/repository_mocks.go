@@ -169,3 +169,16 @@ func (m *MockCategoryRepository) Delete(ctx context.Context, id domain.UUID) err
 
 var _ port.CategoryRepository = (*MockCategoryRepository)(nil)
 
+type MockTxManager struct {
+	RunInTxFunc func(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+func (m *MockTxManager) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	if m.RunInTxFunc != nil {
+		return m.RunInTxFunc(ctx, fn)
+	}
+	return fn(ctx)
+}
+
+var _ port.TxManager = (*MockTxManager)(nil)
+

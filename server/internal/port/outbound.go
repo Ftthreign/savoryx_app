@@ -56,3 +56,7 @@ type TokenManager interface {
 	VerifyDeviceSecret(secret, expectedHash string) bool
 }
 
+type TxManager interface {
+	RunInTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+

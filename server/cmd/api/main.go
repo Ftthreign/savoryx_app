@@ -61,8 +61,9 @@ func main() {
 		if err != nil {
 			logger.Error("failed to initialize paseto token manager", "error", err)
 		} else {
+			txManager := postgres.NewTxManager(dbConn)
 			authService := service.NewAuthService(deviceRepo, tokenManager)
-			accountService := service.NewAccountService(accountRepo)
+			accountService := service.NewAccountService(accountRepo, txManager)
 			categoryService := service.NewCategoryService(categoryRepo)
 
 			routerOpts = append(routerOpts,
