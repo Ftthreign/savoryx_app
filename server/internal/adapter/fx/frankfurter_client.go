@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultBaseURL     = "https://api.frankfurter.app"
+	DefaultBaseURL     = "https://api.frankfurter.dev"
 	DefaultHTTPTimeout = 10 * time.Second
 	MaxRetries         = 3
 	InitialBackoff     = 200 * time.Millisecond
