@@ -5,6 +5,11 @@ import 'package:savoryx/core/database/tables/categories_table.dart';
 @DataClassName('LocalTransaction')
 @TableIndex(
     name: 'idx_local_tx_acc_time', columns: {#accountId, #transactionTime})
+@TableIndex(
+    name: 'idx_local_tx_active_time', columns: {#deletedAt, #transactionTime})
+@TableIndex(name: 'idx_local_tx_acc_active_time',
+    columns: {#accountId, #deletedAt, #transactionTime})
+@TableIndex(name: 'idx_local_tx_sync', columns: {#isSynced})
 class LocalTransactions extends Table {
   TextColumn get id => text()();
   TextColumn get accountId => text().references(LocalAccounts, #id)();

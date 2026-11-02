@@ -1649,8 +1649,23 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LocalCategoriesTable(this);
   late final $LocalTransactionsTable localTransactions =
       $LocalTransactionsTable(this);
+  late final Index idxLocalAccActiveName = Index('idx_local_acc_active_name',
+      'CREATE INDEX idx_local_acc_active_name ON local_accounts (deleted_at, name)');
+  late final Index idxLocalAccSync = Index('idx_local_acc_sync',
+      'CREATE INDEX idx_local_acc_sync ON local_accounts (is_synced)');
+  late final Index idxLocalCatActiveWants = Index('idx_local_cat_active_wants',
+      'CREATE INDEX idx_local_cat_active_wants ON local_categories (deleted_at, is_wants)');
+  late final Index idxLocalCatSync = Index('idx_local_cat_sync',
+      'CREATE INDEX idx_local_cat_sync ON local_categories (is_synced)');
   late final Index idxLocalTxAccTime = Index('idx_local_tx_acc_time',
       'CREATE INDEX idx_local_tx_acc_time ON local_transactions (account_id, transaction_time)');
+  late final Index idxLocalTxActiveTime = Index('idx_local_tx_active_time',
+      'CREATE INDEX idx_local_tx_active_time ON local_transactions (deleted_at, transaction_time)');
+  late final Index idxLocalTxAccActiveTime = Index(
+      'idx_local_tx_acc_active_time',
+      'CREATE INDEX idx_local_tx_acc_active_time ON local_transactions (account_id, deleted_at, transaction_time)');
+  late final Index idxLocalTxSync = Index('idx_local_tx_sync',
+      'CREATE INDEX idx_local_tx_sync ON local_transactions (is_synced)');
   late final AccountDao accountDao = AccountDao(this as AppDatabase);
   late final CategoryDao categoryDao = CategoryDao(this as AppDatabase);
   late final TransactionDao transactionDao =
@@ -1659,8 +1674,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [localAccounts, localCategories, localTransactions, idxLocalTxAccTime];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+        localAccounts,
+        localCategories,
+        localTransactions,
+        idxLocalAccActiveName,
+        idxLocalAccSync,
+        idxLocalCatActiveWants,
+        idxLocalCatSync,
+        idxLocalTxAccTime,
+        idxLocalTxActiveTime,
+        idxLocalTxAccActiveTime,
+        idxLocalTxSync
+      ];
 }
 
 typedef $$LocalAccountsTableCreateCompanionBuilder = LocalAccountsCompanion

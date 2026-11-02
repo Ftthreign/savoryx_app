@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 
 @DataClassName('LocalCategory')
+@TableIndex(name: 'idx_local_cat_active_wants', columns: {#deletedAt, #isWants})
+@TableIndex(name: 'idx_local_cat_sync', columns: {#isSynced})
 class LocalCategories extends Table {
   TextColumn get id => text()();
   TextColumn get name => text().withLength(min: 1, max: 64)();
