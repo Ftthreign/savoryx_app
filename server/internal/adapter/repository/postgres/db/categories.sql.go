@@ -160,4 +160,3 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 	)
 	return i, err
 }
-

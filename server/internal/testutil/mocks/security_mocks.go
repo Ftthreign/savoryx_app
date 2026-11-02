@@ -9,11 +9,11 @@ import (
 
 // MockTokenManager implements port.TokenManager for unit testing.
 type MockTokenManager struct {
-	GenerateDeviceTokenFunc func(deviceID domain.UUID, ttl time.Duration) (string, error)
-	VerifyDeviceTokenFunc   func(tokenString string) (*port.DeviceClaims, error)
+	GenerateDeviceTokenFunc  func(deviceID domain.UUID, ttl time.Duration) (string, error)
+	VerifyDeviceTokenFunc    func(tokenString string) (*port.DeviceClaims, error)
 	GenerateDeviceSecretFunc func() (string, error)
-	HashDeviceSecretFunc    func(secret string) string
-	VerifyDeviceSecretFunc  func(secret, expectedHash string) bool
+	HashDeviceSecretFunc     func(secret string) string
+	VerifyDeviceSecretFunc   func(secret, expectedHash string) bool
 }
 
 func (m *MockTokenManager) GenerateDeviceToken(deviceID domain.UUID, ttl time.Duration) (string, error) {

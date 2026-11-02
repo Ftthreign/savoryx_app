@@ -12,8 +12,8 @@ import (
 
 const (
 	DefaultRateLimitPerMinute = 60
-	defaultBucketIdleTTL = 10 * time.Minute
-	defaultSweepInterval = 1 * time.Minute
+	defaultBucketIdleTTL      = 10 * time.Minute
+	defaultSweepInterval      = 1 * time.Minute
 )
 
 type tokenBucket struct {

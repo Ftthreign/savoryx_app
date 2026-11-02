@@ -82,4 +82,3 @@ type FXCache interface {
 	Invalidate(ctx context.Context, base string)
 	InvalidateAll(ctx context.Context)
 }
-

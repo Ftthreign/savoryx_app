@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	httpAdapter "github.com/ftthreign/savoryx_app/server/internal/adapter/handler/http"
@@ -19,15 +20,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// syncBuffer is a goroutine-safe log sink: the httptest server writes logs from
+// handler goroutines while the test goroutine reads them for privacy audits.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
 type TestEnv struct {
 	Server       *httptest.Server
 	Client       *http.Client
 	TokenManager port.TokenManager
-	LogBuffer    *bytes.Buffer
+	LogBuffer    *syncBuffer
+	Logger       *slog.Logger
 }
 
-func setupTestEnvironment(t *testing.T) *TestEnv {
-	logBuffer := &bytes.Buffer{}
+func setupTestEnvironment(t *testing.T, extraOpts ...httpAdapter.RouterOption) *TestEnv {
+	logBuffer := &syncBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logBuffer, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -44,15 +65,20 @@ func setupTestEnvironment(t *testing.T) *TestEnv {
 	categoryService := service.NewCategoryService(categoryRepo)
 	healthService := service.NewHealthService(&mocks.MockDatabasePinger{})
 
+	opts := []httpAdapter.RouterOption{
+		httpAdapter.WithAuthService(authService),
+		httpAdapter.WithAccountService(accountService),
+		httpAdapter.WithCategoryService(categoryService),
+		httpAdapter.WithTokenManager(tokenManager),
+	}
+	opts = append(opts, extraOpts...)
+
 	router := httpAdapter.SetupRouter(
 		logger,
 		healthService,
 		"1.0.0-test",
 		"test",
-		httpAdapter.WithAuthService(authService),
-		httpAdapter.WithAccountService(accountService),
-		httpAdapter.WithCategoryService(categoryService),
-		httpAdapter.WithTokenManager(tokenManager),
+		opts...,
 	)
 
 	server := httptest.NewServer(router)
@@ -65,6 +91,7 @@ func setupTestEnvironment(t *testing.T) *TestEnv {
 		Client:       server.Client(),
 		TokenManager: tokenManager,
 		LogBuffer:    logBuffer,
+		Logger:       logger,
 	}
 }
 

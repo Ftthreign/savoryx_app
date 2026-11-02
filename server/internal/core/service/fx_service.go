@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -15,18 +17,37 @@ type ExchangeRateService struct {
 	repo     port.ExchangeRateRepository
 	cache    port.FXCache
 	provider port.FXProvider
+	logger   *slog.Logger
+}
+
+// ExchangeRateServiceOption configures optional ExchangeRateService behavior.
+type ExchangeRateServiceOption func(*ExchangeRateService)
+
+// WithExchangeRateLogger overrides the logger used for non-fatal persistence failures.
+func WithExchangeRateLogger(logger *slog.Logger) ExchangeRateServiceOption {
+	return func(s *ExchangeRateService) {
+		if logger != nil {
+			s.logger = logger
+		}
+	}
 }
 
 func NewExchangeRateService(
 	repo port.ExchangeRateRepository,
 	cache port.FXCache,
 	provider port.FXProvider,
+	opts ...ExchangeRateServiceOption,
 ) *ExchangeRateService {
-	return &ExchangeRateService{
+	s := &ExchangeRateService{
 		repo:     repo,
 		cache:    cache,
 		provider: provider,
+		logger:   slog.Default(),
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func normalizeCurrencyCode(code string) string {
@@ -35,6 +56,31 @@ func normalizeCurrencyCode(code string) string {
 
 func isValidCurrencyCode(code string) bool {
 	return len(code) == 3
+}
+
+// persistFetched stores provider snapshots as a best-effort side effect of a read.
+// A persistence failure must not fail the read the caller is waiting on, so it is
+// logged (currency codes only, never rate values) instead of returned.
+func (s *ExchangeRateService) persistFetched(ctx context.Context, rates []*domain.ExchangeRate) {
+	for _, r := range rates {
+		if err := s.repo.UpsertRate(ctx, r); err != nil {
+			s.logger.Warn("failed to persist fallback fx rate",
+				"base", r.BaseCurrency,
+				"target", r.TargetCurrency,
+				"error", err,
+			)
+		}
+	}
+}
+
+// infraOrNotFound keeps infrastructure failures distinguishable from a genuine
+// "no such rate" outcome: a repository error that is not ErrNotFound must surface
+// as an internal error rather than being reported to clients as a 404.
+func infraOrNotFound(repoErr error, notFound error) error {
+	if repoErr != nil && !errors.Is(repoErr, domain.ErrNotFound) {
+		return repoErr
+	}
+	return notFound
 }
 
 func (s *ExchangeRateService) GetLatestRate(ctx context.Context, base, target string) (*domain.ExchangeRate, error) {
@@ -72,8 +118,8 @@ func (s *ExchangeRateService) GetLatestRate(ctx context.Context, base, target st
 	}
 
 	// 2. Query Database Repository
-	rate, err := s.repo.GetLatestRate(ctx, base, target)
-	if err == nil && rate != nil {
+	rate, repoErr := s.repo.GetLatestRate(ctx, base, target)
+	if repoErr == nil && rate != nil {
 		if s.cache != nil {
 			s.cache.SetRate(ctx, rate, 0)
 		}
@@ -84,9 +130,7 @@ func (s *ExchangeRateService) GetLatestRate(ctx context.Context, base, target st
 	if s.provider != nil {
 		fetchedRates, fetchErr := s.provider.FetchLatestRates(ctx, base)
 		if fetchErr == nil && len(fetchedRates) > 0 {
-			for _, r := range fetchedRates {
-				_ = s.repo.UpsertRate(ctx, r)
-			}
+			s.persistFetched(ctx, fetchedRates)
 			if s.cache != nil {
 				s.cache.SetLatestRates(ctx, base, fetchedRates, 0)
 			}
@@ -104,7 +148,7 @@ func (s *ExchangeRateService) GetLatestRate(ctx context.Context, base, target st
 		Code("ERR_RATE_NOT_FOUND").
 		With("base", base).
 		With("target", target).
-		Wrapf(domain.ErrNotFound, "exchange rate not found for %s/%s", base, target)
+		Wrapf(infraOrNotFound(repoErr, domain.ErrNotFound), "exchange rate not found for %s/%s", base, target)
 }
 
 func (s *ExchangeRateService) GetHistoricalRate(ctx context.Context, base, target string, date time.Time) (*domain.ExchangeRate, error) {
@@ -152,8 +196,8 @@ func (s *ExchangeRateService) GetHistoricalRate(ctx context.Context, base, targe
 	}
 
 	// 1. Query Database Repository
-	rate, err := s.repo.GetHistoricalRate(ctx, base, target, dateOnly)
-	if err == nil && rate != nil {
+	rate, repoErr := s.repo.GetHistoricalRate(ctx, base, target, dateOnly)
+	if repoErr == nil && rate != nil {
 		return rate, nil
 	}
 
@@ -161,9 +205,7 @@ func (s *ExchangeRateService) GetHistoricalRate(ctx context.Context, base, targe
 	if s.provider != nil {
 		fetchedRates, fetchErr := s.provider.FetchHistoricalRates(ctx, base, dateOnly)
 		if fetchErr == nil && len(fetchedRates) > 0 {
-			for _, r := range fetchedRates {
-				_ = s.repo.UpsertRate(ctx, r)
-			}
+			s.persistFetched(ctx, fetchedRates)
 			for _, r := range fetchedRates {
 				if strings.EqualFold(r.TargetCurrency, target) {
 					return r, nil
@@ -178,7 +220,7 @@ func (s *ExchangeRateService) GetHistoricalRate(ctx context.Context, base, targe
 		With("base", base).
 		With("target", target).
 		With("date", dateOnly.Format("2006-01-02")).
-		Wrapf(domain.ErrNotFound, "historical exchange rate not found for %s/%s on %s", base, target, dateOnly.Format("2006-01-02"))
+		Wrapf(infraOrNotFound(repoErr, domain.ErrNotFound), "historical exchange rate not found for %s/%s on %s", base, target, dateOnly.Format("2006-01-02"))
 }
 
 func (s *ExchangeRateService) ListLatestRates(ctx context.Context, base string) ([]*domain.ExchangeRate, error) {
@@ -215,9 +257,7 @@ func (s *ExchangeRateService) ListLatestRates(ctx context.Context, base string) 
 	if s.provider != nil {
 		fetchedRates, fetchErr := s.provider.FetchLatestRates(ctx, base)
 		if fetchErr == nil && len(fetchedRates) > 0 {
-			for _, r := range fetchedRates {
-				_ = s.repo.UpsertRate(ctx, r)
-			}
+			s.persistFetched(ctx, fetchedRates)
 			if s.cache != nil {
 				s.cache.SetLatestRates(ctx, base, fetchedRates, 0)
 			}

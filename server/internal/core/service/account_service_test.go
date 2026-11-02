@@ -491,4 +491,3 @@ func TestAccountService_UpdateAccount(t *testing.T) {
 		assert.True(t, errors.Is(err, domain.ErrAccountNotFound))
 	})
 }
-

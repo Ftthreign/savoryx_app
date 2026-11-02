@@ -46,4 +46,3 @@ type ExchangeRateService interface {
 	ListLatestRates(ctx context.Context, base string) ([]*domain.ExchangeRate, error)
 	ListSupportedCurrencies(ctx context.Context) ([]*domain.Currency, error)
 }
-

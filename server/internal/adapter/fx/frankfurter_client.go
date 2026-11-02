@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultBaseURL    = "https://api.frankfurter.app"
+	DefaultBaseURL     = "https://api.frankfurter.app"
 	DefaultHTTPTimeout = 10 * time.Second
 	MaxRetries         = 3
 	InitialBackoff     = 200 * time.Millisecond
@@ -163,10 +163,15 @@ func (c *FrankfurterFXClient) executeRequest(ctx context.Context, endpoint, base
 	results := make([]*domain.ExchangeRate, 0, len(frankfurterData.Rates)+1)
 
 	// Inisialisasi identitas kurs dasar (1 base = 1 base)
-	selfRate, _ := domain.NewExchangeRate(base, base, decimal.NewFromInt(1), effectiveDate)
-	if selfRate != nil {
-		results = append(results, selfRate)
+	selfRate, selfErr := domain.NewExchangeRate(base, base, decimal.NewFromInt(1), effectiveDate)
+	if selfErr != nil {
+		return nil, oops.
+			In("frankfurter_client").
+			Code("ERR_INVALID_BASE_CURRENCY").
+			With("base", base).
+			Wrap(selfErr)
 	}
+	results = append(results, selfRate)
 
 	for target, rate := range frankfurterData.Rates {
 		fxRate, err := domain.NewExchangeRate(base, target, rate, effectiveDate)
