@@ -1,0 +1,235 @@
+package db
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
+)
+
+const createExchangeRate = `-- name: CreateExchangeRate :one
+INSERT INTO exchange_rates (
+    id, base_currency, target_currency, rate, effective_date, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+)
+RETURNING id, base_currency, target_currency, rate, effective_date, created_at, updated_at
+`
+
+type CreateExchangeRateParams struct {
+	ID             pgtype.UUID     `json:"id"`
+	BaseCurrency   string          `json:"base_currency"`
+	TargetCurrency string          `json:"target_currency"`
+	Rate           decimal.Decimal `json:"rate"`
+	EffectiveDate  pgtype.Date     `json:"effective_date"`
+}
+
+func (q *Queries) CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error) {
+	row := q.db.QueryRow(ctx, createExchangeRate,
+		arg.ID,
+		arg.BaseCurrency,
+		arg.TargetCurrency,
+		arg.Rate,
+		arg.EffectiveDate,
+	)
+	var i ExchangeRate
+	err := row.Scan(
+		&i.ID,
+		&i.BaseCurrency,
+		&i.TargetCurrency,
+		&i.Rate,
+		&i.EffectiveDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertExchangeRate = `-- name: UpsertExchangeRate :one
+INSERT INTO exchange_rates (
+    id, base_currency, target_currency, rate, effective_date, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+)
+ON CONFLICT (base_currency, target_currency, effective_date)
+DO UPDATE SET
+    rate = EXCLUDED.rate,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING id, base_currency, target_currency, rate, effective_date, created_at, updated_at
+`
+
+type UpsertExchangeRateParams struct {
+	ID             pgtype.UUID     `json:"id"`
+	BaseCurrency   string          `json:"base_currency"`
+	TargetCurrency string          `json:"target_currency"`
+	Rate           decimal.Decimal `json:"rate"`
+	EffectiveDate  pgtype.Date     `json:"effective_date"`
+}
+
+func (q *Queries) UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRateParams) (ExchangeRate, error) {
+	row := q.db.QueryRow(ctx, upsertExchangeRate,
+		arg.ID,
+		arg.BaseCurrency,
+		arg.TargetCurrency,
+		arg.Rate,
+		arg.EffectiveDate,
+	)
+	var i ExchangeRate
+	err := row.Scan(
+		&i.ID,
+		&i.BaseCurrency,
+		&i.TargetCurrency,
+		&i.Rate,
+		&i.EffectiveDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLatestRate = `-- name: GetLatestRate :one
+SELECT id, base_currency, target_currency, rate, effective_date, created_at, updated_at
+FROM exchange_rates
+WHERE base_currency = $1 AND target_currency = $2
+ORDER BY effective_date DESC
+LIMIT 1
+`
+
+type GetLatestRateParams struct {
+	BaseCurrency   string `json:"base_currency"`
+	TargetCurrency string `json:"target_currency"`
+}
+
+func (q *Queries) GetLatestRate(ctx context.Context, arg GetLatestRateParams) (ExchangeRate, error) {
+	row := q.db.QueryRow(ctx, getLatestRate, arg.BaseCurrency, arg.TargetCurrency)
+	var i ExchangeRate
+	err := row.Scan(
+		&i.ID,
+		&i.BaseCurrency,
+		&i.TargetCurrency,
+		&i.Rate,
+		&i.EffectiveDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getHistoricalRateByDate = `-- name: GetHistoricalRateByDate :one
+SELECT id, base_currency, target_currency, rate, effective_date, created_at, updated_at
+FROM exchange_rates
+WHERE base_currency = $1 AND target_currency = $2 AND effective_date = $3
+LIMIT 1
+`
+
+type GetHistoricalRateByDateParams struct {
+	BaseCurrency   string      `json:"base_currency"`
+	TargetCurrency string      `json:"target_currency"`
+	EffectiveDate  pgtype.Date `json:"effective_date"`
+}
+
+func (q *Queries) GetHistoricalRateByDate(ctx context.Context, arg GetHistoricalRateByDateParams) (ExchangeRate, error) {
+	row := q.db.QueryRow(ctx, getHistoricalRateByDate, arg.BaseCurrency, arg.TargetCurrency, arg.EffectiveDate)
+	var i ExchangeRate
+	err := row.Scan(
+		&i.ID,
+		&i.BaseCurrency,
+		&i.TargetCurrency,
+		&i.Rate,
+		&i.EffectiveDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listLatestRates = `-- name: ListLatestRates :many
+SELECT DISTINCT ON (target_currency)
+    id, base_currency, target_currency, rate, effective_date, created_at, updated_at
+FROM exchange_rates
+WHERE base_currency = $1
+ORDER BY target_currency, effective_date DESC
+`
+
+func (q *Queries) ListLatestRates(ctx context.Context, baseCurrency string) ([]ExchangeRate, error) {
+	rows, err := q.db.Query(ctx, listLatestRates, baseCurrency)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExchangeRate
+	for rows.Next() {
+		var i ExchangeRate
+		if err := rows.Scan(
+			&i.ID,
+			&i.BaseCurrency,
+			&i.TargetCurrency,
+			&i.Rate,
+			&i.EffectiveDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSupportedCurrencies = `-- name: ListSupportedCurrencies :many
+SELECT code, name, symbol, decimal_places, is_active, created_at
+FROM currencies
+WHERE is_active = TRUE
+ORDER BY code ASC
+`
+
+func (q *Queries) ListSupportedCurrencies(ctx context.Context) ([]Currency, error) {
+	rows, err := q.db.Query(ctx, listSupportedCurrencies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Currency
+	for rows.Next() {
+		var i Currency
+		if err := rows.Scan(
+			&i.Code,
+			&i.Name,
+			&i.Symbol,
+			&i.DecimalPlaces,
+			&i.IsActive,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCurrencyByCode = `-- name: GetCurrencyByCode :one
+SELECT code, name, symbol, decimal_places, is_active, created_at
+FROM currencies
+WHERE code = $1
+LIMIT 1
+`
+
+func (q *Queries) GetCurrencyByCode(ctx context.Context, code string) (Currency, error) {
+	row := q.db.QueryRow(ctx, getCurrencyByCode, code)
+	var i Currency
+	err := row.Scan(
+		&i.Code,
+		&i.Name,
+		&i.Symbol,
+		&i.DecimalPlaces,
+		&i.IsActive,
+		&i.CreatedAt,
+	)
+	return i, err
+}

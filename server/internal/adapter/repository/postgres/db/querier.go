@@ -27,6 +27,13 @@ type Querier interface {
 	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error)
 	UpdateDeviceLastActive(ctx context.Context, id pgtype.UUID) error
 	UpsertUserPreferences(ctx context.Context, arg UpsertUserPreferencesParams) (UserPreference, error)
+	CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error)
+	UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRateParams) (ExchangeRate, error)
+	GetLatestRate(ctx context.Context, arg GetLatestRateParams) (ExchangeRate, error)
+	GetHistoricalRateByDate(ctx context.Context, arg GetHistoricalRateByDateParams) (ExchangeRate, error)
+	ListLatestRates(ctx context.Context, baseCurrency string) ([]ExchangeRate, error)
+	ListSupportedCurrencies(ctx context.Context) ([]Currency, error)
+	GetCurrencyByCode(ctx context.Context, code string) (Currency, error)
 }
 
 var _ Querier = (*Queries)(nil)

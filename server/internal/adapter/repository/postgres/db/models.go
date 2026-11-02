@@ -190,3 +190,22 @@ type Device struct {
 	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
 }
 
+type Currency struct {
+	Code          string             `json:"code"`
+	Name          string             `json:"name"`
+	Symbol        string             `json:"symbol"`
+	DecimalPlaces int32              `json:"decimal_places"`
+	IsActive      bool               `json:"is_active"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type ExchangeRate struct {
+	ID             pgtype.UUID        `json:"id"`
+	BaseCurrency   string             `json:"base_currency"`
+	TargetCurrency string             `json:"target_currency"`
+	Rate           decimal.Decimal    `json:"rate"`
+	EffectiveDate  pgtype.Date        `json:"effective_date"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
