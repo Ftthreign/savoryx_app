@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ftthreign/savoryx_app/server/internal/adapter/security"
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/testutil"
 	"github.com/shopspring/decimal"
@@ -72,13 +73,30 @@ func (m *mockFXService) ListSupportedCurrencies(ctx context.Context) ([]*domain.
 }
 
 func setupFXTestRouter(service *mockFXService) http.Handler {
-	return SetupRouter(
+	tm, err := security.NewPasetoTokenManager("")
+	if err != nil {
+		panic(err)
+	}
+	token, err := tm.GenerateDeviceToken(domain.NewUUIDv7(), time.Hour)
+	if err != nil {
+		panic(err)
+	}
+
+	router := SetupRouter(
 		testutil.DiscardLogger(),
 		nil,
 		"1.0.0",
 		"test",
+		WithTokenManager(tm),
 		WithExchangeRateService(service),
 	)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "" {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
+		router.ServeHTTP(w, r)
+	})
 }
 
 func TestFXHandler_GetLatestRate_Single(t *testing.T) {
