@@ -5,21 +5,49 @@ import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
 import 'package:savoryx/core/utils/currency_formatter.dart';
+import 'package:savoryx/features/search/domain/entities/search_result_entity.dart';
+import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
 
-/// Interactive result tile for ledger searches featuring keyword highlighting.
 class SearchResultTile extends StatelessWidget {
   const SearchResultTile({
     super.key,
-    required this.transaction,
+    this.transaction,
+    this.transactionEntity,
     this.highlightQuery = '',
     this.accountName,
     this.categoryName,
     this.categoryColor,
     this.categoryIcon,
     this.onTap,
-  });
+  }) : assert(
+          transaction != null || transactionEntity != null,
+          'Either transaction or transactionEntity must be provided',
+        );
 
-  final LocalTransaction transaction;
+  factory SearchResultTile.fromEntity({
+    Key? key,
+    required SearchResultEntity result,
+    String highlightQuery = '',
+    String? accountName,
+    String? categoryName,
+    String? categoryColor,
+    String? categoryIcon,
+    VoidCallback? onTap,
+  }) {
+    return SearchResultTile(
+      key: key,
+      transactionEntity: result.transaction,
+      highlightQuery: highlightQuery,
+      accountName: accountName,
+      categoryName: categoryName,
+      categoryColor: categoryColor,
+      categoryIcon: categoryIcon,
+      onTap: onTap,
+    );
+  }
+
+  final LocalTransaction? transaction;
+  final TransactionEntity? transactionEntity;
   final String highlightQuery;
   final String? accountName;
   final String? categoryName;
@@ -34,7 +62,9 @@ class SearchResultTile extends StatelessWidget {
         return Color(int.parse('0xFF$hex'));
       }
     }
-    return isDark ? ClayColors.surfaceContainerDarkHigh : ClayColors.surfaceContainerHigh;
+    return isDark
+        ? ClayColors.surfaceContainerDarkHigh
+        : ClayColors.surfaceContainerHigh;
   }
 
   IconData _resolveCategoryIcon() {
@@ -68,10 +98,14 @@ class SearchResultTile extends StatelessWidget {
   }
 
   /// Builds a [TextSpan] tree highlighting all occurrences of [highlightQuery] case-insensitively.
-  InlineSpan _buildHighlightedText(String text, String query, Color normalColor, Color highlightColor) {
+  InlineSpan _buildHighlightedText(
+      String text, String query, Color normalColor, Color highlightColor) {
     final cleanQuery = query.trim().toLowerCase();
     if (cleanQuery.isEmpty || !text.toLowerCase().contains(cleanQuery)) {
-      return TextSpan(text: text, style: ClayTypography.bodyMd(color: normalColor).copyWith(fontWeight: FontWeight.w600));
+      return TextSpan(
+          text: text,
+          style: ClayTypography.bodyMd(color: normalColor)
+              .copyWith(fontWeight: FontWeight.w600));
     }
 
     final spans = <TextSpan>[];
@@ -83,7 +117,8 @@ class SearchResultTile extends StatelessWidget {
       if (index == -1) {
         spans.add(TextSpan(
           text: text.substring(start),
-          style: ClayTypography.bodyMd(color: normalColor).copyWith(fontWeight: FontWeight.w600),
+          style: ClayTypography.bodyMd(color: normalColor)
+              .copyWith(fontWeight: FontWeight.w600),
         ));
         break;
       }
@@ -91,7 +126,8 @@ class SearchResultTile extends StatelessWidget {
       if (index > start) {
         spans.add(TextSpan(
           text: text.substring(start, index),
-          style: ClayTypography.bodyMd(color: normalColor).copyWith(fontWeight: FontWeight.w600),
+          style: ClayTypography.bodyMd(color: normalColor)
+              .copyWith(fontWeight: FontWeight.w600),
         ));
       }
 
@@ -114,13 +150,18 @@ class SearchResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? ClayColors.surfaceDark : ClayColors.surfaceContainerLowest;
+    final cardBg =
+        isDark ? ClayColors.surfaceDark : ClayColors.surfaceContainerLowest;
     final textColor = isDark ? ClayColors.onSurfaceDark : ClayColors.onSurface;
-    final subtitleColor = isDark ? ClayColors.onSurfaceVariantDark : ClayColors.outline;
-    final accentHighlight = isDark ? ClayColors.primaryHighlight : ClayColors.primary;
+    final subtitleColor =
+        isDark ? ClayColors.onSurfaceVariantDark : ClayColors.outline;
+    final accentHighlight =
+        isDark ? ClayColors.primaryHighlight : ClayColors.primary;
 
-    final isExpense = transaction.type.toUpperCase() == 'EXPENSE';
-    final isIncome = transaction.type.toUpperCase() == 'INCOME';
+    final typeStr = transaction?.type.toUpperCase() ??
+        transactionEntity!.type.toDbString().toUpperCase();
+    final isExpense = typeStr == 'EXPENSE';
+    final isIncome = typeStr == 'INCOME';
 
     final Color amountColor;
     final String amountPrefix;
@@ -136,17 +177,27 @@ class SearchResultTile extends StatelessWidget {
     }
 
     // Minor unit integer formatting
-    final amountInt = transaction.amount.toInt();
+    final int amountInt = transaction != null
+        ? transaction!.amount.toInt()
+        : transactionEntity!.amount;
+    final currency = transaction?.currency ?? transactionEntity!.currency;
+    final int baseAmountInt = transaction != null
+        ? transaction!.baseAmount.toInt()
+        : (transactionEntity!.baseAmount?.toInt() ??
+            transactionEntity!.amount);
+
     final formattedAmount = CurrencyFormatter.formatMinorUnit(
       amountInt,
-      currency: transaction.currency,
+      currency: currency,
     );
 
     // Format transaction date
-    final dateStr = DateFormat('dd MMM yyyy, HH:mm').format(transaction.transactionTime.toLocal());
-    final displayNote = (transaction.note != null && transaction.note!.isNotEmpty)
-        ? transaction.note!
-        : (categoryName ?? 'Transaksi');
+    final txDate =
+        transaction?.transactionTime ?? transactionEntity!.transactionDate;
+    final dateStr = DateFormat('dd MMM yyyy, HH:mm').format(txDate.toLocal());
+    final rawNote = transaction?.note ?? transactionEntity!.note;
+    final displayNote =
+        rawNote.isNotEmpty ? rawNote : (categoryName ?? 'Transaksi');
 
     return Semantics(
       button: true,
@@ -206,18 +257,21 @@ class SearchResultTile extends StatelessWidget {
                               Flexible(
                                 child: Text(
                                   accountName!,
-                                  style: ClayTypography.labelSm(color: subtitleColor),
+                                  style: ClayTypography.labelSm(
+                                      color: subtitleColor),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               Text(
                                 ' • ',
-                                style: ClayTypography.labelSm(color: subtitleColor),
+                                style: ClayTypography.labelSm(
+                                    color: subtitleColor),
                               ),
                             ],
                             Text(
                               dateStr,
-                              style: ClayTypography.labelSm(color: subtitleColor),
+                              style:
+                                  ClayTypography.labelSm(color: subtitleColor),
                             ),
                           ],
                         ),
@@ -232,15 +286,15 @@ class SearchResultTile extends StatelessWidget {
                     children: [
                       Text(
                         '$amountPrefix$formattedAmount',
-                        style: ClayTypography.bodyLg(color: amountColor).copyWith(
+                        style:
+                            ClayTypography.bodyLg(color: amountColor).copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      // If multi-currency, show base amount conversion in small text
-                      if (transaction.currency.toUpperCase() != 'IDR') ...[
+                      if (currency.toUpperCase() != 'IDR') ...[
                         const SizedBox(height: 2.0),
                         Text(
-                          '≈ ${CurrencyFormatter.formatMinorUnit(transaction.baseAmount.toInt(), currency: 'IDR')}',
+                          '≈ ${CurrencyFormatter.formatMinorUnit(baseAmountInt, currency: 'IDR')}',
                           style: ClayTypography.labelSm(color: subtitleColor),
                         ),
                       ],

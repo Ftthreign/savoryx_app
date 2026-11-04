@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
@@ -11,10 +12,15 @@ import 'package:savoryx/core/utils/currency_formatter.dart';
 import 'package:savoryx/core/widgets/clay_button.dart';
 import 'package:savoryx/core/widgets/clay_card.dart';
 import 'package:savoryx/features/search/domain/entities/search_filter_entity.dart';
+import 'package:savoryx/features/search/presentation/bloc/search_bloc.dart';
+import 'package:savoryx/features/search/presentation/bloc/search_event.dart';
+import 'package:savoryx/features/search/presentation/bloc/search_state.dart';
 import 'package:savoryx/features/search/presentation/widgets/clay_search_bar.dart';
 import 'package:savoryx/features/search/presentation/widgets/search_filter_bottom_sheet.dart';
 import 'package:savoryx/features/search/presentation/widgets/search_result_tile.dart';
 import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:savoryx/features/transaction/presentation/bloc/currency_bloc.dart';
+import 'package:savoryx/features/transaction/presentation/bloc/currency_event.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/currency_picker_sheet.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/dual_currency_ledger_card.dart';
 
@@ -75,6 +81,11 @@ class _OverviewTabState extends State<OverviewTab> {
         _selectedBaseCurrency = picked;
         _selectedBaseSymbol = info?.symbol ?? picked;
       });
+
+      if (getIt.isRegistered<CurrencyBloc>()) {
+        getIt<CurrencyBloc>().add(CurrencySelected(picked));
+        getIt<CurrencyBloc>().add(LoadExchangeRates(baseCurrency: picked));
+      }
     }
   }
 
@@ -83,7 +94,10 @@ class _OverviewTabState extends State<OverviewTab> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => const _OverviewSearchSheet(),
+      builder: (ctx) => BlocProvider<SearchBloc>(
+        create: (_) => getIt<SearchBloc>(),
+        child: const _OverviewSearchSheet(),
+      ),
     );
   }
 
@@ -592,6 +606,7 @@ class _OverviewTabState extends State<OverviewTab> {
 }
 
 /// Instant Search Modal Sheet for Overview Tab
+/// Instant Search Modal Sheet for Overview Tab powered by Clean Architecture SearchBloc
 class _OverviewSearchSheet extends StatefulWidget {
   const _OverviewSearchSheet();
 
@@ -600,47 +615,8 @@ class _OverviewSearchSheet extends StatefulWidget {
 }
 
 class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
-  String _query = '';
+  String _currentQuery = '';
   SearchFilterEntity _filter = SearchFilterEntity.empty;
-  List<LocalTransaction> _results = [];
-  bool _isLoading = false;
-
-  Future<void> _performSearch(String query) async {
-    setState(() {
-      _query = query;
-      _isLoading = true;
-    });
-
-    if (getIt.isRegistered<AppDatabase>()) {
-      final db = getIt<AppDatabase>();
-      try {
-        final list = query.trim().isEmpty
-            ? await db.transactionDao.watchRecentTransactions(limit: 30).first
-            : await db.ftsSearchDao.searchTransactions(query, limit: 50);
-
-        if (mounted) {
-          setState(() {
-            _results = list;
-            _isLoading = false;
-          });
-        }
-      } catch (_) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
-    } else {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _performSearch('');
-  }
 
   Future<void> _openFilterModal() async {
     List<LocalAccount> accounts = [];
@@ -659,17 +635,24 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
       categories: categories,
     );
 
-    if (updatedFilter != null) {
+    if (updatedFilter != null && mounted) {
       setState(() => _filter = updatedFilter);
-      unawaited(_performSearch(_query));
+      context.read<SearchBloc>().add(SearchFilterApplied(updatedFilter));
     }
+  }
+
+  void _onSearchDebounced(String query) {
+    _currentQuery = query;
+    context.read<SearchBloc>().add(SearchQueryChanged(query));
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetBg = isDark ? ClayColors.surfaceDark : ClayColors.surfaceContainerLowest;
-    final subtitleColor = isDark ? ClayColors.onSurfaceVariantDark : ClayColors.outline;
+    final sheetBg =
+        isDark ? ClayColors.surfaceDark : ClayColors.surfaceContainerLowest;
+    final subtitleColor =
+        isDark ? ClayColors.onSurfaceVariantDark : ClayColors.outline;
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
@@ -696,7 +679,9 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
               width: 44.0,
               height: 5.0,
               decoration: BoxDecoration(
-                color: isDark ? ClayColors.surfaceContainerDark : ClayColors.surfaceContainerHigh,
+                color: isDark
+                    ? ClayColors.surfaceContainerDark
+                    : ClayColors.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(10.0),
               ),
             ),
@@ -708,42 +693,76 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
             autofocus: true,
             hintText: 'Cari catatan, merchant, #tag...',
             hasActiveFilter: _filter.hasActiveFilter,
-            onSearchDebounced: _performSearch,
+            onSearchDebounced: _onSearchDebounced,
             onFilterTap: _openFilterModal,
           ),
           const SizedBox(height: 14.0),
 
           // Results Count & Status
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _query.isEmpty
+          BlocBuilder<SearchBloc, SearchState>(
+            builder: (context, state) {
+              final countText = switch (state) {
+                SearchLoaded(:final results) =>
+                  'Hasil Pencarian (${results.length})',
+                SearchEmpty() => 'Hasil Pencarian (0)',
+                SearchLoading() =>
+                  _currentQuery.isEmpty && !_filter.hasActiveFilter
                       ? 'Transaksi Terbaru'
-                      : 'Hasil Pencarian (${_results.length})',
-                  style: ClayTypography.labelMd(color: subtitleColor),
+                      : 'Mencari...',
+                SearchFailure() => 'Pencarian Gagal',
+                _ => 'Transaksi Terbaru',
+              };
+
+              final isLoading = state is SearchLoading;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      countText,
+                      style: ClayTypography.labelMd(color: subtitleColor),
+                    ),
+                    if (isLoading)
+                      const SizedBox(
+                        width: 14.0,
+                        height: 14.0,
+                        child: CircularProgressIndicator(strokeWidth: 2.0),
+                      ),
+                  ],
                 ),
-                if (_isLoading)
-                  const SizedBox(
-                    width: 14.0,
-                    height: 14.0,
-                    child: CircularProgressIndicator(strokeWidth: 2.0),
-                  ),
-              ],
-            ),
+              );
+            },
           ),
           const SizedBox(height: 8.0),
 
-          // Results List
+          // Results List powered by SearchBloc
           Expanded(
-            child: _results.isEmpty && !_isLoading
-                ? Center(
+            child: BlocBuilder<SearchBloc, SearchState>(
+              builder: (context, state) {
+                if (state is SearchLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                if (state is SearchFailure) {
+                  return Center(
+                    child: Text(
+                      'Gagal: ${state.message}',
+                      style: ClayTypography.bodyMd(color: subtitleColor),
+                    ),
+                  );
+                }
+
+                if (state is SearchEmpty) {
+                  return Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.search_off_rounded, size: 48.0, color: subtitleColor),
+                        Icon(Icons.search_off_rounded,
+                            size: 48.0, color: subtitleColor),
                         const SizedBox(height: 10.0),
                         Text(
                           'Tidak ada transaksi yang cocok',
@@ -751,20 +770,63 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
                         ),
                       ],
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: _results.length,
+                  );
+                }
+
+                if (state is SearchLoaded) {
+                  return ListView.builder(
+                    itemCount: state.results.length,
                     itemBuilder: (context, index) {
-                      final tx = _results[index];
-                      return SearchResultTile(
-                        transaction: tx,
-                        highlightQuery: _query,
-                        onTap: () {
-                          Navigator.pop(context);
+                      final item = state.results[index];
+                      return SearchResultTile.fromEntity(
+                        result: item,
+                        highlightQuery: state.query,
+                        onTap: () => Navigator.pop(context),
+                      );
+                    },
+                  );
+                }
+
+                // SearchInitial: Stream recent transactions from db
+                if (getIt.isRegistered<AppDatabase>()) {
+                  final db = getIt<AppDatabase>();
+                  return StreamBuilder<List<LocalTransaction>>(
+                    stream:
+                        db.transactionDao.watchRecentTransactions(limit: 30),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'Belum ada transaksi tercatat',
+                            style: ClayTypography.bodyMd(color: subtitleColor),
+                          ),
+                        );
+                      }
+
+                      final recentList = snapshot.data!;
+                      return ListView.builder(
+                        itemCount: recentList.length,
+                        itemBuilder: (context, index) {
+                          final tx = recentList[index];
+                          return SearchResultTile(
+                            transaction: tx,
+                            highlightQuery: _currentQuery,
+                            onTap: () => Navigator.pop(context),
+                          );
                         },
                       );
                     },
+                  );
+                }
+
+                return Center(
+                  child: Text(
+                    'Siap mencari',
+                    style: ClayTypography.bodyMd(color: subtitleColor),
                   ),
+                );
+              },
+            ),
           ),
         ],
       ),
