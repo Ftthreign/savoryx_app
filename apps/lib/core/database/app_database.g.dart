@@ -1641,6 +1641,350 @@ class LocalTransactionsCompanion extends UpdateCompanion<LocalTransaction> {
   }
 }
 
+class $LocalExchangeRatesTable extends LocalExchangeRates
+    with TableInfo<$LocalExchangeRatesTable, LocalExchangeRate> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalExchangeRatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _baseCurrencyMeta =
+      const VerificationMeta('baseCurrency');
+  @override
+  late final GeneratedColumn<String> baseCurrency = GeneratedColumn<String>(
+      'base_currency', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 3, maxTextLength: 3),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _targetCurrencyMeta =
+      const VerificationMeta('targetCurrency');
+  @override
+  late final GeneratedColumn<String> targetCurrency = GeneratedColumn<String>(
+      'target_currency', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 3, maxTextLength: 3),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _rateMeta = const VerificationMeta('rate');
+  @override
+  late final GeneratedColumn<BigInt> rate = GeneratedColumn<BigInt>(
+      'rate', aliasedName, false,
+      type: DriftSqlType.bigInt, requiredDuringInsert: true);
+  static const VerificationMeta _effectiveDateMeta =
+      const VerificationMeta('effectiveDate');
+  @override
+  late final GeneratedColumn<DateTime> effectiveDate =
+      GeneratedColumn<DateTime>('effective_date', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [baseCurrency, targetCurrency, rate, effectiveDate, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_exchange_rates';
+  @override
+  VerificationContext validateIntegrity(Insertable<LocalExchangeRate> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('base_currency')) {
+      context.handle(
+          _baseCurrencyMeta,
+          baseCurrency.isAcceptableOrUnknown(
+              data['base_currency']!, _baseCurrencyMeta));
+    } else if (isInserting) {
+      context.missing(_baseCurrencyMeta);
+    }
+    if (data.containsKey('target_currency')) {
+      context.handle(
+          _targetCurrencyMeta,
+          targetCurrency.isAcceptableOrUnknown(
+              data['target_currency']!, _targetCurrencyMeta));
+    } else if (isInserting) {
+      context.missing(_targetCurrencyMeta);
+    }
+    if (data.containsKey('rate')) {
+      context.handle(
+          _rateMeta, rate.isAcceptableOrUnknown(data['rate']!, _rateMeta));
+    } else if (isInserting) {
+      context.missing(_rateMeta);
+    }
+    if (data.containsKey('effective_date')) {
+      context.handle(
+          _effectiveDateMeta,
+          effectiveDate.isAcceptableOrUnknown(
+              data['effective_date']!, _effectiveDateMeta));
+    } else if (isInserting) {
+      context.missing(_effectiveDateMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey =>
+      {baseCurrency, targetCurrency, effectiveDate};
+  @override
+  LocalExchangeRate map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalExchangeRate(
+      baseCurrency: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}base_currency'])!,
+      targetCurrency: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}target_currency'])!,
+      rate: attachedDatabase.typeMapping
+          .read(DriftSqlType.bigInt, data['${effectivePrefix}rate'])!,
+      effectiveDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}effective_date'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $LocalExchangeRatesTable createAlias(String alias) {
+    return $LocalExchangeRatesTable(attachedDatabase, alias);
+  }
+}
+
+class LocalExchangeRate extends DataClass
+    implements Insertable<LocalExchangeRate> {
+  /// Base currency ISO code (e.g., 'EUR', 'USD', 'IDR').
+  final String baseCurrency;
+
+  /// Target currency ISO code (e.g., 'IDR', 'SGD', 'USD').
+  final String targetCurrency;
+
+  /// Exchange rate represented as an integer scaled by 10^6 (1,000,000).
+  ///
+  /// Example:
+  /// - A rate of 1.0 is stored as 1,000,000.
+  /// - A rate of 16,250.75 IDR/USD is stored as 16,250,750,000.
+  final BigInt rate;
+
+  /// Effective date of this exchange rate (normalized to UTC date).
+  final DateTime effectiveDate;
+
+  /// Timestamp when this record was stored locally.
+  final DateTime updatedAt;
+  const LocalExchangeRate(
+      {required this.baseCurrency,
+      required this.targetCurrency,
+      required this.rate,
+      required this.effectiveDate,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['base_currency'] = Variable<String>(baseCurrency);
+    map['target_currency'] = Variable<String>(targetCurrency);
+    map['rate'] = Variable<BigInt>(rate);
+    map['effective_date'] = Variable<DateTime>(effectiveDate);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LocalExchangeRatesCompanion toCompanion(bool nullToAbsent) {
+    return LocalExchangeRatesCompanion(
+      baseCurrency: Value(baseCurrency),
+      targetCurrency: Value(targetCurrency),
+      rate: Value(rate),
+      effectiveDate: Value(effectiveDate),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory LocalExchangeRate.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalExchangeRate(
+      baseCurrency: serializer.fromJson<String>(json['baseCurrency']),
+      targetCurrency: serializer.fromJson<String>(json['targetCurrency']),
+      rate: serializer.fromJson<BigInt>(json['rate']),
+      effectiveDate: serializer.fromJson<DateTime>(json['effectiveDate']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'baseCurrency': serializer.toJson<String>(baseCurrency),
+      'targetCurrency': serializer.toJson<String>(targetCurrency),
+      'rate': serializer.toJson<BigInt>(rate),
+      'effectiveDate': serializer.toJson<DateTime>(effectiveDate),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  LocalExchangeRate copyWith(
+          {String? baseCurrency,
+          String? targetCurrency,
+          BigInt? rate,
+          DateTime? effectiveDate,
+          DateTime? updatedAt}) =>
+      LocalExchangeRate(
+        baseCurrency: baseCurrency ?? this.baseCurrency,
+        targetCurrency: targetCurrency ?? this.targetCurrency,
+        rate: rate ?? this.rate,
+        effectiveDate: effectiveDate ?? this.effectiveDate,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  LocalExchangeRate copyWithCompanion(LocalExchangeRatesCompanion data) {
+    return LocalExchangeRate(
+      baseCurrency: data.baseCurrency.present
+          ? data.baseCurrency.value
+          : this.baseCurrency,
+      targetCurrency: data.targetCurrency.present
+          ? data.targetCurrency.value
+          : this.targetCurrency,
+      rate: data.rate.present ? data.rate.value : this.rate,
+      effectiveDate: data.effectiveDate.present
+          ? data.effectiveDate.value
+          : this.effectiveDate,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalExchangeRate(')
+          ..write('baseCurrency: $baseCurrency, ')
+          ..write('targetCurrency: $targetCurrency, ')
+          ..write('rate: $rate, ')
+          ..write('effectiveDate: $effectiveDate, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(baseCurrency, targetCurrency, rate, effectiveDate, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalExchangeRate &&
+          other.baseCurrency == this.baseCurrency &&
+          other.targetCurrency == this.targetCurrency &&
+          other.rate == this.rate &&
+          other.effectiveDate == this.effectiveDate &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalExchangeRatesCompanion extends UpdateCompanion<LocalExchangeRate> {
+  final Value<String> baseCurrency;
+  final Value<String> targetCurrency;
+  final Value<BigInt> rate;
+  final Value<DateTime> effectiveDate;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const LocalExchangeRatesCompanion({
+    this.baseCurrency = const Value.absent(),
+    this.targetCurrency = const Value.absent(),
+    this.rate = const Value.absent(),
+    this.effectiveDate = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalExchangeRatesCompanion.insert({
+    required String baseCurrency,
+    required String targetCurrency,
+    required BigInt rate,
+    required DateTime effectiveDate,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : baseCurrency = Value(baseCurrency),
+        targetCurrency = Value(targetCurrency),
+        rate = Value(rate),
+        effectiveDate = Value(effectiveDate),
+        updatedAt = Value(updatedAt);
+  static Insertable<LocalExchangeRate> custom({
+    Expression<String>? baseCurrency,
+    Expression<String>? targetCurrency,
+    Expression<BigInt>? rate,
+    Expression<DateTime>? effectiveDate,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (baseCurrency != null) 'base_currency': baseCurrency,
+      if (targetCurrency != null) 'target_currency': targetCurrency,
+      if (rate != null) 'rate': rate,
+      if (effectiveDate != null) 'effective_date': effectiveDate,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalExchangeRatesCompanion copyWith(
+      {Value<String>? baseCurrency,
+      Value<String>? targetCurrency,
+      Value<BigInt>? rate,
+      Value<DateTime>? effectiveDate,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return LocalExchangeRatesCompanion(
+      baseCurrency: baseCurrency ?? this.baseCurrency,
+      targetCurrency: targetCurrency ?? this.targetCurrency,
+      rate: rate ?? this.rate,
+      effectiveDate: effectiveDate ?? this.effectiveDate,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (baseCurrency.present) {
+      map['base_currency'] = Variable<String>(baseCurrency.value);
+    }
+    if (targetCurrency.present) {
+      map['target_currency'] = Variable<String>(targetCurrency.value);
+    }
+    if (rate.present) {
+      map['rate'] = Variable<BigInt>(rate.value);
+    }
+    if (effectiveDate.present) {
+      map['effective_date'] = Variable<DateTime>(effectiveDate.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalExchangeRatesCompanion(')
+          ..write('baseCurrency: $baseCurrency, ')
+          ..write('targetCurrency: $targetCurrency, ')
+          ..write('rate: $rate, ')
+          ..write('effectiveDate: $effectiveDate, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1649,6 +1993,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LocalCategoriesTable(this);
   late final $LocalTransactionsTable localTransactions =
       $LocalTransactionsTable(this);
+  late final $LocalExchangeRatesTable localExchangeRates =
+      $LocalExchangeRatesTable(this);
   late final Index idxLocalAccActiveName = Index('idx_local_acc_active_name',
       'CREATE INDEX idx_local_acc_active_name ON local_accounts (deleted_at, name)');
   late final Index idxLocalAccSync = Index('idx_local_acc_sync',
@@ -1666,11 +2012,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       'CREATE INDEX idx_local_tx_acc_active_time ON local_transactions (account_id, deleted_at, transaction_time)');
   late final Index idxLocalTxSync = Index('idx_local_tx_sync',
       'CREATE INDEX idx_local_tx_sync ON local_transactions (is_synced)');
+  late final Index idxLocalFxPairDate = Index('idx_local_fx_pair_date',
+      'CREATE INDEX idx_local_fx_pair_date ON local_exchange_rates (base_currency, target_currency, effective_date)');
   late final AccountDao accountDao = AccountDao(this as AppDatabase);
   late final CategoryDao categoryDao = CategoryDao(this as AppDatabase);
   late final TransactionDao transactionDao =
       TransactionDao(this as AppDatabase);
   late final FtsSearchDao ftsSearchDao = FtsSearchDao(this as AppDatabase);
+  late final ExchangeRateDao exchangeRateDao =
+      ExchangeRateDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1679,6 +2029,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         localAccounts,
         localCategories,
         localTransactions,
+        localExchangeRates,
         idxLocalAccActiveName,
         idxLocalAccSync,
         idxLocalCatActiveWants,
@@ -1686,7 +2037,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         idxLocalTxAccTime,
         idxLocalTxActiveTime,
         idxLocalTxAccActiveTime,
-        idxLocalTxSync
+        idxLocalTxSync,
+        idxLocalFxPairDate
       ];
 }
 
@@ -2413,6 +2765,135 @@ class $$LocalTransactionsTableOrderingComposer
   }
 }
 
+typedef $$LocalExchangeRatesTableCreateCompanionBuilder
+    = LocalExchangeRatesCompanion Function({
+  required String baseCurrency,
+  required String targetCurrency,
+  required BigInt rate,
+  required DateTime effectiveDate,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$LocalExchangeRatesTableUpdateCompanionBuilder
+    = LocalExchangeRatesCompanion Function({
+  Value<String> baseCurrency,
+  Value<String> targetCurrency,
+  Value<BigInt> rate,
+  Value<DateTime> effectiveDate,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$LocalExchangeRatesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $LocalExchangeRatesTable,
+    LocalExchangeRate,
+    $$LocalExchangeRatesTableFilterComposer,
+    $$LocalExchangeRatesTableOrderingComposer,
+    $$LocalExchangeRatesTableCreateCompanionBuilder,
+    $$LocalExchangeRatesTableUpdateCompanionBuilder> {
+  $$LocalExchangeRatesTableTableManager(
+      _$AppDatabase db, $LocalExchangeRatesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          filteringComposer:
+              $$LocalExchangeRatesTableFilterComposer(ComposerState(db, table)),
+          orderingComposer: $$LocalExchangeRatesTableOrderingComposer(
+              ComposerState(db, table)),
+          updateCompanionCallback: ({
+            Value<String> baseCurrency = const Value.absent(),
+            Value<String> targetCurrency = const Value.absent(),
+            Value<BigInt> rate = const Value.absent(),
+            Value<DateTime> effectiveDate = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LocalExchangeRatesCompanion(
+            baseCurrency: baseCurrency,
+            targetCurrency: targetCurrency,
+            rate: rate,
+            effectiveDate: effectiveDate,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String baseCurrency,
+            required String targetCurrency,
+            required BigInt rate,
+            required DateTime effectiveDate,
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LocalExchangeRatesCompanion.insert(
+            baseCurrency: baseCurrency,
+            targetCurrency: targetCurrency,
+            rate: rate,
+            effectiveDate: effectiveDate,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+        ));
+}
+
+class $$LocalExchangeRatesTableFilterComposer
+    extends FilterComposer<_$AppDatabase, $LocalExchangeRatesTable> {
+  $$LocalExchangeRatesTableFilterComposer(super.$state);
+  ColumnFilters<String> get baseCurrency => $state.composableBuilder(
+      column: $state.table.baseCurrency,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get targetCurrency => $state.composableBuilder(
+      column: $state.table.targetCurrency,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<BigInt> get rate => $state.composableBuilder(
+      column: $state.table.rate,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<DateTime> get effectiveDate => $state.composableBuilder(
+      column: $state.table.effectiveDate,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<DateTime> get updatedAt => $state.composableBuilder(
+      column: $state.table.updatedAt,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+}
+
+class $$LocalExchangeRatesTableOrderingComposer
+    extends OrderingComposer<_$AppDatabase, $LocalExchangeRatesTable> {
+  $$LocalExchangeRatesTableOrderingComposer(super.$state);
+  ColumnOrderings<String> get baseCurrency => $state.composableBuilder(
+      column: $state.table.baseCurrency,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get targetCurrency => $state.composableBuilder(
+      column: $state.table.targetCurrency,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<BigInt> get rate => $state.composableBuilder(
+      column: $state.table.rate,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<DateTime> get effectiveDate => $state.composableBuilder(
+      column: $state.table.effectiveDate,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<DateTime> get updatedAt => $state.composableBuilder(
+      column: $state.table.updatedAt,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+}
+
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
@@ -2422,4 +2903,6 @@ class $AppDatabaseManager {
       $$LocalCategoriesTableTableManager(_db, _db.localCategories);
   $$LocalTransactionsTableTableManager get localTransactions =>
       $$LocalTransactionsTableTableManager(_db, _db.localTransactions);
+  $$LocalExchangeRatesTableTableManager get localExchangeRates =>
+      $$LocalExchangeRatesTableTableManager(_db, _db.localExchangeRates);
 }
