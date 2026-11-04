@@ -42,6 +42,32 @@ class ClayKeypad extends StatelessWidget {
     }
   }
 
+  static const List<BoxShadow> _keyShadowsLight = [
+    BoxShadow(
+      offset: Offset(2.0, 2.5),
+      blurRadius: 4.0,
+      color: Color.fromRGBO(163, 177, 198, 0.50),
+    ),
+    BoxShadow(
+      offset: Offset(-1.5, -1.5),
+      blurRadius: 3.0,
+      color: Color.fromRGBO(255, 255, 255, 0.95),
+    ),
+  ];
+
+  static const List<BoxShadow> _keyShadowsDark = [
+    BoxShadow(
+      offset: Offset(2.0, 2.5),
+      blurRadius: 4.0,
+      color: Color.fromRGBO(0, 0, 0, 0.55),
+    ),
+    BoxShadow(
+      offset: Offset(-1.5, -1.5),
+      blurRadius: 3.0,
+      color: Color.fromRGBO(255, 255, 255, 0.08),
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -52,7 +78,7 @@ class ClayKeypad extends StatelessWidget {
       children: [
         if (showAccelerators) ...[
           _buildAcceleratorHeader(context, isDark),
-          const SizedBox(height: 10.0),
+          const SizedBox(height: 12.0),
         ],
         _buildKeypadGrid(context, isDark),
       ],
@@ -60,21 +86,24 @@ class ClayKeypad extends StatelessWidget {
   }
 
   Widget _buildAcceleratorHeader(BuildContext context, bool isDark) {
+    final shadows = isDark ? _keyShadowsDark : _keyShadowsLight;
+
     return Row(
       children: [
         ...acceleratorDenoms.map(
           (int denom) => Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2.5),
+              padding: const EdgeInsets.symmetric(horizontal: 3.0),
               child: ClayButton(
                 key: Key('clay_chip_${denom ~/ 1000}k'),
-                height: 38.0,
+                height: 36.0,
                 padding: EdgeInsets.zero,
                 semanticLabel: 'Tambah ${denom ~/ 1000} ribu Rupiah',
                 color: isDark
                     ? ClayColors.surfaceContainerDarkHigh
                     : ClayColors.tertiaryFixed,
-                borderRadius: BorderRadius.circular(19.0),
+                borderRadius: BorderRadius.circular(18.0),
+                customShadows: shadows,
                 onTap: () {
                   _triggerHaptic();
                   onAcceleratorPressed?.call(denom);
@@ -86,7 +115,7 @@ class ClayKeypad extends StatelessWidget {
                       color: isDark
                           ? ClayColors.onSurfaceDark
                           : ClayColors.onTertiaryFixed,
-                    ),
+                    ).copyWith(fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
@@ -95,18 +124,19 @@ class ClayKeypad extends StatelessWidget {
         ),
         if (showBackspaceInHeader)
           Padding(
-            padding: const EdgeInsets.only(left: 2.5),
+            padding: const EdgeInsets.only(left: 3.0),
             child: SizedBox(
-              width: 50.0,
-              height: 38.0,
+              width: 48.0,
+              height: 36.0,
               child: ClayButton(
                 key: const Key('clay_key_backspace'),
                 padding: EdgeInsets.zero,
                 semanticLabel: 'Hapus satu digit',
                 color: isDark
                     ? ClayColors.surfaceContainerDark
-                    : ClayColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(19.0),
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(18.0),
+                customShadows: shadows,
                 onTap: () {
                   _triggerHaptic();
                   onBackspace();
@@ -191,30 +221,33 @@ class ClayKeypad extends StatelessWidget {
       case _KeyType.digit:
         buttonColor = isDark
             ? ClayColors.surfaceContainerDark
-            : ClayColors.surfaceContainerLow;
+            : Colors.white;
         textColor = Theme.of(context).colorScheme.onSurface;
         break;
       case _KeyType.operator:
         buttonColor = isDark
             ? ClayColors.surfaceContainerDarkHigh
-            : ClayColors.secondaryContainer;
-        textColor = isDark
-            ? ClayColors.secondaryFixed
-            : ClayColors.onSecondaryContainer;
+            : ClayColors.secondaryFixed;
+        textColor = ClayColors.onSecondaryContainer;
         break;
       case _KeyType.clear:
-        buttonColor = ClayColors.errorContainer;
-        textColor = ClayColors.onErrorContainer;
+        buttonColor = isDark
+            ? const Color(0xFF4A1818)
+            : ClayColors.errorContainer;
+        textColor = ClayColors.error;
         break;
     }
 
+    final shadows = isDark ? _keyShadowsDark : _keyShadowsLight;
+
     return ClayButton(
       key: Key('clay_key_${item.keyId}'),
-      height: 52.0,
+      height: 48.0,
       padding: EdgeInsets.zero,
       semanticLabel: item.semanticLabel,
       color: buttonColor,
       borderRadius: BorderRadius.circular(16.0),
+      customShadows: shadows,
       onTap: () {
         switch (item.type) {
           case _KeyType.digit:
@@ -235,8 +268,12 @@ class ClayKeypad extends StatelessWidget {
         child: Text(
           item.label,
           style: item.label.length > 2
-              ? ClayTypography.headlineSm(color: textColor)
-              : ClayTypography.headlineMd(color: textColor),
+              ? ClayTypography.headlineSm(color: textColor).copyWith(
+                  fontWeight: FontWeight.w700,
+                )
+              : ClayTypography.headlineMd(color: textColor).copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
         ),
       ),
     );
@@ -250,15 +287,15 @@ enum _KeyType {
 }
 
 class _KeyItem {
-  final String label;
-  final _KeyType type;
-  final String keyId;
-  final String? semanticLabel;
-
   const _KeyItem({
     required this.label,
     required this.type,
     required this.keyId,
     this.semanticLabel,
   });
+
+  final String label;
+  final _KeyType type;
+  final String keyId;
+  final String? semanticLabel;
 }

@@ -62,7 +62,6 @@ class DualCurrencyLedgerCard extends StatelessWidget {
     );
   }
 
-  /// Factory constructor for Drift SQLite `LocalTransaction`.
   factory DualCurrencyLedgerCard.fromLocal({
     Key? key,
     required LocalTransaction transaction,
@@ -183,7 +182,6 @@ class DualCurrencyLedgerCard extends StatelessWidget {
         CurrencyConverter.supportedCurrencies[currency.toUpperCase()];
     final currencySymbol = currencyInfo?.symbol ?? currency;
 
-    // Locked rate string calculation
     String? lockedRateFormatted;
     if (isForeign && exchangeRateToBase != null) {
       final rateScaled = exchangeRateToBase!;
@@ -217,7 +215,6 @@ class DualCurrencyLedgerCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Category Icon with pastel clay bubble background
             Container(
               width: 44.0,
               height: 44.0,
@@ -228,8 +225,6 @@ class DualCurrencyLedgerCard extends StatelessWidget {
               child: Icon(catIcon, size: 22.0, color: catColor),
             ),
             const SizedBox(width: 12.0),
-
-            // Middle Column: Title, Metadata, Locked FX Pill Badge
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,8 +307,6 @@ class DualCurrencyLedgerCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10.0),
-
-            // Right Column: Dual-Currency Amounts Display
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,

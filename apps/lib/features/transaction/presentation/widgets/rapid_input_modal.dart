@@ -29,6 +29,7 @@ class RapidInputModal extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const RapidInputModal(),
     );
@@ -242,134 +243,136 @@ class _RapidInputModalState extends State<RapidInputModal> {
         boxShadow: ClayShadows.elevated(isDark: isDark, scale: 1.2),
       ),
       padding: EdgeInsets.only(
-        top: 16.0,
+        top: 14.0,
         left: 20.0,
         right: 20.0,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16.0,
       ),
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Handle Bar
-            Container(
-              width: 48.0,
-              height: 5.0,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? ClayColors.surfaceContainerDarkHigh
-                    : ClayColors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(2.5),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Handle Bar
+              Container(
+                width: 44.0,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? ClayColors.surfaceContainerDarkHigh
+                      : ClayColors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
               ),
-            ),
-            const SizedBox(height: 16.0),
+              const SizedBox(height: 14.0),
 
-            // Modal Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Log Transaction',
-                  style: ClayTypography.headlineSm(
-                    color: Theme.of(context).colorScheme.onSurface,
+              // Modal Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Log Transaction',
+                    style: ClayTypography.headlineSm(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                ),
-                ClayButton(
-                  width: 36.0,
-                  height: 36.0,
-                  padding: EdgeInsets.zero,
-                  borderRadius: BorderRadius.circular(18.0),
-                  semanticLabel: 'Tutup formulir transaksi',
-                  minTouchTarget: true,
-                  onTap: () => Navigator.pop(context),
-                  child: Icon(
-                    Icons.close,
-                    size: 18.0,
-                    color: Theme.of(context).colorScheme.onSurface,
+                  ClayButton(
+                    width: 36.0,
+                    height: 36.0,
+                    padding: EdgeInsets.zero,
+                    borderRadius: BorderRadius.circular(18.0),
+                    semanticLabel: 'Tutup formulir transaksi',
+                    minTouchTarget: true,
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 20.0,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14.0),
+                ],
+              ),
+              const SizedBox(height: 14.0),
 
-            // Category Horizontal Selector
-            StreamBuilder<List<LocalCategory>>(
-              stream: _categoriesStream,
-              builder: (context, snapshot) {
-                final List<String> categories;
-                final Map<String, bool> isWantsMap = {};
-                if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                  categories = snapshot.data!.map((c) => c.name).toList();
-                  for (final c in snapshot.data!) {
-                    isWantsMap[c.name] = c.isWants;
+              // Category Horizontal Selector
+              StreamBuilder<List<LocalCategory>>(
+                stream: _categoriesStream,
+                builder: (context, snapshot) {
+                  final List<String> categories;
+                  final Map<String, bool> isWantsMap = {};
+                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                    categories = snapshot.data!.map((c) => c.name).toList();
+                    for (final c in snapshot.data!) {
+                      isWantsMap[c.name] = c.isWants;
+                    }
+                  } else {
+                    categories = _defaultCategories;
                   }
-                } else {
-                  categories = _defaultCategories;
-                }
 
-                final currentSelected = categories.contains(_selectedCategory)
-                    ? _selectedCategory
-                    : categories.first;
+                  final currentSelected = categories.contains(_selectedCategory)
+                      ? _selectedCategory
+                      : categories.first;
 
-                return CategorySelectorGrid(
-                  categories: categories,
-                  selectedCategory: currentSelected,
-                  isWantsMap: isWantsMap.isNotEmpty ? isWantsMap : null,
-                  onCategorySelected: (cat) =>
-                      setState(() => _selectedCategory = cat),
-                );
-              },
-            ),
-            const SizedBox(height: 10.0),
+                  return CategorySelectorGrid(
+                    categories: categories,
+                    selectedCategory: currentSelected,
+                    isWantsMap: isWantsMap.isNotEmpty ? isWantsMap : null,
+                    onCategorySelected: (cat) =>
+                        setState(() => _selectedCategory = cat),
+                  );
+                },
+              ),
+              const SizedBox(height: 12.0),
 
-            // Source Account Horizontal Selector
-            StreamBuilder<List<LocalAccount>>(
-              stream: _accountsStream,
-              builder: (context, snapshot) {
-                final List<String> accounts;
-                final Map<String, String> balances = {};
-                if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                  accounts = snapshot.data!.map((a) => a.name).toList();
-                  for (final a in snapshot.data!) {
-                    final bal = a.balance.isValidInt
-                        ? a.balance.toInt()
-                        : a.balance.abs().toInt();
-                    balances[a.name] = CurrencyFormatter.formatCompactRupiah(
-                      bal,
-                      prefix: 'Rp ',
-                    );
+              // Source Account Horizontal Selector
+              StreamBuilder<List<LocalAccount>>(
+                stream: _accountsStream,
+                builder: (context, snapshot) {
+                  final List<String> accounts;
+                  final Map<String, String> balances = {};
+                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                    accounts = snapshot.data!.map((a) => a.name).toList();
+                    for (final a in snapshot.data!) {
+                      final bal = a.balance.isValidInt
+                          ? a.balance.toInt()
+                          : a.balance.abs().toInt();
+                      balances[a.name] = CurrencyFormatter.formatCompactRupiah(
+                        bal,
+                        prefix: 'Rp ',
+                      );
+                    }
+                  } else {
+                    accounts = _defaultAccounts;
                   }
-                } else {
-                  accounts = _defaultAccounts;
-                }
 
-                final currentSelected = accounts.contains(_selectedAccount)
-                    ? _selectedAccount
-                    : accounts.first;
+                  final currentSelected = accounts.contains(_selectedAccount)
+                      ? _selectedAccount
+                      : accounts.first;
 
-                return AccountChipSelector(
-                  accounts: accounts,
-                  selectedAccount: currentSelected,
-                  accountBalances: balances.isNotEmpty ? balances : null,
-                  onAccountSelected: (acc) =>
-                      setState(() => _selectedAccount = acc),
-                );
-              },
-            ),
-            const SizedBox(height: 14.0),
+                  return AccountChipSelector(
+                    accounts: accounts,
+                    selectedAccount: currentSelected,
+                    accountBalances: balances.isNotEmpty ? balances : null,
+                    onAccountSelected: (acc) =>
+                        setState(() => _selectedAccount = acc),
+                  );
+                },
+              ),
+              const SizedBox(height: 16.0),
 
-            // Giant Value Display Deck with Interactive Currency Selector & Live Math Preview
-            Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(vertical: 18.0, horizontal: 16.0),
-              decoration: BoxDecoration(
+              // Giant Value Display Deck with Interactive Currency Selector & Live Math Preview
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
+                decoration: BoxDecoration(
                 color: isDark
                     ? ClayColors.surfaceContainerDarkLow
                     : ClayColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(24.0),
+                borderRadius: BorderRadius.circular(20.0),
                 boxShadow: ClayShadows.elevated(isDark: isDark, scale: 0.8),
               ),
               child: Column(
@@ -537,7 +540,7 @@ class _RapidInputModalState extends State<RapidInputModal> {
                 ],
               ),
             ),
-            const SizedBox(height: 12.0),
+            const SizedBox(height: 16.0),
 
             // In-App Numeric Keypad Calculator with Accelerators
             ClayKeypad(
@@ -560,7 +563,7 @@ class _RapidInputModalState extends State<RapidInputModal> {
                       height: 32.0,
                       decoration: BoxDecoration(
                         color: ClayColors.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8.0),
+                        borderRadius: BorderRadius.circular(10.0),
                       ),
                       child: const Icon(
                         Icons.people_alt,
@@ -568,12 +571,12 @@ class _RapidInputModalState extends State<RapidInputModal> {
                         color: ClayColors.secondary,
                       ),
                     ),
-                    const SizedBox(width: 8.0),
+                    const SizedBox(width: 10.0),
                     Text(
                       'Mark as Talangan',
                       style: ClayTypography.bodyMd(
                         color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                      ).copyWith(fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -686,6 +689,7 @@ class _RapidInputModalState extends State<RapidInputModal> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

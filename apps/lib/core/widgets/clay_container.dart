@@ -16,6 +16,8 @@ class ClayContainer extends StatelessWidget {
     this.constraints,
     this.isPressed = false,
     this.showSpecularGlint = true,
+    this.showBorder = false,
+    this.border,
     this.customShadows,
     this.semanticLabel,
   });
@@ -30,6 +32,8 @@ class ClayContainer extends StatelessWidget {
   final BoxConstraints? constraints;
   final bool isPressed;
   final bool showSpecularGlint;
+  final bool showBorder;
+  final Border? border;
   final List<BoxShadow>? customShadows;
   final String? semanticLabel;
 
@@ -48,6 +52,16 @@ class ClayContainer extends StatelessWidget {
             ? ClayShadows.pressed(isDark: isDark)
             : ClayShadows.elevated(isDark: isDark));
 
+    final Border? effectiveBorder = showBorder
+        ? (border ??
+            Border.all(
+              color: isDark
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.white.withOpacity(0.85),
+              width: 1.5,
+            ))
+        : null;
+
     final Widget containerWidget = Container(
       width: width,
       height: height,
@@ -56,6 +70,7 @@ class ClayContainer extends StatelessWidget {
       decoration: BoxDecoration(
         color: effectiveColor,
         borderRadius: effectiveRadius,
+        border: effectiveBorder,
         boxShadow: effectiveShadows,
       ),
       child: ClipRRect(

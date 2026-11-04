@@ -61,14 +61,14 @@ class ClayBottomNavBar extends StatelessWidget {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color barColor = isDark
         ? ClayColors.surfaceContainerDarkLow
-        : ClayColors.surfaceContainerLow;
+        : ClayColors.surfaceContainerLowest;
 
     final double bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Container(
       padding: EdgeInsets.only(
-        left: 16.0,
-        right: 16.0,
+        left: 12.0,
+        right: 12.0,
         bottom: 12.0 + (bottomInset > 0 ? bottomInset - 4.0 : 0.0),
       ),
       child: Stack(
@@ -81,44 +81,65 @@ class ClayBottomNavBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: barColor,
               borderRadius: BorderRadius.circular(38.0),
-              boxShadow: [
-                BoxShadow(
-                  offset: const Offset(0.0, 8.0),
-                  blurRadius: 24.0,
-                  color: isDark
-                      ? const Color.fromRGBO(0, 0, 0, 0.70)
-                      : const Color.fromRGBO(163, 177, 198, 0.60),
-                ),
-                BoxShadow(
-                  offset: const Offset(-4.0, -4.0),
-                  blurRadius: 16.0,
-                  color: isDark
-                      ? const Color.fromRGBO(45, 52, 68, 0.25)
-                      : const Color.fromRGBO(255, 255, 255, 0.95),
-                ),
-              ],
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(0.08)
+                    : Colors.white.withOpacity(0.85),
+                width: 1.5,
+              ),
+              boxShadow: isDark
+                  ? const [
+                      BoxShadow(
+                        offset: Offset(0.0, 8.0),
+                        blurRadius: 24.0,
+                        color: Color.fromRGBO(0, 0, 0, 0.70),
+                      ),
+                    ]
+                  : const [
+                      BoxShadow(
+                        offset: Offset(0.0, 8.0),
+                        blurRadius: 20.0,
+                        color: Color(0x3B475569),
+                      ),
+                      BoxShadow(
+                        offset: Offset(0.0, 3.0),
+                        blurRadius: 6.0,
+                        color: Color(0x240F172A),
+                      ),
+                      BoxShadow(
+                        offset: Offset(-4.0, -4.0),
+                        blurRadius: 12.0,
+                        color: Colors.white,
+                      ),
+                    ],
             ),
             child: Row(
               children: [
-                // Left Tabs (Overview, Vaults)
+                // Left Tabs (Overview, Vaults) with responsive flex bounds
                 Expanded(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildTabItem(context, index: 0, item: leftTabs[0], isDark: isDark),
-                      _buildTabItem(context, index: 1, item: leftTabs[1], isDark: isDark),
+                      Expanded(
+                        child: _buildTabItem(context, index: 0, item: leftTabs[0], isDark: isDark),
+                      ),
+                      Expanded(
+                        child: _buildTabItem(context, index: 1, item: leftTabs[1], isDark: isDark),
+                      ),
                     ],
                   ),
                 ),
                 // Center Gap for FAB
-                const SizedBox(width: 72.0),
-                // Right Tabs (Health, Settings)
+                const SizedBox(width: 58.0),
+                // Right Tabs (Health, Settings) with responsive flex bounds
                 Expanded(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildTabItem(context, index: 2, item: rightTabs[0], isDark: isDark),
-                      _buildTabItem(context, index: 3, item: rightTabs[1], isDark: isDark),
+                      Expanded(
+                        child: _buildTabItem(context, index: 2, item: rightTabs[0], isDark: isDark),
+                      ),
+                      Expanded(
+                        child: _buildTabItem(context, index: 3, item: rightTabs[1], isDark: isDark),
+                      ),
                     ],
                   ),
                 ),
@@ -138,9 +159,9 @@ class ClayBottomNavBar extends StatelessWidget {
               onTap: onFabTap,
               child: const Center(
                 child: Icon(
-                  Icons.add,
-                  size: 32.0,
+                  Icons.add_rounded,
                   color: Colors.white,
+                  size: 36.0,
                 ),
               ),
             ),
@@ -156,55 +177,62 @@ class ClayBottomNavBar extends StatelessWidget {
     required ClayNavItem item,
     required bool isDark,
   }) {
-    final bool isActive = currentIndex == index;
-    const Color activeColor = ClayColors.primary;
+    final bool isSelected = currentIndex == index;
+    final Color activeColor = Theme.of(context).colorScheme.primary;
     final Color inactiveColor = isDark
         ? ClayColors.onSurfaceVariantDark
         : ClayColors.onSurfaceVariant;
 
-    final Color tabBgColor = isActive
-        ? (isDark ? ClayColors.surfaceContainerDarkHigh : ClayColors.surfaceContainerHigh)
-        : Colors.transparent;
-
-    final List<BoxShadow>? tabShadows = isActive
-        ? ClayShadows.pressed(isDark: isDark, scale: 0.7)
-        : null;
-
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap(index);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        width: 58.0,
-        height: 58.0,
-        decoration: BoxDecoration(
-          color: tabBgColor,
-          borderRadius: BorderRadius.circular(18.0),
-          boxShadow: tabShadows,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isActive ? item.activeIcon : item.icon,
-              size: 22.0,
-              color: isActive ? activeColor : inactiveColor,
-            ),
-            const SizedBox(height: 2.0),
-            Text(
-              item.label,
-              style: ClayTypography.labelSm(
-                color: isActive ? activeColor : inactiveColor,
-              ).copyWith(
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                fontSize: 9.5,
+    return Semantics(
+      selected: isSelected,
+      button: true,
+      label: item.label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (!isSelected) {
+            HapticFeedback.selectionClick();
+            onTap(index);
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.symmetric(horizontal: 2.0),
+          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 6.0),
+          decoration: isSelected
+              ? BoxDecoration(
+                  color: isDark
+                      ? ClayColors.surfaceContainerDarkHigh
+                      : ClayColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(18.0),
+                  boxShadow: ClayShadows.pressed(isDark: isDark, scale: 0.8),
+                )
+              : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isSelected ? item.activeIcon : item.icon,
+                color: isSelected ? activeColor : inactiveColor,
+                size: 22.0,
               ),
-            ),
-          ],
+              const SizedBox(height: 2.0),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  style: ClayTypography.labelSm(
+                    color: isSelected ? activeColor : inactiveColor,
+                  ).copyWith(
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
