@@ -126,4 +126,15 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
+
+  Future<int> softDeleteTransaction(String id) {
+    final now = DateTime.now().toUtc();
+    return (update(localTransactions)..where((t) => t.id.equals(id))).write(
+      LocalTransactionsCompanion(
+        deletedAt: Value(now),
+        updatedAt: Value(now),
+        isSynced: const Value(false),
+      ),
+    );
+  }
 }
