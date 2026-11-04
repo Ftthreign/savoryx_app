@@ -1,13 +1,28 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
 import 'package:savoryx/core/utils/constants.dart';
+import 'package:savoryx/core/utils/currency_converter.dart';
 import 'package:savoryx/core/utils/currency_formatter.dart';
 import 'package:savoryx/core/widgets/clay_button.dart';
 import 'package:savoryx/core/widgets/clay_card.dart';
+import 'package:savoryx/features/search/domain/entities/search_filter_entity.dart';
+import 'package:savoryx/features/search/presentation/bloc/search_bloc.dart';
+import 'package:savoryx/features/search/presentation/bloc/search_event.dart';
+import 'package:savoryx/features/search/presentation/bloc/search_state.dart';
+import 'package:savoryx/features/search/presentation/widgets/clay_search_bar.dart';
+import 'package:savoryx/features/search/presentation/widgets/search_filter_bottom_sheet.dart';
+import 'package:savoryx/features/search/presentation/widgets/search_result_tile.dart';
+import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:savoryx/features/transaction/presentation/bloc/currency_bloc.dart';
+import 'package:savoryx/features/transaction/presentation/bloc/currency_event.dart';
+import 'package:savoryx/features/transaction/presentation/widgets/currency_picker_sheet.dart';
+import 'package:savoryx/features/transaction/presentation/widgets/dual_currency_ledger_card.dart';
 
 class OverviewTab extends StatefulWidget {
   const OverviewTab({super.key});
@@ -19,6 +34,8 @@ class OverviewTab extends StatefulWidget {
 class _OverviewTabState extends State<OverviewTab> {
   bool _isMasked = false;
   int _stashedFund = 45000;
+  String _selectedBaseCurrency = 'IDR';
+  String _selectedBaseSymbol = 'Rp';
 
   Stream<List<LocalAccount>>? _accountsStream;
   Stream<List<LocalTransaction>>? _transactionsStream;
@@ -52,6 +69,38 @@ class _OverviewTabState extends State<OverviewTab> {
     );
   }
 
+  Future<void> _openCurrencyPicker() async {
+    final picked = await CurrencyPickerSheet.show(
+      context,
+      selectedCurrency: _selectedBaseCurrency,
+    );
+
+    if (picked != null && picked != _selectedBaseCurrency) {
+      final info = CurrencyConverter.supportedCurrencies[picked];
+      setState(() {
+        _selectedBaseCurrency = picked;
+        _selectedBaseSymbol = info?.symbol ?? picked;
+      });
+
+      if (getIt.isRegistered<CurrencyBloc>()) {
+        getIt<CurrencyBloc>().add(CurrencySelected(picked));
+        getIt<CurrencyBloc>().add(LoadExchangeRates(baseCurrency: picked));
+      }
+    }
+  }
+
+  void _openSearchModal() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BlocProvider<SearchBloc>(
+        create: (_) => getIt<SearchBloc>(),
+        child: const _OverviewSearchSheet(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -66,45 +115,70 @@ class _OverviewTabState extends State<OverviewTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'PULSESPEND // SAVORYX',
-                      style: ClayTypography.labelSm(
-                        color: ClayColors.onSurfaceVariant,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'PULSESPEND // SAVORYX',
+                        style: ClayTypography.labelSm(
+                          color: ClayColors.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Overview',
-                      style: ClayTypography.headlineSm(
+                      Text(
+                        'Overview',
+                        style: ClayTypography.headlineSm(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8.0),
+                Row(
+                  children: [
+                    // Search Bar Trigger Button
+                    ClayButton(
+                      key: const Key('overview_search_button'),
+                      width: 40.0,
+                      height: 40.0,
+                      padding: EdgeInsets.zero,
+                      borderRadius: BorderRadius.circular(20.0),
+                      semanticLabel: 'Cari transaksi',
+                      onTap: _openSearchModal,
+                      child: Icon(
+                        Icons.search_rounded,
+                        size: 20.0,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                  ],
-                ),
-                Row(
-                  children: [
+                    const SizedBox(width: 8.0),
+
+                    // Currency Selector Button
                     ClayButton(
+                      key: const Key('overview_currency_button'),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12.0,
                         vertical: 8.0,
                       ),
                       borderRadius: BorderRadius.circular(18.0),
-                      onTap: () {},
+                      onTap: _openCurrencyPicker,
                       child: Text(
-                        'IDR (Rp)',
+                        '$_selectedBaseCurrency ($_selectedBaseSymbol)',
                         style: ClayTypography.labelMd(
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8.0),
+
+                    // Privacy Shield Button
                     ClayButton(
                       width: 40.0,
                       height: 40.0,
                       padding: EdgeInsets.zero,
                       borderRadius: BorderRadius.circular(20.0),
+                      semanticLabel: 'Sembunyikan saldo',
                       onTap: _toggleMask,
                       child: Icon(
                         _isMasked ? Icons.visibility_off : Icons.visibility,
@@ -423,26 +497,12 @@ class _OverviewTabState extends State<OverviewTab> {
         final transactions = snapshot.data!;
         return Column(
           children: transactions.map((tx) {
-            final isExpense = tx.type == 'EXPENSE';
-            final int rawAmount = tx.amount.isValidInt
-                ? tx.amount.toInt()
-                : tx.amount.abs().toInt();
-            final int amount = isExpense ? -rawAmount : rawAmount;
-            final timeFormatted =
-                DateFormat('HH:mm').format(tx.transactionTime);
-            final title = tx.note?.isNotEmpty == true
-                ? tx.note!
-                : (tx.categoryId ?? tx.type);
-
             return Padding(
               padding: const EdgeInsets.only(bottom: 10.0),
-              child: _buildLedgerItem(
-                title,
-                amount,
-                timeFormatted,
-                tx.accountId,
-                isExpense ? Icons.shopping_bag_outlined : Icons.arrow_downward,
-                isExpense ? ClayColors.primary : ClayColors.tertiary,
+              child: DualCurrencyLedgerCard.fromLocal(
+                transaction: tx,
+                accountName: tx.accountId,
+                isMasked: _isMasked,
               ),
             );
           }).toList(),
@@ -454,31 +514,39 @@ class _OverviewTabState extends State<OverviewTab> {
   Widget _buildDefaultLedgerList() {
     return Column(
       children: [
-        _buildLedgerItem(
-          'Kopi Kenangan Senopati',
-          -38000,
-          '10:42 AM',
-          'GoPay',
-          Icons.local_cafe,
-          ClayColors.primary,
+        DualCurrencyLedgerCard(
+          title: 'Kopi Kenangan Senopati',
+          amount: 38000,
+          currency: 'IDR',
+          type: TransactionType.expense,
+          time: '10:42 AM',
+          pocketOrAccount: 'GoPay',
+          categoryIcon: 'coffee',
+          isMasked: _isMasked,
         ),
         const SizedBox(height: 10.0),
-        _buildLedgerItem(
-          'Freelance UI Sprint',
-          3500000,
-          'Yesterday',
-          'BCA Main',
-          Icons.arrow_downward,
-          ClayColors.tertiary,
+        DualCurrencyLedgerCard(
+          title: 'Freelance UI Sprint',
+          amount: 3500000,
+          currency: 'IDR',
+          type: TransactionType.income,
+          time: 'Yesterday',
+          pocketOrAccount: 'BCA Main',
+          categoryIcon: 'receipt',
+          isMasked: _isMasked,
         ),
         const SizedBox(height: 10.0),
-        _buildLedgerItem(
-          'Makan Malam Sushi Tei',
-          -180000,
-          'Monday, 19:15',
-          'Mandiri',
-          Icons.restaurant,
-          ClayColors.primary,
+        DualCurrencyLedgerCard(
+          title: 'Figma Pro Subscription',
+          amount: 15,
+          currency: 'USD',
+          baseAmount: 243750,
+          exchangeRateToBase: BigInt.from(16250000000),
+          type: TransactionType.expense,
+          time: 'Monday, 19:15',
+          pocketOrAccount: 'Rekening BCA',
+          categoryIcon: 'shopping',
+          isMasked: _isMasked,
         ),
       ],
     );
@@ -535,68 +603,229 @@ class _OverviewTabState extends State<OverviewTab> {
       ),
     );
   }
+}
 
-  Widget _buildLedgerItem(
-    String title,
-    int amount,
-    String time,
-    String pocket,
-    IconData icon,
-    Color color,
-  ) {
-    final isIncome = amount > 0;
-    final prefix = isIncome ? '+' : '';
+/// Instant Search Modal Sheet for Overview Tab
+/// Instant Search Modal Sheet for Overview Tab powered by Clean Architecture SearchBloc
+class _OverviewSearchSheet extends StatefulWidget {
+  const _OverviewSearchSheet();
 
-    return ClayCard(
-      borderRadius: BorderRadius.circular(20.0),
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  @override
+  State<_OverviewSearchSheet> createState() => _OverviewSearchSheetState();
+}
+
+class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
+  String _currentQuery = '';
+  SearchFilterEntity _filter = SearchFilterEntity.empty;
+
+  Future<void> _openFilterModal() async {
+    List<LocalAccount> accounts = [];
+    List<LocalCategory> categories = [];
+    if (getIt.isRegistered<AppDatabase>()) {
+      final db = getIt<AppDatabase>();
+      accounts = await db.accountDao.getAllActiveAccounts();
+      categories = await db.categoryDao.getAllActiveCategories();
+    }
+
+    if (!mounted) return;
+    final updatedFilter = await SearchFilterBottomSheet.show(
+      context,
+      initialFilter: _filter,
+      accounts: accounts,
+      categories: categories,
+    );
+
+    if (updatedFilter != null && mounted) {
+      setState(() => _filter = updatedFilter);
+      context.read<SearchBloc>().add(SearchFilterApplied(updatedFilter));
+    }
+  }
+
+  void _onSearchDebounced(String query) {
+    _currentQuery = query;
+    context.read<SearchBloc>().add(SearchQueryChanged(query));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg =
+        isDark ? ClayColors.surfaceDark : ClayColors.surfaceContainerLowest;
+    final subtitleColor =
+        isDark ? ClayColors.onSurfaceVariantDark : ClayColors.outline;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: screenHeight * 0.85,
+      ),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28.0)),
+        boxShadow: ClayShadows.elevated(isDark: isDark, scale: 1.2),
+      ),
+      padding: EdgeInsets.only(
+        left: 20.0,
+        right: 20.0,
+        top: 14.0,
+        bottom: 20.0 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Row(
-              children: [
-                Container(
-                  width: 42.0,
-                  height: 42.0,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(14.0),
-                  ),
-                  child: Icon(icon, size: 22.0, color: color),
-                ),
-                const SizedBox(width: 12.0),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ClayTypography.bodyLg(
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      Text(
-                        '$time • $pocket',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ClayTypography.bodySm(
-                          color: ClayColors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          // Drag Handle
+          Center(
+            child: Container(
+              width: 44.0,
+              height: 5.0,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? ClayColors.surfaceContainerDark
+                    : ClayColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10.0),
+              ),
             ),
           ),
-          const SizedBox(width: 12.0),
-          Text(
-            '$prefix${CurrencyFormatter.formatMasked(amount, isMasked: _isMasked)}',
-            style: ClayTypography.headlineSm(
-              color: isIncome ? ClayColors.tertiary : ClayColors.primary,
+          const SizedBox(height: 16.0),
+
+          // Search Bar
+          ClaySearchBar(
+            autofocus: true,
+            hintText: 'Cari catatan, merchant, #tag...',
+            hasActiveFilter: _filter.hasActiveFilter,
+            onSearchDebounced: _onSearchDebounced,
+            onFilterTap: _openFilterModal,
+          ),
+          const SizedBox(height: 14.0),
+
+          // Results Count & Status
+          BlocBuilder<SearchBloc, SearchState>(
+            builder: (context, state) {
+              final countText = switch (state) {
+                SearchLoaded(:final results) =>
+                  'Hasil Pencarian (${results.length})',
+                SearchEmpty() => 'Hasil Pencarian (0)',
+                SearchLoading() =>
+                  _currentQuery.isEmpty && !_filter.hasActiveFilter
+                      ? 'Transaksi Terbaru'
+                      : 'Mencari...',
+                SearchFailure() => 'Pencarian Gagal',
+                _ => 'Transaksi Terbaru',
+              };
+
+              final isLoading = state is SearchLoading;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      countText,
+                      style: ClayTypography.labelMd(color: subtitleColor),
+                    ),
+                    if (isLoading)
+                      const SizedBox(
+                        width: 14.0,
+                        height: 14.0,
+                        child: CircularProgressIndicator(strokeWidth: 2.0),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8.0),
+
+          // Results List powered by SearchBloc
+          Expanded(
+            child: BlocBuilder<SearchBloc, SearchState>(
+              builder: (context, state) {
+                if (state is SearchLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                if (state is SearchFailure) {
+                  return Center(
+                    child: Text(
+                      'Gagal: ${state.message}',
+                      style: ClayTypography.bodyMd(color: subtitleColor),
+                    ),
+                  );
+                }
+
+                if (state is SearchEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.search_off_rounded,
+                            size: 48.0, color: subtitleColor),
+                        const SizedBox(height: 10.0),
+                        Text(
+                          'Tidak ada transaksi yang cocok',
+                          style: ClayTypography.bodyMd(color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (state is SearchLoaded) {
+                  return ListView.builder(
+                    itemCount: state.results.length,
+                    itemBuilder: (context, index) {
+                      final item = state.results[index];
+                      return SearchResultTile.fromEntity(
+                        result: item,
+                        highlightQuery: state.query,
+                        onTap: () => Navigator.pop(context),
+                      );
+                    },
+                  );
+                }
+
+                // SearchInitial: Stream recent transactions from db
+                if (getIt.isRegistered<AppDatabase>()) {
+                  final db = getIt<AppDatabase>();
+                  return StreamBuilder<List<LocalTransaction>>(
+                    stream:
+                        db.transactionDao.watchRecentTransactions(limit: 30),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'Belum ada transaksi tercatat',
+                            style: ClayTypography.bodyMd(color: subtitleColor),
+                          ),
+                        );
+                      }
+
+                      final recentList = snapshot.data!;
+                      return ListView.builder(
+                        itemCount: recentList.length,
+                        itemBuilder: (context, index) {
+                          final tx = recentList[index];
+                          return SearchResultTile(
+                            transaction: tx,
+                            highlightQuery: _currentQuery,
+                            onTap: () => Navigator.pop(context),
+                          );
+                        },
+                      );
+                    },
+                  );
+                }
+
+                return Center(
+                  child: Text(
+                    'Siap mencari',
+                    style: ClayTypography.bodyMd(color: subtitleColor),
+                  ),
+                );
+              },
             ),
           ),
         ],

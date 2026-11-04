@@ -20,6 +20,18 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         .watch();
   }
 
+  /// Fetches a one-time snapshot of recent active transactions ordered by event time descending.
+  Future<List<LocalTransaction>> getRecentTransactions({
+    int limit = 50,
+    int offset = 0,
+  }) {
+    return (select(localTransactions)
+          ..where((t) => t.deletedAt.isNull())
+          ..orderBy([(t) => OrderingTerm.desc(t.transactionTime)])
+          ..limit(limit, offset: offset))
+        .get();
+  }
+
   Stream<List<LocalTransaction>> watchTransactionsByAccount(String accountId) {
     return (select(localTransactions)
           ..where((t) => t.deletedAt.isNull() & t.accountId.equals(accountId))
@@ -123,6 +135,17 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         deletedAt: Value(now),
         updatedAt: Value(now),
         isSynced: const Value(true),
+      ),
+    );
+  }
+
+  Future<int> softDeleteTransaction(String id) {
+    final now = DateTime.now().toUtc();
+    return (update(localTransactions)..where((t) => t.id.equals(id))).write(
+      LocalTransactionsCompanion(
+        deletedAt: Value(now),
+        updatedAt: Value(now),
+        isSynced: const Value(false),
       ),
     );
   }

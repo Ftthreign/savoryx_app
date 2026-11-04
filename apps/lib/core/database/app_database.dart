@@ -7,17 +7,32 @@ import 'package:uuid/uuid.dart';
 import 'package:savoryx/core/database/connection/native.dart' as impl;
 import 'package:savoryx/core/database/daos/account_dao.dart';
 import 'package:savoryx/core/database/daos/category_dao.dart';
+import 'package:savoryx/core/database/daos/exchange_rate_dao.dart';
+import 'package:savoryx/core/database/daos/fts_search_dao.dart';
 import 'package:savoryx/core/database/daos/transaction_dao.dart';
 import 'package:savoryx/core/database/tables/accounts_table.dart';
 import 'package:savoryx/core/database/tables/categories_table.dart';
+import 'package:savoryx/core/database/tables/exchange_rates_table.dart';
+import 'package:savoryx/core/database/tables/transactions_fts_table.dart';
 import 'package:savoryx/core/database/tables/transactions_table.dart';
 
 part 'app_database.g.dart';
 
 @lazySingleton
 @DriftDatabase(
-  tables: [LocalAccounts, LocalCategories, LocalTransactions],
-  daos: [AccountDao, CategoryDao, TransactionDao],
+  tables: [
+    LocalAccounts,
+    LocalCategories,
+    LocalTransactions,
+    LocalExchangeRates,
+  ],
+  daos: [
+    AccountDao,
+    CategoryDao,
+    TransactionDao,
+    FtsSearchDao,
+    ExchangeRateDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(impl.connect());
@@ -32,15 +47,24 @@ class AppDatabase extends _$AppDatabase {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
+        await _createFtsTableAndTriggers();
         await seedDefaultData();
       },
       onUpgrade: (Migrator m, int from, int to) async {
         // Migration strategies for future schema increments
       },
       beforeOpen: (OpeningDetails details) async {
-        // Additional hook before queries are allowed
+        await _createFtsTableAndTriggers();
       },
     );
+  }
+
+  Future<void> _createFtsTableAndTriggers() async {
+    await customStatement(TransactionsFtsTable.createTableSql);
+    await customStatement(TransactionsFtsTable.createInsertTriggerSql);
+    await customStatement(TransactionsFtsTable.createUpdateTriggerSql);
+    await customStatement(TransactionsFtsTable.createDeleteTriggerSql);
+    await customStatement(TransactionsFtsTable.backfillSql);
   }
 
   Future<void> seedDefaultData() async {

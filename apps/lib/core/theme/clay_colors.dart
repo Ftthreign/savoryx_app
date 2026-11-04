@@ -35,11 +35,12 @@ abstract final class ClayColors {
   static const Color onErrorContainer = Color(0xFF93000A);
 
   // --- Neutral Canvas & Surfaces: Clay Light Theme ---
-  static const Color canvasLight = Color(0xFFF9F9F9);
-  static const Color surfaceLight = Color(0xFFF9F9F9);
-  static const Color surfaceContainerLow = Color(0xFFF3F3F3);
-  static const Color surfaceContainer = Color(0xFFEEEEEE);
-  static const Color surfaceContainerHigh = Color(0xFFE8E8E8);
+  // A subtle cool clay slate canvas gives white cards a distinct, tangible 3D pop.
+  static const Color canvasLight = Color(0xFFE2E8F0);
+  static const Color surfaceLight = Color(0xFFE2E8F0);
+  static const Color surfaceContainerLow = Color(0xFFEDF2F7);
+  static const Color surfaceContainer = Color(0xFFE2E8F0);
+  static const Color surfaceContainerHigh = Color(0xFFCBD5E1);
   static const Color surfaceContainerLowest = Color(0xFFFFFFFF);
   static const Color onSurface = Color(0xFF1B1B1B);
   static const Color onSurfaceVariant = Color(0xFF5E3F3A);
@@ -60,10 +61,12 @@ abstract final class ClayColors {
   static const Color oledBlack = Color(0xFF000000);
 
   // --- Claymorphism Dual-Shadow Physics (Light Mode) ---
-  static const Color shadowDark = Color.fromRGBO(163, 177, 198, 0.55);
-  static const Color shadowLight = Color.fromRGBO(255, 255, 255, 0.95);
-  static const Color shadowDarkInset = Color.fromRGBO(163, 177, 198, 0.50);
-  static const Color shadowLightInset = Color.fromRGBO(255, 255, 255, 0.80);
+  // Saturated slate drop shadows ensure 3D elevation is crisply visible on any screen.
+  static const Color shadowDark = Color(0x3B475569);
+  static const Color shadowContact = Color(0x240F172A);
+  static const Color shadowLight = Color(0xFFFFFFFF);
+  static const Color shadowDarkInset = Color(0x40334155);
+  static const Color shadowLightInset = Color(0xCCFFFFFF);
 
   // --- Claymorphism Dual-Shadow Physics (Dark Mode) ---
   static const Color shadowDarkDark = Color.fromRGBO(0, 0, 0, 0.65);

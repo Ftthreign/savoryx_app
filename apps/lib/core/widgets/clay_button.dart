@@ -21,6 +21,8 @@ class ClayButton extends StatefulWidget {
     this.semanticLabel,
     this.semanticHint,
     this.minTouchTarget = false,
+    this.customShadows,
+    this.border,
   });
 
   final Widget child;
@@ -35,6 +37,8 @@ class ClayButton extends StatefulWidget {
   final String? semanticLabel;
   final String? semanticHint;
   final bool minTouchTarget;
+  final List<BoxShadow>? customShadows;
+  final Border? border;
 
   @override
   State<ClayButton> createState() => _ClayButtonState();
@@ -114,11 +118,17 @@ class _ClayButtonState extends State<ClayButton>
                 ? ClayColors.surfaceContainerDark
                 : ClayColors.surfaceContainerLow));
 
-    final List<BoxShadow> effectiveShadows = widget.isPrimaryCta
-        ? ClayShadows.primaryCta(isPressed: _isPressed)
-        : (_isPressed
-            ? ClayShadows.pressed(isDark: isDark)
-            : ClayShadows.elevated(isDark: isDark));
+    final List<BoxShadow> effectiveShadows;
+    if (_isPressed) {
+      effectiveShadows = widget.isPrimaryCta
+          ? ClayShadows.primaryCta(isPressed: true)
+          : ClayShadows.pressed(isDark: isDark, scale: 0.8);
+    } else {
+      effectiveShadows = widget.customShadows ??
+          (widget.isPrimaryCta
+              ? ClayShadows.primaryCta(isPressed: false)
+              : ClayShadows.elevated(isDark: isDark));
+    }
 
     final Widget buttonCore = Listener(
       behavior: HitTestBehavior.opaque,
@@ -146,6 +156,7 @@ class _ClayButtonState extends State<ClayButton>
             decoration: BoxDecoration(
               color: effectiveColor,
               borderRadius: effectiveRadius,
+              border: widget.border,
               boxShadow: effectiveShadows,
             ),
             child: widget.child,
