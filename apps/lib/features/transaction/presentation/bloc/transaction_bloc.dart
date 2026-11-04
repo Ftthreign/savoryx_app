@@ -7,7 +7,6 @@ import 'package:savoryx/features/transaction/domain/usecases/watch_recent_transa
 import 'package:savoryx/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:savoryx/features/transaction/presentation/bloc/transaction_state.dart';
 
-/// Feature-First Clean Architecture BLoC managing transaction state transitions.
 @lazySingleton
 class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   final CreateTransactionUseCase _createTransactionUseCase;
@@ -36,7 +35,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     await emit.forEach<List<TransactionEntity>>(
       _watchRecentTransactionsUseCase(limit: event.limit),
       onData: (transactions) => TransactionLoaded(transactions: transactions),
-      onError: (error, stackTrace) => TransactionFailure(message: error.toString()),
+      onError: (error, stackTrace) =>
+          TransactionFailure(message: error.toString()),
     );
   }
 
@@ -67,7 +67,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     emit(const TransactionLoading());
     try {
       await _deleteTransactionUseCase(event.id);
-      emit(const TransactionSuccess(message: 'Transaction deleted successfully'));
+      emit(const TransactionSuccess(
+          message: 'Transaction deleted successfully'));
     } catch (e) {
       emit(TransactionFailure(message: e.toString()));
     }

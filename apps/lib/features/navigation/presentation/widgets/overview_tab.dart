@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
@@ -11,6 +10,14 @@ import 'package:savoryx/core/utils/currency_converter.dart';
 import 'package:savoryx/core/utils/currency_formatter.dart';
 import 'package:savoryx/core/widgets/clay_button.dart';
 import 'package:savoryx/core/widgets/clay_card.dart';
+import 'package:savoryx/features/account/domain/entities/account_entity.dart';
+import 'package:savoryx/features/account/domain/usecases/get_accounts_usecase.dart';
+import 'package:savoryx/features/category/domain/entities/category_entity.dart';
+import 'package:savoryx/features/category/domain/usecases/get_categories_usecase.dart';
+import 'package:savoryx/features/navigation/domain/entities/safe_to_spend_entity.dart';
+import 'package:savoryx/features/navigation/presentation/bloc/overview_bloc.dart';
+import 'package:savoryx/features/navigation/presentation/bloc/overview_event.dart';
+import 'package:savoryx/features/navigation/presentation/bloc/overview_state.dart';
 import 'package:savoryx/features/search/domain/entities/search_filter_entity.dart';
 import 'package:savoryx/features/search/presentation/bloc/search_bloc.dart';
 import 'package:savoryx/features/search/presentation/bloc/search_event.dart';
@@ -24,63 +31,50 @@ import 'package:savoryx/features/transaction/presentation/bloc/currency_event.da
 import 'package:savoryx/features/transaction/presentation/widgets/currency_picker_sheet.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/dual_currency_ledger_card.dart';
 
-class OverviewTab extends StatefulWidget {
-  const OverviewTab({super.key});
+/// Presentation widget representing the Overview / PulseSpend screen.
+/// Completely decoupled from SQLite/Drift DAOs and orchestrated via OverviewBloc.
+class OverviewTab extends StatelessWidget {
+  const OverviewTab({super.key, this.bloc});
+
+  final OverviewBloc? bloc;
 
   @override
-  State<OverviewTab> createState() => _OverviewTabState();
+  Widget build(BuildContext context) {
+    if (bloc != null) {
+      return BlocProvider<OverviewBloc>.value(
+        value: bloc!,
+        child: const _OverviewContentView(),
+      );
+    }
+
+    return BlocProvider<OverviewBloc>(
+      create: (_) => getIt<OverviewBloc>()..add(const OverviewLoadStarted()),
+      child: const _OverviewContentView(),
+    );
+  }
 }
 
-class _OverviewTabState extends State<OverviewTab> {
-  bool _isMasked = false;
-  int _stashedFund = 45000;
-  String _selectedBaseCurrency = 'IDR';
-  String _selectedBaseSymbol = 'Rp';
+class _OverviewContentView extends StatelessWidget {
+  const _OverviewContentView();
 
-  Stream<List<LocalAccount>>? _accountsStream;
-  Stream<List<LocalTransaction>>? _transactionsStream;
-
-  @override
-  void initState() {
-    super.initState();
-    _initStreams();
-  }
-
-  void _initStreams() {
-    if (getIt.isRegistered<AppDatabase>()) {
-      final db = getIt<AppDatabase>();
-      _accountsStream = db.accountDao.watchAllActiveAccounts();
-      _transactionsStream =
-          db.transactionDao.watchRecentTransactions(limit: 20);
-    }
-  }
-
-  void _toggleMask() {
-    setState(() => _isMasked = !_isMasked);
-  }
-
-  void _stashImpulse() {
-    setState(() => _stashedFund += 45000);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Impulse deflected! +Rp 45k moved to Sinking Fund'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-  }
-
-  Future<void> _openCurrencyPicker() async {
+  Future<void> _openCurrencyPicker(
+    BuildContext context,
+    String currentCurrency,
+  ) async {
     final picked = await CurrencyPickerSheet.show(
       context,
-      selectedCurrency: _selectedBaseCurrency,
+      selectedCurrency: currentCurrency,
     );
 
-    if (picked != null && picked != _selectedBaseCurrency) {
+    if (picked != null && picked != currentCurrency) {
       final info = CurrencyConverter.supportedCurrencies[picked];
-      setState(() {
-        _selectedBaseCurrency = picked;
-        _selectedBaseSymbol = info?.symbol ?? picked;
-      });
+      final symbol = info?.symbol ?? picked;
+
+      if (context.mounted) {
+        context.read<OverviewBloc>().add(
+              OverviewCurrencyChanged(picked, symbol),
+            );
+      }
 
       if (getIt.isRegistered<CurrencyBloc>()) {
         getIt<CurrencyBloc>().add(CurrencySelected(picked));
@@ -89,7 +83,7 @@ class _OverviewTabState extends State<OverviewTab> {
     }
   }
 
-  void _openSearchModal() {
+  void _openSearchModal(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -103,205 +97,215 @@ class _OverviewTabState extends State<OverviewTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: SingleChildScrollView(
-        key: const PageStorageKey<String>('overview_scroll_view'),
-        padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 110.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Top Bar
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return BlocBuilder<OverviewBloc, OverviewState>(
+      builder: (context, state) {
+        return SafeArea(
+          bottom: false,
+          child: SingleChildScrollView(
+            key: const PageStorageKey<String>('overview_scroll_view'),
+            padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 110.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'PULSESPEND // SAVORYX',
-                        style: ClayTypography.labelSm(
-                          color: ClayColors.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        'Overview',
-                        style: ClayTypography.headlineSm(
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8.0),
+                // Header Top Bar
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Search Bar Trigger Button
-                    ClayButton(
-                      key: const Key('overview_search_button'),
-                      width: 40.0,
-                      height: 40.0,
-                      padding: EdgeInsets.zero,
-                      borderRadius: BorderRadius.circular(20.0),
-                      semanticLabel: 'Cari transaksi',
-                      onTap: _openSearchModal,
-                      child: Icon(
-                        Icons.search_rounded,
-                        size: 20.0,
-                        color: Theme.of(context).colorScheme.onSurface,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PULSESPEND // SAVORYX',
+                            style: ClayTypography.labelSm(
+                              color: ClayColors.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            'Overview',
+                            style: ClayTypography.headlineSm(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 8.0),
-
-                    // Currency Selector Button
-                    ClayButton(
-                      key: const Key('overview_currency_button'),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12.0,
-                        vertical: 8.0,
-                      ),
-                      borderRadius: BorderRadius.circular(18.0),
-                      onTap: _openCurrencyPicker,
-                      child: Text(
-                        '$_selectedBaseCurrency ($_selectedBaseSymbol)',
-                        style: ClayTypography.labelMd(
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8.0),
-
-                    // Privacy Shield Button
-                    ClayButton(
-                      width: 40.0,
-                      height: 40.0,
-                      padding: EdgeInsets.zero,
-                      borderRadius: BorderRadius.circular(20.0),
-                      semanticLabel: 'Sembunyikan saldo',
-                      onTap: _toggleMask,
-                      child: Icon(
-                        _isMasked ? Icons.visibility_off : Icons.visibility,
-                        size: 18.0,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 20.0),
-
-            // Hero Spend Card (Safe-to-Spend Runway)
-            _buildHeroCard(),
-            const SizedBox(height: 18.0),
-
-            // Behavioral Fast-Action Row
-            Row(
-              children: [
-                Expanded(
-                  child: ClayButton(
-                    color: ClayColors.tertiaryContainer,
-                    borderRadius: BorderRadius.circular(24.0),
-                    padding: const EdgeInsets.all(14.0),
-                    onTap: _stashImpulse,
-                    child: Row(
+                    Row(
                       children: [
-                        Container(
-                          width: 36.0,
-                          height: 36.0,
-                          decoration: const BoxDecoration(
-                            color: ClayColors.tertiaryFixed,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.shield,
+                        // Search Bar Trigger Button
+                        ClayButton(
+                          key: const Key('overview_search_button'),
+                          width: 40.0,
+                          height: 40.0,
+                          padding: EdgeInsets.zero,
+                          borderRadius: BorderRadius.circular(20.0),
+                          semanticLabel: 'Cari transaksi',
+                          onTap: () => _openSearchModal(context),
+                          child: Icon(
+                            Icons.search_rounded,
                             size: 20.0,
-                            color: ClayColors.onTertiaryFixed,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
-                        const SizedBox(width: 10.0),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Saya Batal Beli',
-                                style: ClayTypography.labelLg(
-                                  color: ClayColors.onTertiary,
-                                ),
-                              ),
-                              Text(
-                                '+${CurrencyFormatter.formatCompactRupiah(_stashedFund)} Stashed',
-                                style: ClayTypography.labelSm(
-                                  color: ClayColors.tertiaryChip,
-                                ),
-                              ),
-                            ],
+                        const SizedBox(width: 8.0),
+
+                        // Currency Selector Button
+                        ClayButton(
+                          key: const Key('overview_currency_button'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0,
+                            vertical: 8.0,
+                          ),
+                          borderRadius: BorderRadius.circular(18.0),
+                          onTap: () => _openCurrencyPicker(
+                            context,
+                            state.selectedCurrency,
+                          ),
+                          child: Text(
+                            '${state.selectedCurrency} (${state.selectedCurrencySymbol})',
+                            style: ClayTypography.labelMd(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8.0),
+
+                        // Privacy Shield Button
+                        ClayButton(
+                          width: 40.0,
+                          height: 40.0,
+                          padding: EdgeInsets.zero,
+                          borderRadius: BorderRadius.circular(20.0),
+                          semanticLabel: 'Sembunyikan saldo',
+                          onTap: () => context
+                              .read<OverviewBloc>()
+                              .add(const OverviewMaskToggled()),
+                          child: Icon(
+                            state.isMasked
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            size: 18.0,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                       ],
                     ),
+                  ],
+                ),
+                const SizedBox(height: 20.0),
+
+                // Hero Spend Card (Safe-to-Spend Runway)
+                _buildHeroCard(context, state.safeToSpend, state.isMasked),
+                const SizedBox(height: 18.0),
+
+                // Behavioral Fast-Action Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClayButton(
+                        color: ClayColors.tertiaryContainer,
+                        borderRadius: BorderRadius.circular(24.0),
+                        padding: const EdgeInsets.all(14.0),
+                        onTap: () {
+                          context.read<OverviewBloc>().add(
+                                const OverviewSafeToSpendStashed(
+                                  amountMinorUnits: 45000,
+                                ),
+                              );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Impulse deflected! +Rp 45k moved to Sinking Fund',
+                              ),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36.0,
+                              height: 36.0,
+                              decoration: const BoxDecoration(
+                                color: ClayColors.tertiaryFixed,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.shield,
+                                size: 20.0,
+                                color: ClayColors.onTertiaryFixed,
+                              ),
+                            ),
+                            const SizedBox(width: 10.0),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Saya Batal Beli',
+                                    style: ClayTypography.labelLg(
+                                      color: ClayColors.onTertiary,
+                                    ),
+                                  ),
+                                  Text(
+                                    '+${CurrencyFormatter.formatCompactRupiah(state.stashedImpulseFund)} Stashed',
+                                    style: ClayTypography.labelSm(
+                                      color: ClayColors.tertiaryChip,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22.0),
+
+                // Accounts Horizontal Carousel Section
+                Text(
+                  'Pockets & Accounts',
+                  style: ClayTypography.headlineSm(
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
+                ),
+                const SizedBox(height: 12.0),
+                _buildAccountsCarousel(context, state.accounts, state.isMasked),
+                const SizedBox(height: 24.0),
+
+                // Recent Tactile Ledger Section
+                Text(
+                  'Recent Tactile Ledger',
+                  style: ClayTypography.headlineSm(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12.0),
+                _buildRecentLedger(
+                  state.recentTransactions,
+                  state.accounts,
+                  state.isMasked,
                 ),
               ],
             ),
-            const SizedBox(height: 22.0),
-
-            // Accounts Horizontal Carousel Section
-            Text(
-              'Pockets & Accounts',
-              style: ClayTypography.headlineSm(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 12.0),
-            _buildAccountsCarousel(),
-            const SizedBox(height: 24.0),
-
-            // Recent Tactile Ledger Section
-            Text(
-              'Recent Tactile Ledger',
-              style: ClayTypography.headlineSm(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 12.0),
-            _buildRecentLedger(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeroCard() {
-    if (_accountsStream == null) {
-      return _buildHeroCardLayout(145000);
-    }
-
-    return StreamBuilder<List<LocalAccount>>(
-      stream: _accountsStream,
-      builder: (context, snapshot) {
-        int dailyRunway = 145000;
-        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-          final totalBalance = snapshot.data!.fold<int>(
-            0,
-            (sum, acc) =>
-                sum +
-                (acc.balance.isValidInt
-                    ? acc.balance.toInt()
-                    : acc.balance.abs().toInt()),
-          );
-          // Deterministic integer division for daily runway (30 days)
-          dailyRunway = totalBalance > 0 ? (totalBalance ~/ 30) : 0;
-        }
-
-        return _buildHeroCardLayout(dailyRunway);
+          ),
+        );
       },
     );
   }
 
-  Widget _buildHeroCardLayout(int runwayAmount) {
+  Widget _buildHeroCard(
+    BuildContext context,
+    SafeToSpendEntity safeToSpend,
+    bool isMasked,
+  ) {
+    final int dailyAmount = safeToSpend.dailySafeToSpend > BigInt.zero
+        ? safeToSpend.dailySafeToSpend.toInt()
+        : 145000;
+
     return ClayCard(
       isHero: true,
       child: Column(
@@ -351,7 +355,7 @@ class _OverviewTabState extends State<OverviewTab> {
                   borderRadius: BorderRadius.circular(12.0),
                 ),
                 child: Text(
-                  'Health Score: 94',
+                  'Health Score: ${safeToSpend.healthScore}',
                   style: ClayTypography.labelSm(
                     color: ClayColors.tertiaryContainer,
                   ),
@@ -361,7 +365,7 @@ class _OverviewTabState extends State<OverviewTab> {
           ),
           const SizedBox(height: 16.0),
           Text(
-            CurrencyFormatter.formatMasked(runwayAmount, isMasked: _isMasked),
+            CurrencyFormatter.formatMasked(dailyAmount, isMasked: isMasked),
             style: ClayTypography.headlineXl(
               color: ClayColors.onSurface,
             ),
@@ -392,7 +396,7 @@ class _OverviewTabState extends State<OverviewTab> {
                 ),
                 const SizedBox(width: 4.0),
                 Text(
-                  '≈ ${CurrencyFormatter.calculateWorkHours(runwayAmount)} working hours',
+                  '≈ ${CurrencyFormatter.calculateWorkHours(dailyAmount)} working hours',
                   style: ClayTypography.labelSm(
                     color: ClayColors.onSurface,
                   ),
@@ -405,113 +409,110 @@ class _OverviewTabState extends State<OverviewTab> {
     );
   }
 
-  Widget _buildAccountsCarousel() {
-    if (_accountsStream == null) {
-      return _buildDefaultAccountsList();
+  Widget _buildAccountsCarousel(
+    BuildContext context,
+    List<AccountEntity> accounts,
+    bool isMasked,
+  ) {
+    if (accounts.isEmpty) {
+      return _buildDefaultAccountsList(context, isMasked);
     }
 
-    return StreamBuilder<List<LocalAccount>>(
-      stream: _accountsStream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return _buildDefaultAccountsList();
-        }
+    return SizedBox(
+      height: 145.0,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        itemCount: accounts.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12.0),
+        itemBuilder: (context, index) {
+          final account = accounts[index];
+          final IconData icon;
+          final Color iconColor;
 
-        final accounts = snapshot.data!;
-        return SizedBox(
-          height: 145.0,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            itemCount: accounts.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12.0),
-            itemBuilder: (context, index) {
-              final account = accounts[index];
-              final balance = account.balance.isValidInt
-                  ? account.balance.toInt()
-                  : account.balance.abs().toInt();
+          switch (account.type) {
+            case AccountType.bank:
+              icon = Icons.account_balance;
+              iconColor = ClayColors.primary;
+              break;
+            case AccountType.eWallet:
+              icon = Icons.account_balance_wallet;
+              iconColor = ClayColors.secondary;
+              break;
+            case AccountType.cash:
+              icon = Icons.payments;
+              iconColor = ClayColors.tertiary;
+              break;
+            default:
+              icon = Icons.credit_card;
+              iconColor = ClayColors.primary;
+          }
 
-              final IconData icon;
-              final Color iconColor;
-              switch (account.type) {
-                case 'BANK':
-                  icon = Icons.account_balance;
-                  iconColor = ClayColors.primary;
-                  break;
-                case 'E_WALLET':
-                  icon = Icons.account_balance_wallet;
-                  iconColor = ClayColors.secondary;
-                  break;
-                case 'CASH':
-                  icon = Icons.payments;
-                  iconColor = ClayColors.tertiary;
-                  break;
-                default:
-                  icon = Icons.credit_card;
-                  iconColor = ClayColors.primary;
-              }
-
-              return _buildAccountCard(account.name, balance, icon, iconColor);
-            },
-          ),
-        );
-      },
+          return _buildAccountCard(
+            context,
+            account.name,
+            account.balance,
+            icon,
+            iconColor,
+            isMasked,
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildDefaultAccountsList() {
+  Widget _buildDefaultAccountsList(BuildContext context, bool isMasked) {
     return SizedBox(
       height: 145.0,
       child: ListView(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
         children: [
-          _buildAccountCard(
-              'BCA Main', 14820000, Icons.account_balance, ClayColors.primary),
+          _buildAccountCard(context, 'BCA Main', 14820000,
+              Icons.account_balance, ClayColors.primary, isMasked),
           const SizedBox(width: 12.0),
-          _buildAccountCard('Mandiri Payroll', 6350000, Icons.credit_card,
-              ClayColors.secondary),
+          _buildAccountCard(context, 'Mandiri Payroll', 6350000,
+              Icons.credit_card, ClayColors.secondary, isMasked),
           const SizedBox(width: 12.0),
-          _buildAccountCard(
-              'Cash Pocket', 480000, Icons.payments, ClayColors.tertiary),
+          _buildAccountCard(context, 'Cash Pocket', 480000, Icons.payments,
+              ClayColors.tertiary, isMasked),
           const SizedBox(width: 12.0),
-          _buildAccountCard('GoPay Wallet', 320000,
-              Icons.account_balance_wallet, ClayColors.secondary),
+          _buildAccountCard(context, 'GoPay Wallet', 320000,
+              Icons.account_balance_wallet, ClayColors.secondary, isMasked),
         ],
       ),
     );
   }
 
-  Widget _buildRecentLedger() {
-    if (_transactionsStream == null) {
-      return _buildDefaultLedgerList();
+  Widget _buildRecentLedger(
+    List<TransactionEntity> transactions,
+    List<AccountEntity> accounts,
+    bool isMasked,
+  ) {
+    if (transactions.isEmpty) {
+      return _buildDefaultLedgerList(isMasked);
     }
 
-    return StreamBuilder<List<LocalTransaction>>(
-      stream: _transactionsStream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return _buildDefaultLedgerList();
-        }
+    final Map<String, String> accountNames = {
+      for (final a in accounts) a.id: a.name,
+    };
 
-        final transactions = snapshot.data!;
-        return Column(
-          children: transactions.map((tx) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10.0),
-              child: DualCurrencyLedgerCard.fromLocal(
-                transaction: tx,
-                accountName: tx.accountId,
-                isMasked: _isMasked,
-              ),
-            );
-          }).toList(),
+    return Column(
+      children: transactions.map((tx) {
+        final accountName = accountNames[tx.accountId] ?? 'Akun';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10.0),
+          child: DualCurrencyLedgerCard.fromEntity(
+            entity: tx,
+            accountName: accountName,
+            isMasked: isMasked,
+          ),
         );
-      },
+      }).toList(),
     );
   }
 
-  Widget _buildDefaultLedgerList() {
+  Widget _buildDefaultLedgerList(bool isMasked) {
     return Column(
       children: [
         DualCurrencyLedgerCard(
@@ -522,7 +523,7 @@ class _OverviewTabState extends State<OverviewTab> {
           time: '10:42 AM',
           pocketOrAccount: 'GoPay',
           categoryIcon: 'coffee',
-          isMasked: _isMasked,
+          isMasked: isMasked,
         ),
         const SizedBox(height: 10.0),
         DualCurrencyLedgerCard(
@@ -533,7 +534,7 @@ class _OverviewTabState extends State<OverviewTab> {
           time: 'Yesterday',
           pocketOrAccount: 'BCA Main',
           categoryIcon: 'receipt',
-          isMasked: _isMasked,
+          isMasked: isMasked,
         ),
         const SizedBox(height: 10.0),
         DualCurrencyLedgerCard(
@@ -546,17 +547,19 @@ class _OverviewTabState extends State<OverviewTab> {
           time: 'Monday, 19:15',
           pocketOrAccount: 'Rekening BCA',
           categoryIcon: 'shopping',
-          isMasked: _isMasked,
+          isMasked: isMasked,
         ),
       ],
     );
   }
 
   Widget _buildAccountCard(
+    BuildContext context,
     String title,
     int amount,
     IconData icon,
     Color iconColor,
+    bool isMasked,
   ) {
     return ClayCard(
       width: 180.0,
@@ -592,7 +595,7 @@ class _OverviewTabState extends State<OverviewTab> {
                 ),
               ),
               Text(
-                CurrencyFormatter.formatMasked(amount, isMasked: _isMasked),
+                CurrencyFormatter.formatMasked(amount, isMasked: isMasked),
                 style: ClayTypography.headlineSm(
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
@@ -605,7 +608,6 @@ class _OverviewTabState extends State<OverviewTab> {
   }
 }
 
-/// Instant Search Modal Sheet for Overview Tab
 /// Instant Search Modal Sheet for Overview Tab powered by Clean Architecture SearchBloc
 class _OverviewSearchSheet extends StatefulWidget {
   const _OverviewSearchSheet();
@@ -619,12 +621,14 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
   SearchFilterEntity _filter = SearchFilterEntity.empty;
 
   Future<void> _openFilterModal() async {
-    List<LocalAccount> accounts = [];
-    List<LocalCategory> categories = [];
-    if (getIt.isRegistered<AppDatabase>()) {
-      final db = getIt<AppDatabase>();
-      accounts = await db.accountDao.getAllActiveAccounts();
-      categories = await db.categoryDao.getAllActiveCategories();
+    List<AccountEntity> accounts = [];
+    List<CategoryEntity> categories = [];
+
+    if (getIt.isRegistered<GetAccountsUseCase>()) {
+      accounts = await getIt<GetAccountsUseCase>()();
+    }
+    if (getIt.isRegistered<GetCategoriesUseCase>()) {
+      categories = await getIt<GetCategoriesUseCase>()();
     }
 
     if (!mounted) return;
@@ -698,133 +702,81 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
           ),
           const SizedBox(height: 14.0),
 
-          // Results Count & Status
-          BlocBuilder<SearchBloc, SearchState>(
-            builder: (context, state) {
-              final countText = switch (state) {
-                SearchLoaded(:final results) =>
-                  'Hasil Pencarian (${results.length})',
-                SearchEmpty() => 'Hasil Pencarian (0)',
-                SearchLoading() =>
-                  _currentQuery.isEmpty && !_filter.hasActiveFilter
-                      ? 'Transaksi Terbaru'
-                      : 'Mencari...',
-                SearchFailure() => 'Pencarian Gagal',
-                _ => 'Transaksi Terbaru',
-              };
-
-              final isLoading = state is SearchLoading;
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      countText,
-                      style: ClayTypography.labelMd(color: subtitleColor),
-                    ),
-                    if (isLoading)
-                      const SizedBox(
-                        width: 14.0,
-                        height: 14.0,
-                        child: CircularProgressIndicator(strokeWidth: 2.0),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 8.0),
-
-          // Results List powered by SearchBloc
+          // Search Results / Filter Status Area
           Expanded(
             child: BlocBuilder<SearchBloc, SearchState>(
               builder: (context, state) {
-                if (state is SearchLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                if (state is SearchFailure) {
-                  return Center(
-                    child: Text(
-                      'Gagal: ${state.message}',
-                      style: ClayTypography.bodyMd(color: subtitleColor),
-                    ),
-                  );
-                }
-
-                if (state is SearchEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.search_off_rounded,
-                            size: 48.0, color: subtitleColor),
-                        const SizedBox(height: 10.0),
-                        Text(
-                          'Tidak ada transaksi yang cocok',
-                          style: ClayTypography.bodyMd(color: subtitleColor),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                if (state is SearchLoaded) {
-                  return ListView.builder(
-                    itemCount: state.results.length,
-                    itemBuilder: (context, index) {
-                      final item = state.results[index];
-                      return SearchResultTile.fromEntity(
-                        result: item,
-                        highlightQuery: state.query,
-                        onTap: () => Navigator.pop(context),
-                      );
-                    },
-                  );
-                }
-
-                // SearchInitial: Stream recent transactions from db
-                if (getIt.isRegistered<AppDatabase>()) {
-                  final db = getIt<AppDatabase>();
-                  return StreamBuilder<List<LocalTransaction>>(
-                    stream:
-                        db.transactionDao.watchRecentTransactions(limit: 30),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return Center(
-                          child: Text(
-                            'Belum ada transaksi tercatat',
+                switch (state) {
+                  case SearchInitial():
+                    return Center(
+                      child: Text(
+                        'Ketik minimal 1 karakter untuk mencari...',
+                        style: ClayTypography.bodyMd(color: subtitleColor),
+                      ),
+                    );
+                  case SearchLoading():
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  case SearchEmpty():
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 48.0,
+                            color: subtitleColor,
+                          ),
+                          const SizedBox(height: 8.0),
+                          Text(
+                            'Tidak ada transaksi yang cocok.',
                             style: ClayTypography.bodyMd(color: subtitleColor),
                           ),
-                        );
-                      }
-
-                      final recentList = snapshot.data!;
-                      return ListView.builder(
-                        itemCount: recentList.length,
-                        itemBuilder: (context, index) {
-                          final tx = recentList[index];
-                          return SearchResultTile(
-                            transaction: tx,
-                            highlightQuery: _currentQuery,
-                            onTap: () => Navigator.pop(context),
-                          );
-                        },
+                        ],
+                      ),
+                    );
+                  case SearchLoaded(:final results):
+                    if (results.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.search_off_rounded,
+                              size: 48.0,
+                              color: subtitleColor,
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Tidak ada transaksi yang cocok.',
+                              style: ClayTypography.bodyMd(color: subtitleColor),
+                            ),
+                          ],
+                        ),
                       );
-                    },
-                  );
-                }
+                    }
 
-                return Center(
-                  child: Text(
-                    'Siap mencari',
-                    style: ClayTypography.bodyMd(color: subtitleColor),
-                  ),
-                );
+                    return ListView.separated(
+                      key: const Key('overview_search_results_list'),
+                      itemCount: results.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8.0),
+                      itemBuilder: (ctx, idx) {
+                        final res = results[idx];
+                        return SearchResultTile.fromEntity(
+                          result: res,
+                          highlightQuery: _currentQuery,
+                        );
+                      },
+                    );
+                  case SearchFailure(:final message):
+                    return Center(
+                      child: Text(
+                        'Error: $message',
+                        style: ClayTypography.bodyMd(color: ClayColors.primary),
+                      ),
+                    );
+                }
               },
             ),
           ),

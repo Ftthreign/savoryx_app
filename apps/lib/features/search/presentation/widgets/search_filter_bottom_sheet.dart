@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/features/account/domain/entities/account_entity.dart';
+import 'package:savoryx/features/category/domain/entities/category_entity.dart';
 import 'package:savoryx/features/search/domain/entities/search_filter_entity.dart';
 
-/// Tactile Claymorphism bottom sheet modal for compound search filters.
 class SearchFilterBottomSheet extends StatefulWidget {
   const SearchFilterBottomSheet({
     super.key,
@@ -18,15 +18,15 @@ class SearchFilterBottomSheet extends StatefulWidget {
   });
 
   final SearchFilterEntity initialFilter;
-  final List<LocalAccount> accounts;
-  final List<LocalCategory> categories;
+  final List<AccountEntity> accounts;
+  final List<CategoryEntity> categories;
   final ValueChanged<SearchFilterEntity> onApply;
 
   static Future<SearchFilterEntity?> show(
     BuildContext context, {
     required SearchFilterEntity initialFilter,
-    List<LocalAccount> accounts = const [],
-    List<LocalCategory> categories = const [],
+    List<AccountEntity> accounts = const [],
+    List<CategoryEntity> categories = const [],
   }) {
     return showModalBottomSheet<SearchFilterEntity>(
       context: context,
@@ -42,7 +42,8 @@ class SearchFilterBottomSheet extends StatefulWidget {
   }
 
   @override
-  State<SearchFilterBottomSheet> createState() => _SearchFilterBottomSheetState();
+  State<SearchFilterBottomSheet> createState() =>
+      _SearchFilterBottomSheetState();
 }
 
 class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
@@ -103,13 +104,15 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
     HapticFeedback.mediumImpact();
 
     BigInt? minAmount;
-    final minCleaned = _minAmountController.text.replaceAll(RegExp(r'[^\d]'), '');
+    final minCleaned =
+        _minAmountController.text.replaceAll(RegExp(r'[^\d]'), '');
     if (minCleaned.isNotEmpty) {
       minAmount = BigInt.parse(minCleaned) * BigInt.from(100);
     }
 
     BigInt? maxAmount;
-    final maxCleaned = _maxAmountController.text.replaceAll(RegExp(r'[^\d]'), '');
+    final maxCleaned =
+        _maxAmountController.text.replaceAll(RegExp(r'[^\d]'), '');
     if (maxCleaned.isNotEmpty) {
       maxAmount = BigInt.parse(maxCleaned) * BigInt.from(100);
     }
@@ -151,9 +154,11 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetBg = isDark ? ClayColors.surfaceDark : ClayColors.surfaceContainerLowest;
+    final sheetBg =
+        isDark ? ClayColors.surfaceDark : ClayColors.surfaceContainerLowest;
     final textColor = isDark ? ClayColors.onSurfaceDark : ClayColors.onSurface;
-    final subtitleColor = isDark ? ClayColors.onSurfaceVariantDark : ClayColors.outline;
+    final subtitleColor =
+        isDark ? ClayColors.onSurfaceVariantDark : ClayColors.outline;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
@@ -178,7 +183,9 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
               width: 44.0,
               height: 5.0,
               decoration: BoxDecoration(
-                color: isDark ? ClayColors.surfaceContainerDark : ClayColors.surfaceContainerHigh,
+                color: isDark
+                    ? ClayColors.surfaceContainerDark
+                    : ClayColors.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(10.0),
               ),
             ),
@@ -198,7 +205,8 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                 onPressed: _handleReset,
                 child: Text(
                   'Reset',
-                  style: ClayTypography.bodyMd(color: ClayColors.primary).copyWith(fontWeight: FontWeight.w700),
+                  style: ClayTypography.bodyMd(color: ClayColors.primary)
+                      .copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -210,7 +218,6 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- SECTION 1: Rentang Tanggal ---
                   Text(
                     'Rentang Tanggal',
                     style: ClayTypography.labelLg(color: subtitleColor),
@@ -238,14 +245,20 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                             }
                           }
                         },
-                        selectedColor: isDark ? ClayColors.primaryContainer.withOpacity(0.3) : ClayColors.primaryContainer,
+                        selectedColor: isDark
+                            ? ClayColors.primaryContainer.withOpacity(0.3)
+                            : ClayColors.primaryContainer,
                         labelStyle: ClayTypography.bodyMd(
                           color: isSelected ? ClayColors.primary : textColor,
-                        ).copyWith(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500),
+                        ).copyWith(
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w500),
                       );
                     }).toList(),
                   ),
-                  if (_datePreset == DateRangePreset.custom && _customStartDate != null && _customEndDate != null) ...[
+                  if (_datePreset == DateRangePreset.custom &&
+                      _customStartDate != null &&
+                      _customEndDate != null) ...[
                     const SizedBox(height: 6.0),
                     Text(
                       'Periode: ${DateFormat('dd/MM/yyyy').format(_customStartDate!)} - ${DateFormat('dd/MM/yyyy').format(_customEndDate!)}',
@@ -253,8 +266,6 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                     ),
                   ],
                   const SizedBox(height: 16.0),
-
-                  // --- SECTION 2: Rentang Nominal ---
                   Text(
                     'Rentang Nominal (Rp)',
                     style: ClayTypography.labelLg(color: subtitleColor),
@@ -267,15 +278,22 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                           key: const Key('search_filter_min_amount_field'),
                           controller: _minAmountController,
                           keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
                           style: ClayTypography.bodyMd(color: textColor),
                           decoration: InputDecoration(
                             labelText: 'Minimum',
                             prefixText: 'Rp ',
-                            labelStyle: ClayTypography.bodySm(color: subtitleColor),
+                            labelStyle:
+                                ClayTypography.bodySm(color: subtitleColor),
                             filled: true,
-                            fillColor: isDark ? ClayColors.surfaceContainerDark : ClayColors.surfaceContainerLow,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14.0), borderSide: BorderSide.none),
+                            fillColor: isDark
+                                ? ClayColors.surfaceContainerDark
+                                : ClayColors.surfaceContainerLow,
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14.0),
+                                borderSide: BorderSide.none),
                             isDense: true,
                           ),
                         ),
@@ -286,15 +304,22 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                           key: const Key('search_filter_max_amount_field'),
                           controller: _maxAmountController,
                           keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
                           style: ClayTypography.bodyMd(color: textColor),
                           decoration: InputDecoration(
                             labelText: 'Maksimum',
                             prefixText: 'Rp ',
-                            labelStyle: ClayTypography.bodySm(color: subtitleColor),
+                            labelStyle:
+                                ClayTypography.bodySm(color: subtitleColor),
                             filled: true,
-                            fillColor: isDark ? ClayColors.surfaceContainerDark : ClayColors.surfaceContainerLow,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14.0), borderSide: BorderSide.none),
+                            fillColor: isDark
+                                ? ClayColors.surfaceContainerDark
+                                : ClayColors.surfaceContainerLow,
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14.0),
+                                borderSide: BorderSide.none),
                             isDense: true,
                           ),
                         ),
@@ -302,8 +327,6 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                     ],
                   ),
                   const SizedBox(height: 16.0),
-
-                  // --- SECTION 3: Tipe Transaksi ---
                   Text(
                     'Tipe Transaksi',
                     style: ClayTypography.labelLg(color: subtitleColor),
@@ -312,14 +335,15 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                   Wrap(
                     spacing: 8.0,
                     children: [
-                      _buildFilterChip('Pengeluaran', 'EXPENSE', _selectedTypes, isDark, textColor),
-                      _buildFilterChip('Pemasukan', 'INCOME', _selectedTypes, isDark, textColor),
-                      _buildFilterChip('Transfer', 'TRANSFER', _selectedTypes, isDark, textColor),
+                      _buildFilterChip('Pengeluaran', 'EXPENSE', _selectedTypes,
+                          isDark, textColor),
+                      _buildFilterChip('Pemasukan', 'INCOME', _selectedTypes,
+                          isDark, textColor),
+                      _buildFilterChip('Transfer', 'TRANSFER', _selectedTypes,
+                          isDark, textColor),
                     ],
                   ),
                   const SizedBox(height: 16.0),
-
-                  // --- SECTION 4: Akun & Dompet ---
                   if (widget.accounts.isNotEmpty) ...[
                     Text(
                       'Akun & Dompet',
@@ -330,13 +354,12 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                       spacing: 8.0,
                       runSpacing: 6.0,
                       children: widget.accounts.map((acc) {
-                        return _buildFilterChip(acc.name, acc.id, _selectedAccountIds, isDark, textColor);
+                        return _buildFilterChip(acc.name, acc.id,
+                            _selectedAccountIds, isDark, textColor);
                       }).toList(),
                     ),
                     const SizedBox(height: 16.0),
                   ],
-
-                  // --- SECTION 5: Kategori ---
                   if (widget.categories.isNotEmpty) ...[
                     Text(
                       'Kategori',
@@ -347,7 +370,8 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                       spacing: 8.0,
                       runSpacing: 6.0,
                       children: widget.categories.map((cat) {
-                        return _buildFilterChip(cat.name, cat.id, _selectedCategoryIds, isDark, textColor);
+                        return _buildFilterChip(cat.name, cat.id,
+                            _selectedCategoryIds, isDark, textColor);
                       }).toList(),
                     ),
                     const SizedBox(height: 16.0),
@@ -374,7 +398,8 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
             ),
             child: Text(
               'Terapkan Filter',
-              style: ClayTypography.bodyLg(color: Colors.white).copyWith(fontWeight: FontWeight.w700),
+              style: ClayTypography.bodyLg(color: Colors.white)
+                  .copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -403,7 +428,9 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
           }
         });
       },
-      selectedColor: isDark ? ClayColors.primaryContainer.withOpacity(0.3) : ClayColors.primaryContainer,
+      selectedColor: isDark
+          ? ClayColors.primaryContainer.withOpacity(0.3)
+          : ClayColors.primaryContainer,
       labelStyle: ClayTypography.bodySm(
         color: isSelected ? ClayColors.primary : textColor,
       ).copyWith(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500),

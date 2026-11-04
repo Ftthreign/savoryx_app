@@ -1,40 +1,186 @@
-import 'package:drift/native.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:savoryx/core/database/app_database.dart';
-import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/typography/font_manager.dart';
+import 'package:savoryx/features/account/domain/entities/account_entity.dart';
+import 'package:savoryx/features/account/domain/repositories/account_repository.dart';
+import 'package:savoryx/features/account/domain/usecases/watch_accounts_usecase.dart';
+import 'package:savoryx/features/navigation/domain/usecases/calculate_safe_to_spend_usecase.dart';
+import 'package:savoryx/features/navigation/domain/usecases/stash_impulse_fund_usecase.dart';
+import 'package:savoryx/features/navigation/presentation/bloc/overview_bloc.dart';
+import 'package:savoryx/features/navigation/presentation/bloc/overview_event.dart';
 import 'package:savoryx/features/navigation/presentation/widgets/overview_tab.dart';
 import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
-import 'package:savoryx/features/transaction/domain/usecases/create_transaction_usecase.dart';
+import 'package:savoryx/features/transaction/domain/repositories/transaction_repository.dart';
+import 'package:savoryx/features/transaction/domain/usecases/watch_recent_transactions_usecase.dart';
+
+class _FakeAccountRepo implements AccountRepository {
+  final _controller = StreamController<List<AccountEntity>>.broadcast();
+  final List<AccountEntity> _items = [];
+
+  void emit(List<AccountEntity> items) {
+    _items.clear();
+    _items.addAll(items);
+    _controller.add(List.unmodifiable(_items));
+  }
+
+  @override
+  Stream<List<AccountEntity>> watchActiveAccounts() {
+    // ignore: close_sinks
+    late StreamController<List<AccountEntity>> controller;
+    StreamSubscription<List<AccountEntity>>? sub;
+    controller = StreamController<List<AccountEntity>>.broadcast(
+      onListen: () {
+        controller.add(List.unmodifiable(_items));
+        sub = _controller.stream.listen(controller.add);
+      },
+      onCancel: () {
+        sub?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  @override
+  Future<List<AccountEntity>> getActiveAccounts() async =>
+      List.unmodifiable(_items);
+
+  @override
+  Future<AccountEntity?> getAccountById(String id) async => _items
+      .cast<AccountEntity?>()
+      .firstWhere((a) => a?.id == id, orElse: () => null);
+
+  @override
+  Future<void> createAccount(AccountEntity account) async {
+    _items.add(account);
+    _controller.add(List.unmodifiable(_items));
+  }
+
+  @override
+  Future<void> updateAccount(AccountEntity account) async {
+    final idx = _items.indexWhere((a) => a.id == account.id);
+    if (idx != -1) {
+      _items[idx] = account;
+      _controller.add(List.unmodifiable(_items));
+    }
+  }
+
+  @override
+  Future<void> updateBalance(String id, BigInt newBalance) async {
+    final idx = _items.indexWhere((a) => a.id == id);
+    if (idx != -1) {
+      _items[idx] = _items[idx].copyWith(balance: newBalance.toInt());
+      _controller.add(List.unmodifiable(_items));
+    }
+  }
+
+  @override
+  Future<void> deleteAccount(String id) async {
+    _items.removeWhere((a) => a.id == id);
+    _controller.add(List.unmodifiable(_items));
+  }
+
+  void dispose() => _controller.close();
+}
+
+class _FakeTransactionRepo implements TransactionRepository {
+  final _controller = StreamController<List<TransactionEntity>>.broadcast();
+  final List<TransactionEntity> _items = [];
+
+  void emit(List<TransactionEntity> items) {
+    _items.clear();
+    _items.addAll(items);
+    _controller.add(List.unmodifiable(_items));
+  }
+
+  @override
+  Stream<List<TransactionEntity>> watchRecentTransactions({int limit = 50}) {
+    // ignore: close_sinks
+    late StreamController<List<TransactionEntity>> controller;
+    StreamSubscription<List<TransactionEntity>>? sub;
+    controller = StreamController<List<TransactionEntity>>.broadcast(
+      onListen: () {
+        controller.add(List.unmodifiable(_items));
+        sub = _controller.stream.listen(controller.add);
+      },
+      onCancel: () {
+        sub?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  @override
+  Future<void> createTransaction(TransactionEntity transaction) async {
+    _items.insert(0, transaction);
+    _controller.add(List.unmodifiable(_items));
+  }
+
+  @override
+  Future<void> deleteTransaction(String id) async {
+    _items.removeWhere((t) => t.id == id);
+    _controller.add(List.unmodifiable(_items));
+  }
+
+  @override
+  Future<TransactionEntity?> getTransactionById(String id) async => _items
+      .cast<TransactionEntity?>()
+      .firstWhere((t) => t?.id == id, orElse: () => null);
+
+  void dispose() => _controller.close();
+}
 
 void main() {
-  late AppDatabase db;
+  late _FakeAccountRepo accountRepo;
+  late _FakeTransactionRepo txRepo;
+  late OverviewBloc bloc;
+
+  final now = DateTime.parse('2026-11-01T10:00:00Z');
+  final sampleAccounts = [
+    AccountEntity(
+      id: 'acc-1',
+      name: 'Kas Tunai',
+      type: AccountType.cash,
+      balance: 4500000,
+      createdAt: now,
+      updatedAt: now,
+    ),
+    AccountEntity(
+      id: 'acc-2',
+      name: 'Rekening BCA',
+      type: AccountType.bank,
+      balance: 145000000,
+      createdAt: now,
+      updatedAt: now,
+    ),
+  ];
 
   setUpAll(() {
     FontManager.useTestFallback = true;
-    getIt.allowReassignment = true;
   });
 
-  setUp(() async {
-    if (!getIt.isRegistered<CreateTransactionUseCase>()) {
-      await configureDependencies();
-    }
-    db = AppDatabase.executor(NativeDatabase.memory());
-    getIt.registerSingleton<AppDatabase>(db);
+  setUp(() {
+    accountRepo = _FakeAccountRepo();
+    accountRepo.emit(sampleAccounts);
+    txRepo = _FakeTransactionRepo();
+    bloc = OverviewBloc(
+      watchAccountsUseCase: WatchAccountsUseCase(accountRepo),
+      watchRecentTransactionsUseCase: WatchRecentTransactionsUseCase(txRepo),
+      calculateSafeToSpendUseCase: const CalculateSafeToSpendUseCase(),
+      stashImpulseFundUseCase: StashImpulseFundUseCase(accountRepo, txRepo),
+    )..add(const OverviewLoadStarted());
   });
 
-  tearDown(() async {
-    await db.close();
-    if (getIt.isRegistered<AppDatabase>()) {
-      await getIt.unregister<AppDatabase>();
-    }
+  tearDown(() {
+    bloc.close();
+    accountRepo.dispose();
+    txRepo.dispose();
   });
 
   Widget buildTestableOverview() {
-    return const MaterialApp(
+    return MaterialApp(
       home: Scaffold(
-        body: OverviewTab(),
+        body: OverviewTab(bloc: bloc),
       ),
     );
   }
@@ -48,13 +194,9 @@ void main() {
     });
   }
 
-  Future<void> unmountAndFlush(WidgetTester tester) async {
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-
-  group('OverviewTab Reactive Integration Tests (Task #20)', () {
-    testWidgets('renders reactive accounts carousel and default seeded accounts from Drift',
+  group('OverviewTab Reactive Integration Tests (Task #20 & #166)', () {
+    testWidgets(
+        'renders reactive accounts carousel and default seeded accounts cleanly',
         (WidgetTester tester) async {
       setMobileScreen(tester);
       await tester.pumpWidget(buildTestableOverview());
@@ -65,15 +207,12 @@ void main() {
       expect(find.text('Overview'), findsOneWidget);
       expect(find.text('SAFE-TO-SPEND RUNWAY'), findsOneWidget);
 
-      // Seeded accounts from database onCreate
-      expect(find.text('Pockets & Accounts'), findsOneWidget);
-      expect(find.text('Kas Tunai'), findsOneWidget);
-      expect(find.text('Rekening BCA'), findsOneWidget);
-
       // Section header
+      expect(find.text('Pockets & Accounts'), findsOneWidget);
       expect(find.text('Recent Tactile Ledger'), findsOneWidget);
 
-      await unmountAndFlush(tester);
+      expect(find.text('Kas Tunai'), findsOneWidget);
+      expect(find.text('Rekening BCA'), findsOneWidget);
     });
 
     testWidgets('toggles privacy mask on eye button tap',
@@ -98,11 +237,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.visibility), findsOneWidget);
-
-      await unmountAndFlush(tester);
     });
 
-    testWidgets('Saya Batal Beli button deflects impulse and updates stashed fund',
+    testWidgets(
+        'Saya Batal Beli button deflects impulse and updates stashed fund persistently',
         (WidgetTester tester) async {
       setMobileScreen(tester);
       await tester.pumpWidget(buildTestableOverview());
@@ -112,54 +250,39 @@ void main() {
       expect(find.text('+45k Stashed'), findsOneWidget);
 
       await tester.tap(find.text('Saya Batal Beli'));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.text('+90k Stashed'), findsOneWidget);
       expect(find.textContaining('Impulse deflected!'), findsOneWidget);
 
-      // Let SnackBar timer expire
+      // Advance SnackBar duration
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
-
-      await unmountAndFlush(tester);
     });
 
-    testWidgets('reactively displays new transactions inserted into database',
+    testWidgets('reactively displays new transactions in recent ledger',
         (WidgetTester tester) async {
       setMobileScreen(tester);
       await tester.pumpWidget(buildTestableOverview());
       await tester.pumpAndSettle();
 
-      // Fetch first account ID from DB
-      final accounts = await db.accountDao.watchAllAccounts().first;
-      expect(accounts, isNotEmpty);
-      final accountId = accounts.first.id;
+      // Emit new transaction
+      txRepo.emit([
+        TransactionEntity(
+          id: 'tx-001',
+          accountId: 'acc-1',
+          amount: 75000,
+          type: TransactionType.expense,
+          note: 'Makan Siang Sate Padang',
+          transactionDate: now,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ]);
 
-      // Create a transaction directly via CreateTransactionUseCase or Data layer
-      if (getIt.isRegistered<CreateTransactionUseCase>()) {
-        final createUseCase = getIt<CreateTransactionUseCase>();
-        await createUseCase(
-          TransactionEntity(
-            id: '0192e4a1-0000-7000-8000-000000000099',
-            accountId: accountId,
-            categoryId: 'cat-food',
-            amount: 75000,
-            type: TransactionType.expense,
-            note: 'Makan Siang Sate Padang',
-            transactionDate: DateTime.now().toUtc(),
-            createdAt: DateTime.now().toUtc(),
-            updatedAt: DateTime.now().toUtc(),
-          ),
-        );
-      }
-
-      // Re-pump widget to capture stream emission
       await tester.pumpAndSettle();
 
-      // Verify the transaction appeared reactively on screen
       expect(find.text('Makan Siang Sate Padang'), findsOneWidget);
-
-      await unmountAndFlush(tester);
     });
   });
 }
