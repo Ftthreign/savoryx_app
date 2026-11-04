@@ -120,4 +120,14 @@ class ExchangeRateDao extends DatabaseAccessor<AppDatabase>
               t.effectiveDate.equals(normalized)))
         .get();
   }
+
+  Future<List<LocalExchangeRate>> getLatestRatesForBase({
+    required String base,
+  }) {
+    final baseUpper = base.toUpperCase();
+    return (select(localExchangeRates)
+          ..where((t) => t.baseCurrency.equals(baseUpper))
+          ..orderBy([(t) => OrderingTerm.desc(t.effectiveDate)]))
+        .get();
+  }
 }

@@ -59,6 +59,9 @@ class SearchFilterEntity {
       transactionTypes.isNotEmpty ||
       tags.isNotEmpty;
 
+  /// Alias for [hasActiveFilter].
+  bool get isActive => hasActiveFilter;
+
   /// Resolves the effective [DateTime] boundary based on preset or custom date range.
   (DateTime?, DateTime?) resolveEffectiveDateRange() {
     final now = DateTime.now().toUtc();
