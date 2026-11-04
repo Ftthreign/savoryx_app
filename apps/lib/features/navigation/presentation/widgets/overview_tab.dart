@@ -1,13 +1,21 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
+import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
 import 'package:savoryx/core/utils/constants.dart';
+import 'package:savoryx/core/utils/currency_converter.dart';
 import 'package:savoryx/core/utils/currency_formatter.dart';
 import 'package:savoryx/core/widgets/clay_button.dart';
 import 'package:savoryx/core/widgets/clay_card.dart';
+import 'package:savoryx/features/search/domain/entities/search_filter_entity.dart';
+import 'package:savoryx/features/search/presentation/widgets/clay_search_bar.dart';
+import 'package:savoryx/features/search/presentation/widgets/search_filter_bottom_sheet.dart';
+import 'package:savoryx/features/search/presentation/widgets/search_result_tile.dart';
+import 'package:savoryx/features/transaction/presentation/widgets/currency_picker_sheet.dart';
 
 class OverviewTab extends StatefulWidget {
   const OverviewTab({super.key});
@@ -19,6 +27,8 @@ class OverviewTab extends StatefulWidget {
 class _OverviewTabState extends State<OverviewTab> {
   bool _isMasked = false;
   int _stashedFund = 45000;
+  String _selectedBaseCurrency = 'IDR';
+  String _selectedBaseSymbol = 'Rp';
 
   Stream<List<LocalAccount>>? _accountsStream;
   Stream<List<LocalTransaction>>? _transactionsStream;
@@ -49,6 +59,30 @@ class _OverviewTabState extends State<OverviewTab> {
         content: Text('Impulse deflected! +Rp 45k moved to Sinking Fund'),
         duration: Duration(seconds: 1),
       ),
+    );
+  }
+
+  Future<void> _openCurrencyPicker() async {
+    final picked = await CurrencyPickerSheet.show(
+      context,
+      selectedCurrency: _selectedBaseCurrency,
+    );
+
+    if (picked != null && picked != _selectedBaseCurrency) {
+      final info = CurrencyConverter.supportedCurrencies[picked];
+      setState(() {
+        _selectedBaseCurrency = picked;
+        _selectedBaseSymbol = info?.symbol ?? picked;
+      });
+    }
+  }
+
+  void _openSearchModal() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const _OverviewSearchSheet(),
     );
   }
 
@@ -85,26 +119,48 @@ class _OverviewTabState extends State<OverviewTab> {
                 ),
                 Row(
                   children: [
+                    // Search Bar Trigger Button
                     ClayButton(
+                      key: const Key('overview_search_button'),
+                      width: 40.0,
+                      height: 40.0,
+                      padding: EdgeInsets.zero,
+                      borderRadius: BorderRadius.circular(20.0),
+                      semanticLabel: 'Cari transaksi',
+                      onTap: _openSearchModal,
+                      child: Icon(
+                        Icons.search_rounded,
+                        size: 20.0,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 8.0),
+
+                    // Currency Selector Button
+                    ClayButton(
+                      key: const Key('overview_currency_button'),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12.0,
                         vertical: 8.0,
                       ),
                       borderRadius: BorderRadius.circular(18.0),
-                      onTap: () {},
+                      onTap: _openCurrencyPicker,
                       child: Text(
-                        'IDR (Rp)',
+                        '$_selectedBaseCurrency ($_selectedBaseSymbol)',
                         style: ClayTypography.labelMd(
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8.0),
+
+                    // Privacy Shield Button
                     ClayButton(
                       width: 40.0,
                       height: 40.0,
                       padding: EdgeInsets.zero,
                       borderRadius: BorderRadius.circular(20.0),
+                      semanticLabel: 'Sembunyikan saldo',
                       onTap: _toggleMask,
                       child: Icon(
                         _isMasked ? Icons.visibility_off : Icons.visibility,
@@ -598,6 +654,187 @@ class _OverviewTabState extends State<OverviewTab> {
             style: ClayTypography.headlineSm(
               color: isIncome ? ClayColors.tertiary : ClayColors.primary,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Instant Search Modal Sheet for Overview Tab
+class _OverviewSearchSheet extends StatefulWidget {
+  const _OverviewSearchSheet();
+
+  @override
+  State<_OverviewSearchSheet> createState() => _OverviewSearchSheetState();
+}
+
+class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
+  String _query = '';
+  SearchFilterEntity _filter = SearchFilterEntity.empty;
+  List<LocalTransaction> _results = [];
+  bool _isLoading = false;
+
+  Future<void> _performSearch(String query) async {
+    setState(() {
+      _query = query;
+      _isLoading = true;
+    });
+
+    if (getIt.isRegistered<AppDatabase>()) {
+      final db = getIt<AppDatabase>();
+      try {
+        final list = query.trim().isEmpty
+            ? await db.transactionDao.watchRecentTransactions(limit: 30).first
+            : await db.ftsSearchDao.searchTransactions(query, limit: 50);
+
+        if (mounted) {
+          setState(() {
+            _results = list;
+            _isLoading = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    } else {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _performSearch('');
+  }
+
+  Future<void> _openFilterModal() async {
+    List<LocalAccount> accounts = [];
+    List<LocalCategory> categories = [];
+    if (getIt.isRegistered<AppDatabase>()) {
+      final db = getIt<AppDatabase>();
+      accounts = await db.accountDao.getAllActiveAccounts();
+      categories = await db.categoryDao.getAllActiveCategories();
+    }
+
+    if (!mounted) return;
+    final updatedFilter = await SearchFilterBottomSheet.show(
+      context,
+      initialFilter: _filter,
+      accounts: accounts,
+      categories: categories,
+    );
+
+    if (updatedFilter != null) {
+      setState(() => _filter = updatedFilter);
+      unawaited(_performSearch(_query));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? ClayColors.surfaceDark : ClayColors.surfaceContainerLowest;
+    final subtitleColor = isDark ? ClayColors.onSurfaceVariantDark : ClayColors.outline;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: screenHeight * 0.85,
+      ),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28.0)),
+        boxShadow: ClayShadows.elevated(isDark: isDark, scale: 1.2),
+      ),
+      padding: EdgeInsets.only(
+        left: 20.0,
+        right: 20.0,
+        top: 14.0,
+        bottom: 20.0 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag Handle
+          Center(
+            child: Container(
+              width: 44.0,
+              height: 5.0,
+              decoration: BoxDecoration(
+                color: isDark ? ClayColors.surfaceContainerDark : ClayColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16.0),
+
+          // Search Bar
+          ClaySearchBar(
+            autofocus: true,
+            hintText: 'Cari catatan, merchant, #tag...',
+            hasActiveFilter: _filter.hasActiveFilter,
+            onSearchDebounced: _performSearch,
+            onFilterTap: _openFilterModal,
+          ),
+          const SizedBox(height: 14.0),
+
+          // Results Count & Status
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _query.isEmpty
+                      ? 'Transaksi Terbaru'
+                      : 'Hasil Pencarian (${_results.length})',
+                  style: ClayTypography.labelMd(color: subtitleColor),
+                ),
+                if (_isLoading)
+                  const SizedBox(
+                    width: 14.0,
+                    height: 14.0,
+                    child: CircularProgressIndicator(strokeWidth: 2.0),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8.0),
+
+          // Results List
+          Expanded(
+            child: _results.isEmpty && !_isLoading
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.search_off_rounded, size: 48.0, color: subtitleColor),
+                        const SizedBox(height: 10.0),
+                        Text(
+                          'Tidak ada transaksi yang cocok',
+                          style: ClayTypography.bodyMd(color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _results.length,
+                    itemBuilder: (context, index) {
+                      final tx = _results[index];
+                      return SearchResultTile(
+                        transaction: tx,
+                        highlightQuery: _query,
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),

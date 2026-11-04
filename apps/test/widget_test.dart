@@ -100,5 +100,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PULSESPEND // SAVORYX'), findsOneWidget);
+
+    // Flush any pending async timers from Drift QueryStream before unmounting
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 100));
   });
 }

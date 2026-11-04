@@ -48,6 +48,9 @@ class TransactionEntity {
     required this.amount,
     required this.type,
     this.note = '',
+    this.currency = 'IDR',
+    this.exchangeRateToBase,
+    this.baseAmount,
     required this.transactionDate,
     this.isSynced = false,
     required this.createdAt,
@@ -62,6 +65,9 @@ class TransactionEntity {
   final int amount;
   final TransactionType type;
   final String note;
+  final String currency;
+  final BigInt? exchangeRateToBase;
+  final BigInt? baseAmount;
   final DateTime transactionDate;
   final bool isSynced;
   final DateTime createdAt;
@@ -78,6 +84,9 @@ class TransactionEntity {
     int? amount,
     TransactionType? type,
     String? note,
+    String? currency,
+    BigInt? exchangeRateToBase,
+    BigInt? baseAmount,
     DateTime? transactionDate,
     bool? isSynced,
     DateTime? createdAt,
@@ -92,6 +101,9 @@ class TransactionEntity {
       amount: amount ?? this.amount,
       type: type ?? this.type,
       note: note ?? this.note,
+      currency: currency ?? this.currency,
+      exchangeRateToBase: exchangeRateToBase ?? this.exchangeRateToBase,
+      baseAmount: baseAmount ?? this.baseAmount,
       transactionDate: transactionDate ?? this.transactionDate,
       isSynced: isSynced ?? this.isSynced,
       createdAt: createdAt ?? this.createdAt,
@@ -111,6 +123,9 @@ class TransactionEntity {
         other.amount == amount &&
         other.type == type &&
         other.note == note &&
+        other.currency == currency &&
+        other.exchangeRateToBase == exchangeRateToBase &&
+        other.baseAmount == baseAmount &&
         other.transactionDate == transactionDate &&
         other.isSynced == isSynced &&
         other.createdAt == createdAt &&
@@ -127,6 +142,9 @@ class TransactionEntity {
         amount,
         type,
         note,
+        currency,
+        exchangeRateToBase,
+        baseAmount,
         transactionDate,
         isSynced,
         createdAt,

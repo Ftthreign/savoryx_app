@@ -27,6 +27,9 @@ class TransactionModel extends TransactionEntity {
     required super.amount,
     required super.type,
     super.note = '',
+    super.currency = 'IDR',
+    super.exchangeRateToBase,
+    super.baseAmount,
     required super.transactionDate,
     super.isSynced = false,
     required super.createdAt,
@@ -57,6 +60,12 @@ class TransactionModel extends TransactionEntity {
     final String rawUpdatedAt = json['updated_at'] as String? ?? rawCreatedAt;
     final String? rawDeletedAt = json['deleted_at'] as String?;
 
+    final String currency = json['currency'] as String? ?? 'IDR';
+    final dynamic rawRate = json['exchange_rate_to_base'];
+    final BigInt? rate = rawRate != null ? BigInt.parse(rawRate.toString()) : null;
+    final dynamic rawBase = json['base_amount'];
+    final BigInt? base = rawBase != null ? BigInt.parse(rawBase.toString()) : null;
+
     return TransactionModel(
       id: json['id'] as String? ?? '',
       accountId: json['account_id'] as String? ?? '',
@@ -65,6 +74,9 @@ class TransactionModel extends TransactionEntity {
       amount: parsedAmount,
       type: TransactionType.fromString(json['type'] as String? ?? 'EXPENSE'),
       note: json['note'] as String? ?? '',
+      currency: currency,
+      exchangeRateToBase: rate,
+      baseAmount: base,
       transactionDate: DateTime.parse(rawTxDate),
       isSynced: json['is_synced'] as bool? ?? false,
       createdAt: DateTime.parse(rawCreatedAt),
@@ -83,6 +95,9 @@ class TransactionModel extends TransactionEntity {
       amount: entity.amount,
       type: entity.type,
       note: entity.note,
+      currency: entity.currency,
+      exchangeRateToBase: entity.exchangeRateToBase,
+      baseAmount: entity.baseAmount,
       transactionDate: entity.transactionDate,
       isSynced: entity.isSynced,
       createdAt: entity.createdAt,
@@ -102,6 +117,10 @@ class TransactionModel extends TransactionEntity {
       'amount': amount,
       'type': type.toDbString(),
       'note': note,
+      'currency': currency,
+      if (exchangeRateToBase != null)
+        'exchange_rate_to_base': exchangeRateToBase.toString(),
+      if (baseAmount != null) 'base_amount': baseAmount.toString(),
       'transaction_date': transactionDate.toUtc().toIso8601String(),
       'is_synced': isSynced,
       'created_at': createdAt.toUtc().toIso8601String(),
@@ -124,6 +143,9 @@ class TransactionModel extends TransactionEntity {
     int? amount,
     TransactionType? type,
     String? note,
+    String? currency,
+    BigInt? exchangeRateToBase,
+    BigInt? baseAmount,
     DateTime? transactionDate,
     bool? isSynced,
     DateTime? createdAt,
@@ -139,6 +161,9 @@ class TransactionModel extends TransactionEntity {
       amount: amount ?? this.amount,
       type: type ?? this.type,
       note: note ?? this.note,
+      currency: currency ?? this.currency,
+      exchangeRateToBase: exchangeRateToBase ?? this.exchangeRateToBase,
+      baseAmount: baseAmount ?? this.baseAmount,
       transactionDate: transactionDate ?? this.transactionDate,
       isSynced: isSynced ?? this.isSynced,
       createdAt: createdAt ?? this.createdAt,

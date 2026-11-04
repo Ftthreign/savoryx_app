@@ -222,7 +222,7 @@ void main() {
 
       expect(find.textContaining('Kas Tunai'), findsOneWidget);
       expect(find.textContaining('Rekening BCA'), findsOneWidget);
-      expect(find.text('Makan Pokok'), findsOneWidget);
+      expect(find.text('Belanja & Hobi'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 100));
