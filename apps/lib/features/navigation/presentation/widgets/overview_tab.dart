@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
@@ -15,7 +14,9 @@ import 'package:savoryx/features/search/domain/entities/search_filter_entity.dar
 import 'package:savoryx/features/search/presentation/widgets/clay_search_bar.dart';
 import 'package:savoryx/features/search/presentation/widgets/search_filter_bottom_sheet.dart';
 import 'package:savoryx/features/search/presentation/widgets/search_result_tile.dart';
+import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/currency_picker_sheet.dart';
+import 'package:savoryx/features/transaction/presentation/widgets/dual_currency_ledger_card.dart';
 
 class OverviewTab extends StatefulWidget {
   const OverviewTab({super.key});
@@ -100,23 +101,26 @@ class _OverviewTabState extends State<OverviewTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'PULSESPEND // SAVORYX',
-                      style: ClayTypography.labelSm(
-                        color: ClayColors.onSurfaceVariant,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'PULSESPEND // SAVORYX',
+                        style: ClayTypography.labelSm(
+                          color: ClayColors.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Overview',
-                      style: ClayTypography.headlineSm(
-                        color: Theme.of(context).colorScheme.onSurface,
+                      Text(
+                        'Overview',
+                        style: ClayTypography.headlineSm(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8.0),
                 Row(
                   children: [
                     // Search Bar Trigger Button
@@ -479,26 +483,12 @@ class _OverviewTabState extends State<OverviewTab> {
         final transactions = snapshot.data!;
         return Column(
           children: transactions.map((tx) {
-            final isExpense = tx.type == 'EXPENSE';
-            final int rawAmount = tx.amount.isValidInt
-                ? tx.amount.toInt()
-                : tx.amount.abs().toInt();
-            final int amount = isExpense ? -rawAmount : rawAmount;
-            final timeFormatted =
-                DateFormat('HH:mm').format(tx.transactionTime);
-            final title = tx.note?.isNotEmpty == true
-                ? tx.note!
-                : (tx.categoryId ?? tx.type);
-
             return Padding(
               padding: const EdgeInsets.only(bottom: 10.0),
-              child: _buildLedgerItem(
-                title,
-                amount,
-                timeFormatted,
-                tx.accountId,
-                isExpense ? Icons.shopping_bag_outlined : Icons.arrow_downward,
-                isExpense ? ClayColors.primary : ClayColors.tertiary,
+              child: DualCurrencyLedgerCard.fromLocal(
+                transaction: tx,
+                accountName: tx.accountId,
+                isMasked: _isMasked,
               ),
             );
           }).toList(),
@@ -510,31 +500,39 @@ class _OverviewTabState extends State<OverviewTab> {
   Widget _buildDefaultLedgerList() {
     return Column(
       children: [
-        _buildLedgerItem(
-          'Kopi Kenangan Senopati',
-          -38000,
-          '10:42 AM',
-          'GoPay',
-          Icons.local_cafe,
-          ClayColors.primary,
+        DualCurrencyLedgerCard(
+          title: 'Kopi Kenangan Senopati',
+          amount: 38000,
+          currency: 'IDR',
+          type: TransactionType.expense,
+          time: '10:42 AM',
+          pocketOrAccount: 'GoPay',
+          categoryIcon: 'coffee',
+          isMasked: _isMasked,
         ),
         const SizedBox(height: 10.0),
-        _buildLedgerItem(
-          'Freelance UI Sprint',
-          3500000,
-          'Yesterday',
-          'BCA Main',
-          Icons.arrow_downward,
-          ClayColors.tertiary,
+        DualCurrencyLedgerCard(
+          title: 'Freelance UI Sprint',
+          amount: 3500000,
+          currency: 'IDR',
+          type: TransactionType.income,
+          time: 'Yesterday',
+          pocketOrAccount: 'BCA Main',
+          categoryIcon: 'receipt',
+          isMasked: _isMasked,
         ),
         const SizedBox(height: 10.0),
-        _buildLedgerItem(
-          'Makan Malam Sushi Tei',
-          -180000,
-          'Monday, 19:15',
-          'Mandiri',
-          Icons.restaurant,
-          ClayColors.primary,
+        DualCurrencyLedgerCard(
+          title: 'Figma Pro Subscription',
+          amount: 15,
+          currency: 'USD',
+          baseAmount: 243750,
+          exchangeRateToBase: BigInt.from(16250000000),
+          type: TransactionType.expense,
+          time: 'Monday, 19:15',
+          pocketOrAccount: 'Rekening BCA',
+          categoryIcon: 'shopping',
+          isMasked: _isMasked,
         ),
       ],
     );
@@ -586,74 +584,6 @@ class _OverviewTabState extends State<OverviewTab> {
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLedgerItem(
-    String title,
-    int amount,
-    String time,
-    String pocket,
-    IconData icon,
-    Color color,
-  ) {
-    final isIncome = amount > 0;
-    final prefix = isIncome ? '+' : '';
-
-    return ClayCard(
-      borderRadius: BorderRadius.circular(20.0),
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                Container(
-                  width: 42.0,
-                  height: 42.0,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(14.0),
-                  ),
-                  child: Icon(icon, size: 22.0, color: color),
-                ),
-                const SizedBox(width: 12.0),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ClayTypography.bodyLg(
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      Text(
-                        '$time • $pocket',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ClayTypography.bodySm(
-                          color: ClayColors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12.0),
-          Text(
-            '$prefix${CurrencyFormatter.formatMasked(amount, isMasked: _isMasked)}',
-            style: ClayTypography.headlineSm(
-              color: isIncome ? ClayColors.tertiary : ClayColors.primary,
-            ),
           ),
         ],
       ),
