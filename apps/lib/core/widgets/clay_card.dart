@@ -52,8 +52,9 @@ class ClayCard extends StatelessWidget {
                 ? ClayColors.surfaceContainerDark
                 : ClayColors.surfaceContainerLowest));
 
-    final List<BoxShadow> effectiveShadows =
-        isHero ? ClayShadows.heroCard(isDark: isDark) : ClayShadows.elevated(isDark: isDark);
+    final List<BoxShadow> effectiveShadows = isHero
+        ? ClayShadows.heroCard(isDark: isDark)
+        : ClayShadows.elevated(isDark: isDark);
 
     Widget cardWidget = ClayContainer(
       width: width,
@@ -82,6 +83,7 @@ class ClayCard extends StatelessWidget {
         enabled: onTap != null,
         label: semanticLabel,
         hint: semanticHint,
+        excludeSemantics: semanticLabel != null,
         child: cardWidget,
       );
     }

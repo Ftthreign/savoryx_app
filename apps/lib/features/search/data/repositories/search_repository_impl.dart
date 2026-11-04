@@ -22,7 +22,7 @@ class SearchRepositoryImpl implements SearchRepository {
     if (trimmedQuery.isNotEmpty) {
       final ftsItems = await _db.ftsSearchDao.searchWithRank(
         trimmedQuery,
-        limit: limit * 2, // over-fetch slightly to allow post-filtering
+        limit: limit * 2,
         offset: offset,
       );
       rawResults = ftsItems.map((item) {
@@ -85,7 +85,6 @@ class SearchRepositoryImpl implements SearchRepository {
   }
 
   bool _matchesFilter(TransactionEntity tx, SearchFilterEntity filter) {
-    // 1. Category filter
     if (filter.categoryIds.isNotEmpty) {
       if (tx.categoryId == null ||
           !filter.categoryIds.contains(tx.categoryId)) {
@@ -93,14 +92,12 @@ class SearchRepositoryImpl implements SearchRepository {
       }
     }
 
-    // 2. Account filter
     if (filter.accountIds.isNotEmpty) {
       if (!filter.accountIds.contains(tx.accountId)) {
         return false;
       }
     }
 
-    // 3. Amount range filter (deterministic integer comparison)
     final txAmountBigInt = BigInt.from(tx.amount);
     if (filter.minAmount != null && txAmountBigInt < filter.minAmount!) {
       return false;
@@ -109,7 +106,6 @@ class SearchRepositoryImpl implements SearchRepository {
       return false;
     }
 
-    // 4. Date range filter
     final (startDate, endDate) = filter.resolveEffectiveDateRange();
     if (startDate != null && tx.transactionDate.isBefore(startDate)) {
       return false;
@@ -118,14 +114,12 @@ class SearchRepositoryImpl implements SearchRepository {
       return false;
     }
 
-    // 5. Transaction type filter
     if (filter.transactionTypes.isNotEmpty) {
       if (!filter.transactionTypes.contains(tx.type.name)) {
         return false;
       }
     }
 
-    // 6. Tags filter
     if (filter.tags.isNotEmpty) {
       final noteLower = tx.note.toLowerCase();
       final hasMatchingTag = filter.tags.any((tag) {

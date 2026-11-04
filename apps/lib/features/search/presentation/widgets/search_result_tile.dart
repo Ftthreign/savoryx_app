@@ -97,7 +97,6 @@ class SearchResultTile extends StatelessWidget {
     }
   }
 
-  /// Builds a [TextSpan] tree highlighting all occurrences of [highlightQuery] case-insensitively.
   InlineSpan _buildHighlightedText(
       String text, String query, Color normalColor, Color highlightColor) {
     final cleanQuery = query.trim().toLowerCase();
@@ -176,22 +175,19 @@ class SearchResultTile extends StatelessWidget {
       amountPrefix = '';
     }
 
-    // Minor unit integer formatting
     final int amountInt = transaction != null
         ? transaction!.amount.toInt()
         : transactionEntity!.amount;
     final currency = transaction?.currency ?? transactionEntity!.currency;
     final int baseAmountInt = transaction != null
         ? transaction!.baseAmount.toInt()
-        : (transactionEntity!.baseAmount?.toInt() ??
-            transactionEntity!.amount);
+        : (transactionEntity!.baseAmount?.toInt() ?? transactionEntity!.amount);
 
     final formattedAmount = CurrencyFormatter.formatMinorUnit(
       amountInt,
       currency: currency,
     );
 
-    // Format transaction date
     final txDate =
         transaction?.transactionTime ?? transactionEntity!.transactionDate;
     final dateStr = DateFormat('dd MMM yyyy, HH:mm').format(txDate.toLocal());

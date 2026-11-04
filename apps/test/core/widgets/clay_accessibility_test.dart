@@ -9,6 +9,8 @@ void main() {
   group('Claymorphism Layout Hardening & Accessibility Semantics', () {
     testWidgets('ClayButton exposes button semantics and respects minTouchTarget',
         (WidgetTester tester) async {
+      final semantics = tester.ensureSemantics();
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -33,10 +35,14 @@ void main() {
       final size = (renderObject as RenderBox).size;
       expect(size.width, greaterThanOrEqualTo(48.0));
       expect(size.height, greaterThanOrEqualTo(48.0));
+
+      semantics.dispose();
     });
 
     testWidgets('ClayCard exposes semantic container and button semantics when onTap provided',
         (WidgetTester tester) async {
+      final semantics = tester.ensureSemantics();
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -54,10 +60,14 @@ void main() {
         find.bySemanticsLabel('Kartu Dompet Digital'),
         findsOneWidget,
       );
+
+      semantics.dispose();
     });
 
     testWidgets('ClayContainer enforces constraints without overflow',
         (WidgetTester tester) async {
+      final semantics = tester.ensureSemantics();
+
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -78,10 +88,14 @@ void main() {
       final renderBox = tester.renderObject(find.byType(ClayContainer)) as RenderBox;
       expect(renderBox.size.height, greaterThanOrEqualTo(80.0));
       expect(renderBox.size.width, greaterThanOrEqualTo(120.0));
+
+      semantics.dispose();
     });
 
     testWidgets('ClayKeypad exposes comprehensive accessibility labels for screen readers',
         (WidgetTester tester) async {
+      final semantics = tester.ensureSemantics();
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -104,6 +118,8 @@ void main() {
       expect(find.bySemanticsLabel('Hapus Semua Nominal'), findsOneWidget);
       expect(find.bySemanticsLabel('Hapus satu digit'), findsOneWidget);
       expect(find.bySemanticsLabel('Tambah 50 ribu Rupiah'), findsOneWidget);
+
+      semantics.dispose();
     });
   });
 }
