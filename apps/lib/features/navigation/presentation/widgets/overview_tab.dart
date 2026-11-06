@@ -706,37 +706,34 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
           Expanded(
             child: BlocBuilder<SearchBloc, SearchState>(
               builder: (context, state) {
-                switch (state) {
-                  case SearchInitial():
-                    return Center(
-                      child: Text(
-                        'Ketik minimal 1 karakter untuk mencari...',
-                        style: ClayTypography.bodyMd(color: subtitleColor),
-                      ),
-                    );
-                  case SearchLoading():
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  case SearchEmpty():
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.search_off_rounded,
-                            size: 48.0,
-                            color: subtitleColor,
-                          ),
-                          const SizedBox(height: 8.0),
-                          Text(
-                            'Tidak ada transaksi yang cocok.',
-                            style: ClayTypography.bodyMd(color: subtitleColor),
-                          ),
-                        ],
-                      ),
-                    );
-                  case SearchLoaded(:final results):
+                return state.when(
+                  initial: () => Center(
+                    child: Text(
+                      'Ketik minimal 1 karakter untuk mencari...',
+                      style: ClayTypography.bodyMd(color: subtitleColor),
+                    ),
+                  ),
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                  empty: (query, filter) => Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 48.0,
+                          color: subtitleColor,
+                        ),
+                        const SizedBox(height: 8.0),
+                        Text(
+                          'Tidak ada transaksi yang cocok.',
+                          style: ClayTypography.bodyMd(color: subtitleColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                  loaded: (results, filter, query) {
                     if (results.isEmpty) {
                       return Center(
                         child: Column(
@@ -769,14 +766,14 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
                         );
                       },
                     );
-                  case SearchFailure(:final message):
-                    return Center(
-                      child: Text(
-                        'Error: $message',
-                        style: ClayTypography.bodyMd(color: ClayColors.primary),
-                      ),
-                    );
-                }
+                  },
+                  failure: (message) => Center(
+                    child: Text(
+                      'Error: $message',
+                      style: ClayTypography.bodyMd(color: ClayColors.primary),
+                    ),
+                  ),
+                );
               },
             ),
           ),

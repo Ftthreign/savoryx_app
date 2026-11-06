@@ -109,7 +109,8 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
 
       // Native currency amount formatted with $ prefix
       expect(find.text(r'-$15'), findsOneWidget);
@@ -118,7 +119,14 @@ void main() {
       expect(find.textContaining('243.750'), findsOneWidget);
 
       // Note display with highlighted keyword
-      expect(find.textContaining('Figma Pro Team Subscription'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().contains('Figma Pro Team Subscription'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('SearchBloc integration with debouncing and keyword filtering',
@@ -132,17 +140,17 @@ void main() {
             child: Scaffold(
               body: BlocBuilder<SearchBloc, SearchState>(
                 builder: (context, state) {
-                  return switch (state) {
-                    SearchInitial() => const Text('Initial State'),
-                    SearchLoading() => const CircularProgressIndicator(),
-                    SearchLoaded(:final results) => ListView.builder(
-                        itemCount: results.length,
-                        itemBuilder: (ctx, i) =>
-                            Text(results[i].transaction.note),
-                      ),
-                    SearchEmpty() => const Text('No Results Found'),
-                    SearchFailure(:final message) => Text('Error: $message'),
-                  };
+                  return state.when(
+                    initial: () => const Text('Initial State'),
+                    loading: () => const CircularProgressIndicator(),
+                    loaded: (results, _, __) => ListView.builder(
+                      itemCount: results.length,
+                      itemBuilder: (ctx, i) =>
+                          Text(results[i].transaction.note),
+                    ),
+                    empty: (_, __) => const Text('No Results Found'),
+                    failure: (message) => Text('Error: $message'),
+                  );
                 },
               ),
             ),
@@ -160,7 +168,9 @@ void main() {
       expect(find.text('Initial State'), findsOneWidget);
 
       // Settle past the 150ms debounce threshold
-      await tester.pumpAndSettle(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+      await tester.pump();
 
       // Loaded state with filtered Figma transaction
       expect(find.textContaining('Figma Pro Team Subscription'), findsOneWidget);
@@ -196,7 +206,8 @@ void main() {
         SearchFilterEntity(categoryIds: {'cat-food'}),
       ));
 
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
 
       expect(find.text('Count: 1'), findsOneWidget);
 

@@ -47,7 +47,7 @@ class CategorySelectorGrid extends StatelessWidget {
     BoxShadow(
       offset: Offset(0.0, 3.0),
       blurRadius: 6.0,
-      color: Color(0x3BBA1A1A),
+      color: ClayColors.chipPrimaryShadow,
     ),
     BoxShadow(
       offset: Offset(-1.0, -1.0),

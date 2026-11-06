@@ -47,7 +47,7 @@ class AccountChipSelector extends StatelessWidget {
     BoxShadow(
       offset: Offset(0.0, 3.0),
       blurRadius: 6.0,
-      color: Color(0x3B6C5E15),
+      color: ClayColors.chipSecondaryShadow,
     ),
     BoxShadow(
       offset: Offset(-1.0, -1.0),

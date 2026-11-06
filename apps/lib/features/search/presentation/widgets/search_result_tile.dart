@@ -4,6 +4,7 @@ import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/utils/currency_converter.dart';
 import 'package:savoryx/core/utils/currency_formatter.dart';
 import 'package:savoryx/features/search/domain/entities/search_result_entity.dart';
 import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
@@ -183,10 +184,13 @@ class SearchResultTile extends StatelessWidget {
         ? transaction!.baseAmount.toInt()
         : (transactionEntity!.baseAmount?.toInt() ?? transactionEntity!.amount);
 
-    final formattedAmount = CurrencyFormatter.formatMinorUnit(
-      amountInt,
-      currency: currency,
-    );
+    final isForeign = currency.toUpperCase() != 'IDR';
+    final currencyInfo = CurrencyConverter.supportedCurrencies[currency.toUpperCase()];
+    final currencySymbol = currencyInfo?.symbol ?? currency;
+
+    final formattedAmount = isForeign
+        ? '$currencySymbol${NumberFormat('#,##0').format(amountInt)}'
+        : CurrencyFormatter.formatMinorUnit(amountInt);
 
     final txDate =
         transaction?.transactionTime ?? transactionEntity!.transactionDate;

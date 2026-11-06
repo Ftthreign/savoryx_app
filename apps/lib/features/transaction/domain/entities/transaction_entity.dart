@@ -1,3 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'transaction_entity.freezed.dart';
+
 enum TransactionType {
   expense,
   income,
@@ -39,116 +43,27 @@ enum TransactionType {
   }
 }
 
-class TransactionEntity {
-  const TransactionEntity({
-    required this.id,
-    required this.accountId,
-    this.destinationAccountId,
-    this.categoryId,
-    required this.amount,
-    required this.type,
-    this.note = '',
-    this.currency = 'IDR',
-    this.exchangeRateToBase,
-    this.baseAmount,
-    required this.transactionDate,
-    this.isSynced = false,
-    required this.createdAt,
-    required this.updatedAt,
-    this.deletedAt,
-  });
+@freezed
+class TransactionEntity with _$TransactionEntity {
+  const TransactionEntity._();
 
-  final String id;
-  final String accountId;
-  final String? destinationAccountId;
-  final String? categoryId;
-  final int amount;
-  final TransactionType type;
-  final String note;
-  final String currency;
-  final BigInt? exchangeRateToBase;
-  final BigInt? baseAmount;
-  final DateTime transactionDate;
-  final bool isSynced;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final DateTime? deletedAt;
-
-  bool get isDeleted => deletedAt != null;
-
-  TransactionEntity copyWith({
-    String? id,
-    String? accountId,
+  const factory TransactionEntity({
+    required String id,
+    required String accountId,
     String? destinationAccountId,
     String? categoryId,
-    int? amount,
-    TransactionType? type,
-    String? note,
-    String? currency,
+    required int amount,
+    required TransactionType type,
+    @Default('') String note,
+    @Default('IDR') String currency,
     BigInt? exchangeRateToBase,
     BigInt? baseAmount,
-    DateTime? transactionDate,
-    bool? isSynced,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    required DateTime transactionDate,
+    @Default(false) bool isSynced,
+    required DateTime createdAt,
+    required DateTime updatedAt,
     DateTime? deletedAt,
-  }) {
-    return TransactionEntity(
-      id: id ?? this.id,
-      accountId: accountId ?? this.accountId,
-      destinationAccountId: destinationAccountId ?? this.destinationAccountId,
-      categoryId: categoryId ?? this.categoryId,
-      amount: amount ?? this.amount,
-      type: type ?? this.type,
-      note: note ?? this.note,
-      currency: currency ?? this.currency,
-      exchangeRateToBase: exchangeRateToBase ?? this.exchangeRateToBase,
-      baseAmount: baseAmount ?? this.baseAmount,
-      transactionDate: transactionDate ?? this.transactionDate,
-      isSynced: isSynced ?? this.isSynced,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      deletedAt: deletedAt ?? this.deletedAt,
-    );
-  }
+  }) = _TransactionEntity;
 
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is TransactionEntity &&
-        other.id == id &&
-        other.accountId == accountId &&
-        other.destinationAccountId == destinationAccountId &&
-        other.categoryId == categoryId &&
-        other.amount == amount &&
-        other.type == type &&
-        other.note == note &&
-        other.currency == currency &&
-        other.exchangeRateToBase == exchangeRateToBase &&
-        other.baseAmount == baseAmount &&
-        other.transactionDate == transactionDate &&
-        other.isSynced == isSynced &&
-        other.createdAt == createdAt &&
-        other.updatedAt == updatedAt &&
-        other.deletedAt == deletedAt;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        id,
-        accountId,
-        destinationAccountId,
-        categoryId,
-        amount,
-        type,
-        note,
-        currency,
-        exchangeRateToBase,
-        baseAmount,
-        transactionDate,
-        isSynced,
-        createdAt,
-        updatedAt,
-        deletedAt,
-      );
+  bool get isDeleted => deletedAt != null;
 }
