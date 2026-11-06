@@ -1,10 +1,11 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:savoryx/core/database/daos/exchange_rate_dao.dart';
+import 'package:injectable/injectable.dart';
 import 'package:savoryx/core/utils/currency_converter.dart';
 import 'package:savoryx/features/transaction/domain/usecases/get_exchange_rates_usecase.dart';
 import 'package:savoryx/features/transaction/presentation/bloc/currency_event.dart';
 import 'package:savoryx/features/transaction/presentation/bloc/currency_state.dart';
 
+@lazySingleton
 class CurrencyBloc extends Bloc<CurrencyEvent, CurrencyState> {
   CurrencyBloc({required GetExchangeRatesUseCase getExchangeRatesUseCase})
       : _getExchangeRatesUseCase = getExchangeRatesUseCase,
@@ -17,17 +18,17 @@ class CurrencyBloc extends Bloc<CurrencyEvent, CurrencyState> {
   final GetExchangeRatesUseCase _getExchangeRatesUseCase;
 
   static final Map<String, BigInt> _fallbackRatesScaled = {
-    'IDR': ExchangeRateDao.rateScale,
-    'USD': BigInt.from(16250) * ExchangeRateDao.rateScale,
-    'SGD': BigInt.from(12050) * ExchangeRateDao.rateScale,
-    'EUR': BigInt.from(17400) * ExchangeRateDao.rateScale,
-    'JPY': BigInt.from(105) * ExchangeRateDao.rateScale,
-    'GBP': BigInt.from(20500) * ExchangeRateDao.rateScale,
-    'AUD': BigInt.from(10600) * ExchangeRateDao.rateScale,
-    'CNY': BigInt.from(2240) * ExchangeRateDao.rateScale,
-    'MYR': BigInt.from(3450) * ExchangeRateDao.rateScale,
-    'THB': BigInt.from(445) * ExchangeRateDao.rateScale,
-    'KRW': BigInt.from(12) * ExchangeRateDao.rateScale,
+    'IDR': CurrencyConverter.rateScale,
+    'USD': BigInt.from(16250) * CurrencyConverter.rateScale,
+    'SGD': BigInt.from(12050) * CurrencyConverter.rateScale,
+    'EUR': BigInt.from(17400) * CurrencyConverter.rateScale,
+    'JPY': BigInt.from(105) * CurrencyConverter.rateScale,
+    'GBP': BigInt.from(20500) * CurrencyConverter.rateScale,
+    'AUD': BigInt.from(10600) * CurrencyConverter.rateScale,
+    'CNY': BigInt.from(2240) * CurrencyConverter.rateScale,
+    'MYR': BigInt.from(3450) * CurrencyConverter.rateScale,
+    'THB': BigInt.from(445) * CurrencyConverter.rateScale,
+    'KRW': BigInt.from(12) * CurrencyConverter.rateScale,
   };
 
   Future<void> _onLoadExchangeRates(
@@ -44,7 +45,7 @@ class CurrencyBloc extends Bloc<CurrencyEvent, CurrencyState> {
       for (final entity in entities) {
         rateMap[entity.targetCurrency.toUpperCase()] = entity.rateScaled;
       }
-      rateMap[event.baseCurrency.toUpperCase()] = ExchangeRateDao.rateScale;
+      rateMap[event.baseCurrency.toUpperCase()] = CurrencyConverter.rateScale;
 
       emit(CurrencyLoaded(
         baseCurrency: event.baseCurrency,

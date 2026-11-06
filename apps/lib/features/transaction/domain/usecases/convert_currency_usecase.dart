@@ -1,7 +1,9 @@
+import 'package:injectable/injectable.dart';
 import 'package:savoryx/core/utils/currency_converter.dart';
 import 'package:savoryx/core/utils/financial_math.dart';
 import 'package:savoryx/features/transaction/domain/repositories/exchange_rate_repository.dart';
 
+@lazySingleton
 class ConvertCurrencyUseCase {
   const ConvertCurrencyUseCase(this._exchangeRateRepository);
 

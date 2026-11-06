@@ -1,6 +1,8 @@
+import 'package:injectable/injectable.dart';
 import 'package:savoryx/features/transaction/domain/entities/exchange_rate_entity.dart';
 import 'package:savoryx/features/transaction/domain/repositories/exchange_rate_repository.dart';
 
+@lazySingleton
 class GetExchangeRatesUseCase {
   const GetExchangeRatesUseCase(this._repository);
 

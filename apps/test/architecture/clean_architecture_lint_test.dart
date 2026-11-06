@@ -65,5 +65,51 @@ void main() {
             'Domain layer must remain 100% pure Dart without platform or outer layer dependencies:\n${violations.join('\n')}',
       );
     });
+
+    test(
+        'Presentation screens, modals, and BLoCs must not import AppDatabase or data layer',
+        () {
+      final guardedFiles = <String>[
+        'lib/features/navigation/presentation/widgets/overview_tab.dart',
+        'lib/features/navigation/presentation/bloc/overview_bloc.dart',
+        'lib/features/search/presentation/widgets/search_filter_bottom_sheet.dart',
+        'lib/features/search/presentation/bloc/search_bloc.dart',
+        'lib/features/transaction/presentation/widgets/rapid_input_modal.dart',
+        'lib/features/transaction/presentation/bloc/transaction_bloc.dart',
+        'lib/features/transaction/presentation/bloc/currency_bloc.dart',
+      ];
+
+      final forbiddenSubstrings = <String>[
+        'core/database/',
+        'package:drift/',
+        '/data/',
+      ];
+
+      final violations = <String>[];
+
+      for (final path in guardedFiles) {
+        final file = File(path);
+        expect(file.existsSync(), isTrue, reason: '$path must exist');
+        for (final line in file.readAsLinesSync()) {
+          final trimmed = line.trim();
+          if (trimmed.startsWith('import ')) {
+            for (final forbidden in forbiddenSubstrings) {
+              if (trimmed.contains(forbidden)) {
+                violations.add(
+                  '$path: forbidden import "$trimmed" contains "$forbidden"',
+                );
+              }
+            }
+          }
+        }
+      }
+
+      expect(
+        violations,
+        isEmpty,
+        reason:
+            'Presentation layer must be decoupled from AppDatabase and data layer:\n${violations.join('\n')}',
+      );
+    });
   });
 }

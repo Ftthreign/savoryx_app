@@ -1,11 +1,17 @@
 import 'package:drift/drift.dart';
+import 'package:injectable/injectable.dart';
 import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/database/daos/exchange_rate_dao.dart';
 import 'package:savoryx/features/transaction/domain/entities/exchange_rate_entity.dart';
 import 'package:savoryx/features/transaction/domain/repositories/exchange_rate_repository.dart';
 
+@LazySingleton(as: ExchangeRateRepository)
 class ExchangeRateRepositoryImpl implements ExchangeRateRepository {
   const ExchangeRateRepositoryImpl(this._exchangeRateDao);
+
+  @factoryMethod
+  ExchangeRateRepositoryImpl.fromDatabase(AppDatabase db)
+      : _exchangeRateDao = db.exchangeRateDao;
 
   final ExchangeRateDao _exchangeRateDao;
 

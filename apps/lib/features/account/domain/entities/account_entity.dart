@@ -66,8 +66,6 @@ enum AccountType {
   }
 }
 
-/// Pure Dart domain entity for financial account/pocket.
-/// Zero-floating-point: balance is strictly stored as integer minor units.
 @freezed
 class AccountEntity with _$AccountEntity {
   const AccountEntity._();
