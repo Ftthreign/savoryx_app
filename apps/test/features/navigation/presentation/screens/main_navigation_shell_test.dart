@@ -39,13 +39,21 @@ void main() {
     );
   }
 
+  void setMobileScreen(WidgetTester tester) {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() async {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(Duration.zero);
+    });
+  }
+
   group('MainNavigationShell Widget Tests (flutter-add-widget-test)', () {
     testWidgets('renders Overview tab and bottom navigation bar by default',
         (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+      setMobileScreen(tester);
 
       await tester.pumpWidget(buildTestableShell());
       await tester.pumpAndSettle();
@@ -77,10 +85,7 @@ void main() {
     testWidgets(
         'switches seamlessly across all 4 tabs via bottom navigation bar',
         (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+      setMobileScreen(tester);
 
       await tester.pumpWidget(buildTestableShell());
       await tester.pumpAndSettle();
@@ -131,10 +136,7 @@ void main() {
     testWidgets(
         'preserves tab state and inputs across IndexedStack navigation switches',
         (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+      setMobileScreen(tester);
 
       await tester.pumpWidget(buildTestableShell());
       await tester.pumpAndSettle();
@@ -186,10 +188,7 @@ void main() {
     testWidgets(
         'opens RapidInputModal via elevated center FAB without interrupting active tab',
         (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+      setMobileScreen(tester);
 
       await tester.pumpWidget(buildTestableShell());
       await tester.pumpAndSettle();
@@ -222,10 +221,7 @@ void main() {
     testWidgets(
         'interacts with Settings tab theme switcher and typography engine',
         (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+      setMobileScreen(tester);
 
       await tester.pumpWidget(buildTestableShell(initialIndex: 3));
       await tester.pumpAndSettle();

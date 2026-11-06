@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/di/injection_container.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
@@ -12,8 +12,16 @@ import 'package:savoryx/core/utils/currency_formatter.dart';
 import 'package:savoryx/core/utils/math_evaluator.dart';
 import 'package:savoryx/core/widgets/clay_button.dart';
 import 'package:savoryx/core/widgets/clay_toggle_switch.dart';
+import 'package:savoryx/features/account/domain/entities/account_entity.dart';
+import 'package:savoryx/features/account/domain/usecases/get_accounts_usecase.dart';
+import 'package:savoryx/features/account/domain/usecases/watch_accounts_usecase.dart';
+import 'package:savoryx/features/category/domain/entities/category_entity.dart';
+import 'package:savoryx/features/category/domain/usecases/get_categories_usecase.dart';
+import 'package:savoryx/features/category/domain/usecases/watch_categories_usecase.dart';
+import 'package:savoryx/features/transaction/domain/entities/exchange_rate_entity.dart';
 import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:savoryx/features/transaction/domain/usecases/create_transaction_usecase.dart';
+import 'package:savoryx/features/transaction/domain/usecases/get_exchange_rates_usecase.dart';
 import 'package:savoryx/features/transaction/presentation/bloc/transaction_bloc.dart';
 import 'package:savoryx/features/transaction/presentation/bloc/transaction_event.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/account_chip_selector.dart';
@@ -23,15 +31,47 @@ import 'package:savoryx/features/transaction/presentation/widgets/currency_picke
 import 'package:uuid/uuid.dart';
 
 class RapidInputModal extends StatefulWidget {
-  const RapidInputModal({super.key});
+  const RapidInputModal({
+    super.key,
+    this.watchAccountsUseCase,
+    this.watchCategoriesUseCase,
+    this.getExchangeRatesUseCase,
+    this.hourlyWage = 65000,
+  });
 
-  static Future<void> show(BuildContext context) {
+  final WatchAccountsUseCase? watchAccountsUseCase;
+  final WatchCategoriesUseCase? watchCategoriesUseCase;
+  final GetExchangeRatesUseCase? getExchangeRatesUseCase;
+  final int hourlyWage;
+
+  static Future<void> show(
+    BuildContext context, {
+    int hourlyWage = 65000,
+  }) {
+    TransactionBloc? existingBloc;
+    try {
+      existingBloc = context.read<TransactionBloc>();
+    } catch (_) {
+      if (getIt.isRegistered<TransactionBloc>()) {
+        existingBloc = getIt<TransactionBloc>();
+      }
+    }
+
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const RapidInputModal(),
+      builder: (_) {
+        final modal = RapidInputModal(hourlyWage: hourlyWage);
+        if (existingBloc != null) {
+          return BlocProvider<TransactionBloc>.value(
+            value: existingBloc,
+            child: modal,
+          );
+        }
+        return modal;
+      },
     );
   }
 
@@ -46,7 +86,6 @@ class _RapidInputModalState extends State<RapidInputModal> {
   String _selectedCurrency = 'IDR';
   BigInt _selectedRateScaled = BigInt.from(1000000);
   bool _isTalangan = false;
-  static const int _wagePerHour = 65000;
 
   static const List<String> _defaultCategories = [
     'Food & Drink',
@@ -63,17 +102,25 @@ class _RapidInputModalState extends State<RapidInputModal> {
     'Mandiri Savings',
   ];
 
-  Stream<List<LocalAccount>>? _accountsStream;
-  Stream<List<LocalCategory>>? _categoriesStream;
+  Stream<List<AccountEntity>>? _accountsStream;
+  Stream<List<CategoryEntity>>? _categoriesStream;
+  List<AccountEntity> _latestAccounts = const [];
+  List<CategoryEntity> _latestCategories = const [];
 
   @override
   void initState() {
     super.initState();
-    if (getIt.isRegistered<AppDatabase>()) {
-      final db = getIt<AppDatabase>();
-      _accountsStream = db.accountDao.watchAllActiveAccounts();
-      _categoriesStream = db.categoryDao.watchAllActiveCategories();
-    }
+    final watchAccounts = widget.watchAccountsUseCase ??
+        (getIt.isRegistered<WatchAccountsUseCase>()
+            ? getIt<WatchAccountsUseCase>()
+            : null);
+    final watchCategories = widget.watchCategoriesUseCase ??
+        (getIt.isRegistered<WatchCategoriesUseCase>()
+            ? getIt<WatchCategoriesUseCase>()
+            : null);
+
+    _accountsStream = watchAccounts?.call();
+    _categoriesStream = watchCategories?.call();
   }
 
   void _onDigitPressed(String digit) {
@@ -160,38 +207,44 @@ class _RapidInputModalState extends State<RapidInputModal> {
     if (picked != null && picked != _selectedCurrency) {
       BigInt rate = BigInt.from(1000000);
       if (picked.toUpperCase() != 'IDR') {
-        if (getIt.isRegistered<AppDatabase>()) {
-          final db = getIt<AppDatabase>();
-          final cached = await db.exchangeRateDao.getLatestRate(
-            base: picked,
-            target: 'IDR',
+        final exchangeRatesUseCase = widget.getExchangeRatesUseCase ??
+            (getIt.isRegistered<GetExchangeRatesUseCase>()
+                ? getIt<GetExchangeRatesUseCase>()
+                : null);
+
+        ExchangeRateEntity? cached;
+        if (exchangeRatesUseCase != null) {
+          cached = await exchangeRatesUseCase.getRate(
+            baseCurrency: picked,
+            targetCurrency: 'IDR',
           );
-          if (cached != null) {
-            rate = cached.rate;
-          } else {
-            // Sensible fallback rates before first network sync
-            switch (picked.toUpperCase()) {
-              case 'USD':
-                rate = BigInt.from(16250000000);
-                break;
-              case 'SGD':
-                rate = BigInt.from(12200000000);
-                break;
-              case 'EUR':
-                rate = BigInt.from(17500000000);
-                break;
-              case 'JPY':
-                rate = BigInt.from(105000000);
-                break;
-              case 'GBP':
-                rate = BigInt.from(20500000000);
-                break;
-              case 'MYR':
-                rate = BigInt.from(3650000000);
-                break;
-              default:
-                rate = BigInt.from(15000000000);
-            }
+        }
+
+        if (cached != null) {
+          rate = cached.rateScaled;
+        } else {
+          // Sensible fallback rates before first network sync
+          switch (picked.toUpperCase()) {
+            case 'USD':
+              rate = BigInt.from(16250000000);
+              break;
+            case 'SGD':
+              rate = BigInt.from(12200000000);
+              break;
+            case 'EUR':
+              rate = BigInt.from(17500000000);
+              break;
+            case 'JPY':
+              rate = BigInt.from(105000000);
+              break;
+            case 'GBP':
+              rate = BigInt.from(20500000000);
+              break;
+            case 'MYR':
+              rate = BigInt.from(3650000000);
+              break;
+            default:
+              rate = BigInt.from(15000000000);
           }
         }
       }
@@ -230,10 +283,15 @@ class _RapidInputModalState extends State<RapidInputModal> {
 
     final String workHours = CurrencyFormatter.calculateWorkHours(
       baseAmountInt,
-      hourlyWage: _wagePerHour,
+      hourlyWage: widget.hourlyWage,
+    );
+    final String formattedHourlyWage = CurrencyFormatter.formatCompactRupiah(
+      widget.hourlyWage,
+      prefix: 'Rp ',
     );
 
-    final currencyInfo = CurrencyConverter.supportedCurrencies[_selectedCurrency];
+    final currencyInfo =
+        CurrencyConverter.supportedCurrencies[_selectedCurrency];
     final currencySymbol = currencyInfo?.symbol ?? _selectedCurrency;
 
     return Container(
@@ -286,7 +344,11 @@ class _RapidInputModalState extends State<RapidInputModal> {
                     borderRadius: BorderRadius.circular(18.0),
                     semanticLabel: 'Tutup formulir transaksi',
                     minTouchTarget: true,
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.pop(context);
+                      }
+                    },
                     child: Icon(
                       Icons.close_rounded,
                       size: 20.0,
@@ -298,14 +360,15 @@ class _RapidInputModalState extends State<RapidInputModal> {
               const SizedBox(height: 14.0),
 
               // Category Horizontal Selector
-              StreamBuilder<List<LocalCategory>>(
+              StreamBuilder<List<CategoryEntity>>(
                 stream: _categoriesStream,
                 builder: (context, snapshot) {
                   final List<String> categories;
                   final Map<String, bool> isWantsMap = {};
                   if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                    categories = snapshot.data!.map((c) => c.name).toList();
-                    for (final c in snapshot.data!) {
+                    _latestCategories = snapshot.data!;
+                    categories = _latestCategories.map((c) => c.name).toList();
+                    for (final c in _latestCategories) {
                       isWantsMap[c.name] = c.isWants;
                     }
                   } else {
@@ -328,19 +391,17 @@ class _RapidInputModalState extends State<RapidInputModal> {
               const SizedBox(height: 12.0),
 
               // Source Account Horizontal Selector
-              StreamBuilder<List<LocalAccount>>(
+              StreamBuilder<List<AccountEntity>>(
                 stream: _accountsStream,
                 builder: (context, snapshot) {
                   final List<String> accounts;
                   final Map<String, String> balances = {};
                   if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                    accounts = snapshot.data!.map((a) => a.name).toList();
-                    for (final a in snapshot.data!) {
-                      final bal = a.balance.isValidInt
-                          ? a.balance.toInt()
-                          : a.balance.abs().toInt();
+                    _latestAccounts = snapshot.data!;
+                    accounts = _latestAccounts.map((a) => a.name).toList();
+                    for (final a in _latestAccounts) {
                       balances[a.name] = CurrencyFormatter.formatCompactRupiah(
-                        bal,
+                        a.balance.abs(),
                         prefix: 'Rp ',
                       );
                     }
@@ -363,333 +424,354 @@ class _RapidInputModalState extends State<RapidInputModal> {
               ),
               const SizedBox(height: 16.0),
 
-              // Giant Value Display Deck with Interactive Currency Selector & Live Math Preview
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(
+                    vertical: 14.0, horizontal: 16.0),
                 decoration: BoxDecoration(
-                color: isDark
-                    ? ClayColors.surfaceContainerDarkLow
-                    : ClayColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(20.0),
-                boxShadow: ClayShadows.elevated(isDark: isDark, scale: 0.8),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Interactive Currency Selector Button
-                      GestureDetector(
-                        key: const Key('rapid_input_currency_selector_button'),
-                        onTap: _openCurrencyPicker,
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10.0, vertical: 6.0),
-                          margin: const EdgeInsets.only(right: 8.0),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? ClayColors.surfaceContainerDarkHigh
-                                : ClayColors.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(14.0),
-                            border: Border.all(
-                              color: _selectedCurrency != 'IDR'
-                                  ? ClayColors.primary
-                                  : Colors.transparent,
-                              width: 1.5,
+                  color: isDark
+                      ? ClayColors.surfaceContainerDarkLow
+                      : ClayColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(20.0),
+                  boxShadow: ClayShadows.elevated(isDark: isDark, scale: 0.8),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Interactive Currency Selector Button
+                        GestureDetector(
+                          key:
+                              const Key('rapid_input_currency_selector_button'),
+                          onTap: _openCurrencyPicker,
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10.0, vertical: 6.0),
+                            margin: const EdgeInsets.only(right: 8.0),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? ClayColors.surfaceContainerDarkHigh
+                                  : ClayColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(14.0),
+                              border: Border.all(
+                                color: _selectedCurrency != 'IDR'
+                                    ? ClayColors.primary
+                                    : Colors.transparent,
+                                width: 1.5,
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _selectedCurrency == 'IDR'
-                                    ? 'Rp'
-                                    : '$_selectedCurrency ($currencySymbol)',
-                                style: ClayTypography.headlineSm(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _selectedCurrency == 'IDR'
+                                      ? 'Rp'
+                                      : '$_selectedCurrency ($currencySymbol)',
+                                  style: ClayTypography.headlineSm(
+                                    color: _selectedCurrency != 'IDR'
+                                        ? (isDark
+                                            ? ClayColors.primaryHighlight
+                                            : ClayColors.primary)
+                                        : ClayColors.onSurfaceVariant,
+                                  ).copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(width: 4.0),
+                                Icon(
+                                  Icons.arrow_drop_down_rounded,
+                                  size: 22.0,
                                   color: _selectedCurrency != 'IDR'
                                       ? (isDark
                                           ? ClayColors.primaryHighlight
                                           : ClayColors.primary)
                                       : ClayColors.onSurfaceVariant,
-                                ).copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(width: 4.0),
-                              Icon(
-                                Icons.arrow_drop_down_rounded,
-                                size: 22.0,
-                                color: _selectedCurrency != 'IDR'
-                                    ? (isDark
-                                        ? ClayColors.primaryHighlight
-                                        : ClayColors.primary)
-                                    : ClayColors.onSurfaceVariant,
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
 
-                      // Amount Text Display
-                      Flexible(
-                        child: Text(
-                          hasOp
-                              ? _currentRaw
-                              : _selectedCurrency == 'IDR'
-                                  ? CurrencyFormatter.formatMinorUnit(amount)
-                                      .replaceAll('Rp', '')
-                                      .trim()
-                                  : NumberFormat('#,##0').format(amount),
-                          key: const Key('amount_display_text'),
-                          textAlign: TextAlign.center,
-                          style: hasOp
-                              ? ClayTypography.headlineLg(
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                )
-                              : ClayTypography.headlineXl(
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                ),
+                        // Amount Text Display
+                        Flexible(
+                          child: Text(
+                            hasOp
+                                ? _currentRaw
+                                : _selectedCurrency == 'IDR'
+                                    ? CurrencyFormatter.formatMinorUnit(amount)
+                                        .replaceAll('Rp', '')
+                                        .trim()
+                                    : NumberFormat('#,##0').format(amount),
+                            key: const Key('amount_display_text'),
+                            textAlign: TextAlign.center,
+                            style: hasOp
+                                ? ClayTypography.headlineLg(
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                  )
+                                : ClayTypography.headlineXl(
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (livePreview != null) ...[
+                      const SizedBox(height: 4.0),
+                      Text(
+                        '= $livePreview',
+                        key: const Key('live_preview_text'),
+                        style: ClayTypography.headlineSm(
+                          color: ClayColors.secondaryDeep,
                         ),
                       ),
                     ],
-                  ),
-                  if (livePreview != null) ...[
-                    const SizedBox(height: 4.0),
-                    Text(
-                      '= $livePreview',
-                      key: const Key('live_preview_text'),
-                      style: ClayTypography.headlineSm(
-                        color: ClayColors.secondaryDeep,
-                      ),
-                    ),
-                  ],
 
-                  // Live Currency Conversion Preview (Active when Foreign Currency Selected)
-                  if (_selectedCurrency != 'IDR') ...[
-                    const SizedBox(height: 8.0),
-                    Container(
-                      key: const Key('currency_conversion_live_preview'),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12.0, vertical: 6.0),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? ClayColors.surfaceContainerDarkLowest
-                            : ClayColors.surfaceContainerLowest,
-                        borderRadius: BorderRadius.circular(14.0),
-                        border: Border.all(
+                    if (_selectedCurrency != 'IDR') ...[
+                      const SizedBox(height: 8.0),
+                      Container(
+                        key: const Key('currency_conversion_live_preview'),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0, vertical: 6.0),
+                        decoration: BoxDecoration(
                           color: isDark
-                              ? ClayColors.primaryHighlight.withOpacity(0.4)
-                              : ClayColors.primaryFixed,
-                          width: 1.2,
+                              ? ClayColors.surfaceContainerDarkLowest
+                              : ClayColors.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(14.0),
+                          border: Border.all(
+                            color: isDark
+                                ? ClayColors.primaryHighlight.withOpacity(0.4)
+                                : ClayColors.primaryFixed,
+                            width: 1.2,
+                          ),
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.currency_exchange_rounded,
+                              size: 16.0,
+                              color: ClayColors.primary,
+                            ),
+                            const SizedBox(width: 6.0),
+                            Flexible(
+                              child: Text(
+                                '≈ ${CurrencyFormatter.formatMinorUnit(baseAmountInt, currency: 'IDR')} (@ Rp ${CurrencyConverter.formatScaledRate(_selectedRateScaled)}/$_selectedCurrency)',
+                                style: ClayTypography.bodySm(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ).copyWith(fontWeight: FontWeight.w700),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 8.0),
+                    // Time-cost equivalence pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12.0, vertical: 4.0),
+                      decoration: BoxDecoration(
+                        color: ClayColors.secondaryContainer.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(16.0),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.currency_exchange_rounded,
-                            size: 16.0,
-                            color: ClayColors.primary,
+                            Icons.hourglass_top,
+                            size: 14.0,
+                            color: ClayColors.secondary,
                           ),
-                          const SizedBox(width: 6.0),
-                          Flexible(
-                            child: Text(
-                              '≈ ${CurrencyFormatter.formatMinorUnit(baseAmountInt, currency: 'IDR')} (@ Rp ${CurrencyConverter.formatScaledRate(_selectedRateScaled)}/$_selectedCurrency)',
-                              style: ClayTypography.bodySm(
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ).copyWith(fontWeight: FontWeight.w700),
-                              overflow: TextOverflow.ellipsis,
+                          const SizedBox(width: 4.0),
+                          Text(
+                            '≈ $workHours Working Hours at $formattedHourlyWage/hr',
+                            style: ClayTypography.labelSm(
+                              color: ClayColors.onSecondaryContainer,
                             ),
                           ),
                         ],
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16.0),
 
-                  const SizedBox(height: 8.0),
-                  // Time-cost equivalence pill
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12.0, vertical: 4.0),
-                    decoration: BoxDecoration(
-                      color: ClayColors.secondaryContainer.withOpacity(0.85),
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.hourglass_top,
-                          size: 14.0,
+              ClayKeypad(
+                onDigitPressed: _onDigitPressed,
+                onOperatorPressed: _onOperatorPressed,
+                onClear: _onClear,
+                onBackspace: _onBackspace,
+                onAcceleratorPressed: _onAddAccelerator,
+              ),
+              const SizedBox(height: 14.0),
+
+              // Peer Debt / Talangan Toggle Switch
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 32.0,
+                        height: 32.0,
+                        decoration: BoxDecoration(
+                          color: ClayColors.secondaryContainer,
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        child: const Icon(
+                          Icons.people_alt,
+                          size: 16.0,
                           color: ClayColors.secondary,
                         ),
-                        const SizedBox(width: 4.0),
-                        Text(
-                          '≈ $workHours Working Hours at Rp 65k/hr',
-                          style: ClayTypography.labelSm(
-                            color: ClayColors.onSecondaryContainer,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 10.0),
+                      Text(
+                        'Mark as Talangan',
+                        style: ClayTypography.bodyMd(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ).copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  ClayToggleSwitch(
+                    value: _isTalangan,
+                    onChanged: (val) {
+                      HapticFeedback.selectionClick();
+                      setState(() => _isTalangan = val);
+                    },
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16.0),
+              const SizedBox(height: 18.0),
 
-            // In-App Numeric Keypad Calculator with Accelerators
-            ClayKeypad(
-              onDigitPressed: _onDigitPressed,
-              onOperatorPressed: _onOperatorPressed,
-              onClear: _onClear,
-              onBackspace: _onBackspace,
-              onAcceleratorPressed: _onAddAccelerator,
-            ),
-            const SizedBox(height: 14.0),
-
-            // Peer Debt / Talangan Toggle Switch
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 32.0,
-                      height: 32.0,
-                      decoration: BoxDecoration(
-                        color: ClayColors.secondaryContainer,
-                        borderRadius: BorderRadius.circular(10.0),
-                      ),
-                      child: const Icon(
-                        Icons.people_alt,
-                        size: 16.0,
-                        color: ClayColors.secondary,
-                      ),
-                    ),
-                    const SizedBox(width: 10.0),
-                    Text(
-                      'Mark as Talangan',
-                      style: ClayTypography.bodyMd(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ).copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                ClayToggleSwitch(
-                  value: _isTalangan,
-                  onChanged: (val) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _isTalangan = val);
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 18.0),
-
-            // Giant Red Log Expense Primary CTA Button
-            ClayButton(
-              width: double.infinity,
-              height: 52.0,
-              color: ClayColors.primary,
-              borderRadius: BorderRadius.circular(26.0),
-              semanticLabel: 'Simpan pengeluaran',
-              onTap: () async {
-                await HapticFeedback.heavyImpact();
-                const uuid = Uuid();
-                final now = DateTime.now().toUtc();
-                final txId = uuid.v7();
-
-                String targetAccountId = _selectedAccount;
-                String? targetCategoryId;
-
-                if (getIt.isRegistered<AppDatabase>()) {
-                  final db = getIt<AppDatabase>();
+              // Giant Red Log Expense Primary CTA Button
+              ClayButton(
+                key: const Key('rapid_input_save_button'),
+                width: double.infinity,
+                height: 52.0,
+                color: ClayColors.primary,
+                borderRadius: BorderRadius.circular(26.0),
+                semanticLabel: 'Simpan pengeluaran',
+                onTap: () async {
+                  unawaited(HapticFeedback.heavyImpact());
+                  TransactionBloc? bloc;
                   try {
-                    final allAcc = await db.accountDao.getAllActiveAccounts();
-                    final matchedAcc =
-                        allAcc.where((a) => a.name == _selectedAccount);
+                    bloc = context.read<TransactionBloc>();
+                  } catch (_) {
+                    if (getIt.isRegistered<TransactionBloc>()) {
+                      bloc = getIt<TransactionBloc>();
+                    }
+                  }
+
+                  const uuid = Uuid();
+                  final now = DateTime.now().toUtc();
+                  final txId = uuid.v7();
+
+                  String targetAccountId = _selectedAccount;
+                  String? targetCategoryId;
+
+                  try {
+                    List<AccountEntity> accountsToSearch = _latestAccounts;
+                    if (accountsToSearch.isEmpty &&
+                        getIt.isRegistered<GetAccountsUseCase>()) {
+                      accountsToSearch = await getIt<GetAccountsUseCase>()();
+                    }
+                    final matchedAcc = accountsToSearch
+                        .where((a) => a.name == _selectedAccount);
                     if (matchedAcc.isNotEmpty) {
                       targetAccountId = matchedAcc.first.id;
+                    } else if (accountsToSearch.isNotEmpty) {
+                      targetAccountId = accountsToSearch.first.id;
                     }
 
-                    final allCat =
-                        await db.categoryDao.getAllActiveCategories();
-                    final matchedCat =
-                        allCat.where((c) => c.name == _selectedCategory);
+                    List<CategoryEntity> categoriesToSearch = _latestCategories;
+                    if (categoriesToSearch.isEmpty &&
+                        getIt.isRegistered<GetCategoriesUseCase>()) {
+                      categoriesToSearch =
+                          await getIt<GetCategoriesUseCase>()();
+                    }
+                    final matchedCat = categoriesToSearch
+                        .where((c) => c.name == _selectedCategory);
                     if (matchedCat.isNotEmpty) {
                       targetCategoryId = matchedCat.first.id;
+                    } else if (categoriesToSearch.isNotEmpty) {
+                      targetCategoryId = categoriesToSearch.first.id;
                     }
                   } catch (_) {}
-                }
 
-                final entity = TransactionEntity(
-                  id: txId,
-                  accountId: targetAccountId,
-                  categoryId: targetCategoryId ?? _selectedCategory,
-                  amount: amount > 0 ? amount : 1000,
-                  type: TransactionType.expense,
-                  note: _isTalangan
-                      ? 'Talangan: $_selectedCategory'
-                      : _selectedCategory,
-                  currency: _selectedCurrency,
-                  exchangeRateToBase: _selectedRateScaled,
-                  baseAmount: baseAmountBigInt,
-                  transactionDate: now,
-                  createdAt: now,
-                  updatedAt: now,
-                );
+                  final entity = TransactionEntity(
+                    id: txId,
+                    accountId: targetAccountId,
+                    categoryId: targetCategoryId ?? _selectedCategory,
+                    amount: amount > 0 ? amount : 1000,
+                    type: TransactionType.expense,
+                    note: _isTalangan
+                        ? 'Talangan: $_selectedCategory'
+                        : _selectedCategory,
+                    currency: _selectedCurrency,
+                    exchangeRateToBase: _selectedRateScaled,
+                    baseAmount: baseAmountBigInt,
+                    transactionDate: now,
+                    createdAt: now,
+                    updatedAt: now,
+                  );
 
-                try {
-                  if (getIt.isRegistered<TransactionBloc>()) {
-                    getIt<TransactionBloc>().add(TransactionSubmitted(entity));
-                  } else if (getIt.isRegistered<CreateTransactionUseCase>()) {
-                    await getIt<CreateTransactionUseCase>()(entity);
-                  }
+                  try {
+                    if (bloc != null) {
+                      bloc.add(TransactionSubmitted(entity));
+                    } else if (getIt.isRegistered<CreateTransactionUseCase>()) {
+                      await getIt<CreateTransactionUseCase>()(entity);
+                    }
 
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    final formattedLogged = _selectedCurrency == 'IDR'
-                        ? CurrencyFormatter.formatMinorUnit(amount)
-                        : '$_selectedCurrency $amount (≈ ${CurrencyFormatter.formatMinorUnit(baseAmountInt, currency: 'IDR')})';
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Logged: $formattedLogged ($_selectedCategory / $_selectedAccount)',
+                    if (context.mounted) {
+                      final messenger = ScaffoldMessenger.maybeOf(context);
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.pop(context);
+                      }
+                      final formattedLogged = _selectedCurrency == 'IDR'
+                          ? CurrencyFormatter.formatMinorUnit(amount)
+                          : '$_selectedCurrency $amount (≈ ${CurrencyFormatter.formatMinorUnit(baseAmountInt, currency: 'IDR')})';
+                      messenger?.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Logged: $formattedLogged ($_selectedCategory / $_selectedAccount)',
+                          ),
+                          duration: const Duration(seconds: 1),
                         ),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Gagal menyimpan transaksi: $e'),
+                          backgroundColor: ClayColors.error,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
                   }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Gagal menyimpan transaksi: $e'),
-                        backgroundColor: ClayColors.error,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Center(
-                child: Text(
-                  'Log Expense (${_selectedCurrency == 'IDR' ? CurrencyFormatter.formatMinorUnit(amount) : '$_selectedCurrency $amount'})',
-                  style: ClayTypography.headlineSm(
-                    color: Colors.white,
+                },
+                child: Center(
+                  child: Text(
+                    'Log Expense (${_selectedCurrency == 'IDR' ? CurrencyFormatter.formatMinorUnit(amount) : '$_selectedCurrency $amount'})',
+                    style: ClayTypography.headlineSm(
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

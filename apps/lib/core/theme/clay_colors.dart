@@ -34,6 +34,10 @@ abstract final class ClayColors {
   static const Color errorContainer = Color(0xFFFFDAD6);
   static const Color onErrorContainer = Color(0xFF93000A);
 
+  // --- Selector Chip Shadows ---
+  static const Color chipPrimaryShadow = Color(0x3BBA1A1A);
+  static const Color chipSecondaryShadow = Color(0x3B6C5E15);
+
   // --- Neutral Canvas & Surfaces: Clay Light Theme ---
   // A subtle cool clay slate canvas gives white cards a distinct, tangible 3D pop.
   static const Color canvasLight = Color(0xFFE2E8F0);

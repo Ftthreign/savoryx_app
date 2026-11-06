@@ -1,12 +1,139 @@
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/di/injection_container.dart';
+import 'package:savoryx/features/account/domain/entities/account_entity.dart';
+import 'package:savoryx/features/account/domain/repositories/account_repository.dart';
+import 'package:savoryx/features/account/domain/usecases/watch_accounts_usecase.dart';
+import 'package:savoryx/features/category/domain/entities/category_entity.dart';
+import 'package:savoryx/features/category/domain/repositories/category_repository.dart';
+import 'package:savoryx/features/category/domain/usecases/watch_categories_usecase.dart';
+import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
+import 'package:savoryx/features/transaction/domain/repositories/transaction_repository.dart';
+import 'package:savoryx/features/transaction/domain/usecases/create_transaction_usecase.dart';
+import 'package:savoryx/features/transaction/domain/usecases/delete_transaction_usecase.dart';
+import 'package:savoryx/features/transaction/domain/usecases/watch_recent_transactions_usecase.dart';
+import 'package:savoryx/features/transaction/presentation/bloc/transaction_bloc.dart';
+import 'package:savoryx/features/transaction/presentation/bloc/transaction_state.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/account_chip_selector.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/category_selector_grid.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/clay_keypad.dart';
 import 'package:savoryx/features/transaction/presentation/widgets/rapid_input_modal.dart';
+
+class _FakeAccountRepository implements AccountRepository {
+  final List<AccountEntity> _accounts = [
+    AccountEntity(
+      id: 'acc-kas',
+      name: 'Kas Tunai',
+      type: AccountType.cash,
+      balance: 500000,
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: DateTime.utc(2026, 1, 1),
+    ),
+    AccountEntity(
+      id: 'acc-bca',
+      name: 'Rekening BCA',
+      type: AccountType.bank,
+      balance: 2500000,
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: DateTime.utc(2026, 1, 1),
+    ),
+  ];
+
+  @override
+  Future<void> createAccount(AccountEntity account) async {}
+
+  @override
+  Future<void> deleteAccount(String id) async {}
+
+  @override
+  Future<AccountEntity?> getAccountById(String id) async =>
+      _accounts.where((a) => a.id == id).firstOrNull;
+
+  @override
+  Future<List<AccountEntity>> getActiveAccounts() async => _accounts;
+
+  @override
+  Future<void> updateAccount(AccountEntity account) async {}
+
+  @override
+  Future<void> updateBalance(String id, BigInt newBalance) async {}
+
+  @override
+  Stream<List<AccountEntity>> watchActiveAccounts() => Stream.value(_accounts);
+}
+
+class _FakeCategoryRepository implements CategoryRepository {
+  final List<CategoryEntity> _categories = [
+    CategoryEntity(
+      id: 'cat-makan',
+      name: 'Makan Pokok',
+      icon: 'utensils',
+      color: '#8DB355',
+      isWants: false,
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: DateTime.utc(2026, 1, 1),
+    ),
+    CategoryEntity(
+      id: 'cat-belanja',
+      name: 'Belanja & Hobi',
+      icon: 'bag-shopping',
+      color: '#50E3C2',
+      isWants: true,
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: DateTime.utc(2026, 1, 1),
+    ),
+  ];
+
+  @override
+  Future<void> createCategory(CategoryEntity category) async {}
+
+  @override
+  Future<void> deleteCategory(String id) async {}
+
+  @override
+  Future<List<CategoryEntity>> getActiveCategories() async => _categories;
+
+  @override
+  Future<CategoryEntity?> getCategoryById(String id) async =>
+      _categories.where((c) => c.id == id).firstOrNull;
+
+  @override
+  Future<void> updateCategory(CategoryEntity category) async {}
+
+  @override
+  Stream<List<CategoryEntity>> watchActiveCategories() =>
+      Stream.value(_categories);
+
+  @override
+  Stream<List<CategoryEntity>> watchCategoriesByBudget(
+          {required bool isWants}) =>
+      Stream.value(_categories.where((c) => c.isWants == isWants).toList());
+}
+
+class _FakeTransactionRepository implements TransactionRepository {
+  final List<TransactionEntity> savedTransactions = [];
+
+  @override
+  Future<void> createTransaction(TransactionEntity transaction) async {
+    savedTransactions.add(transaction);
+  }
+
+  @override
+  Future<void> deleteTransaction(String id) async {
+    savedTransactions.removeWhere((t) => t.id == id);
+  }
+
+  @override
+  Future<TransactionEntity?> getTransactionById(String id) async {
+    return savedTransactions.where((t) => t.id == id).firstOrNull;
+  }
+
+  @override
+  Stream<List<TransactionEntity>> watchRecentTransactions({int limit = 50}) {
+    return Stream.value(savedTransactions.take(limit).toList());
+  }
+}
 
 void main() {
   Widget buildTestableModal() {
@@ -130,7 +257,6 @@ void main() {
       await tester.tap(find.byKey(const Key('clay_key_plus')));
       await tester.pumpAndSettle();
       expect(find.textContaining('+'), findsWidgets);
-      // Live preview shows = Rp 50.000 because trailing operator is cleanly stripped
       expect(find.byKey(const Key('live_preview_text')), findsOneWidget);
 
       // 4. Type second operand: 2, 5, 000 -> 25000
@@ -177,7 +303,8 @@ void main() {
       expect(find.text('GoPay E-Wallet'), findsOneWidget);
     });
 
-    testWidgets('verifies sub-500ms launch-to-input readiness without virtual keyboard latency',
+    testWidgets(
+        'verifies sub-500ms launch-to-input readiness without virtual keyboard latency',
         (WidgetTester tester) async {
       setMobileScreen(tester);
 
@@ -210,11 +337,17 @@ void main() {
     });
 
     testWidgets(
-        'renders dynamic accounts and categories from AppDatabase when registered',
+        'renders dynamic accounts and categories from domain use cases when registered',
         (WidgetTester tester) async {
-      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      final accountRepo = _FakeAccountRepository();
+      final categoryRepo = _FakeCategoryRepository();
       getIt.allowReassignment = true;
-      getIt.registerSingleton<AppDatabase>(db);
+      getIt.registerSingleton<WatchAccountsUseCase>(
+        WatchAccountsUseCase(accountRepo),
+      );
+      getIt.registerSingleton<WatchCategoriesUseCase>(
+        WatchCategoriesUseCase(categoryRepo),
+      );
 
       setMobileScreen(tester);
       await tester.pumpWidget(buildTestableModal());
@@ -224,10 +357,49 @@ void main() {
       expect(find.textContaining('Rekening BCA'), findsOneWidget);
       expect(find.text('Belanja & Hobi'), findsOneWidget);
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(milliseconds: 100));
-      await db.close();
-      await getIt.unregister<AppDatabase>();
+      await getIt.reset();
+    });
+
+    testWidgets(
+        'dispatches TransactionSubmitted via BlocProvider<TransactionBloc> on save',
+        (WidgetTester tester) async {
+      final accountRepo = _FakeAccountRepository();
+      final categoryRepo = _FakeCategoryRepository();
+      final txRepo = _FakeTransactionRepository();
+      final txBloc = TransactionBloc(
+        createTransactionUseCase: CreateTransactionUseCase(txRepo),
+        watchRecentTransactionsUseCase: WatchRecentTransactionsUseCase(txRepo),
+        deleteTransactionUseCase: DeleteTransactionUseCase(txRepo),
+      );
+
+      setMobileScreen(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BlocProvider<TransactionBloc>.value(
+            value: txBloc,
+            child: Scaffold(
+              body: RapidInputModal(
+                watchAccountsUseCase: WatchAccountsUseCase(accountRepo),
+                watchCategoriesUseCase: WatchCategoriesUseCase(categoryRepo),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('rapid_input_save_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('rapid_input_save_button')));
+      await tester.pumpAndSettle();
+
+      expect(txBloc.state, isA<TransactionSuccess>());
+      expect(txRepo.savedTransactions, hasLength(1));
+      expect(txRepo.savedTransactions.first.accountId, equals('acc-kas'));
+      expect(txRepo.savedTransactions.first.categoryId, equals('cat-makan'));
+      expect(txRepo.savedTransactions.first.amount, equals(85000));
+
+      await txBloc.close();
     });
   });
 }

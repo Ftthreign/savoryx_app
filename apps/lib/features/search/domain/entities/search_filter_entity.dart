@@ -1,3 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'search_filter_entity.freezed.dart';
+
 enum DateRangePreset {
   all,
   today,
@@ -22,28 +26,21 @@ enum DateRangePreset {
 }
 
 /// Immutable multi-criteria compound search filter specification.
-class SearchFilterEntity {
-  const SearchFilterEntity({
-    this.datePreset = DateRangePreset.all,
-    this.customStartDate,
-    this.customEndDate,
-    this.minAmount,
-    this.maxAmount,
-    this.categoryIds = const {},
-    this.accountIds = const {},
-    this.transactionTypes = const {},
-    this.tags = const {},
-  });
+@freezed
+class SearchFilterEntity with _$SearchFilterEntity {
+  const SearchFilterEntity._();
 
-  final DateRangePreset datePreset;
-  final DateTime? customStartDate;
-  final DateTime? customEndDate;
-  final BigInt? minAmount;
-  final BigInt? maxAmount;
-  final Set<String> categoryIds;
-  final Set<String> accountIds;
-  final Set<String> transactionTypes;
-  final Set<String> tags;
+  const factory SearchFilterEntity({
+    @Default(DateRangePreset.all) DateRangePreset datePreset,
+    DateTime? customStartDate,
+    DateTime? customEndDate,
+    BigInt? minAmount,
+    BigInt? maxAmount,
+    @Default({}) Set<String> categoryIds,
+    @Default({}) Set<String> accountIds,
+    @Default({}) Set<String> transactionTypes,
+    @Default({}) Set<String> tags,
+  }) = _SearchFilterEntity;
 
   static const SearchFilterEntity empty = SearchFilterEntity();
 
@@ -82,62 +79,5 @@ class SearchFilterEntity {
       case DateRangePreset.custom:
         return (customStartDate, customEndDate);
     }
-  }
-
-  SearchFilterEntity copyWith({
-    DateRangePreset? datePreset,
-    DateTime? customStartDate,
-    DateTime? customEndDate,
-    BigInt? minAmount,
-    BigInt? maxAmount,
-    Set<String>? categoryIds,
-    Set<String>? accountIds,
-    Set<String>? transactionTypes,
-    Set<String>? tags,
-  }) {
-    return SearchFilterEntity(
-      datePreset: datePreset ?? this.datePreset,
-      customStartDate: customStartDate ?? this.customStartDate,
-      customEndDate: customEndDate ?? this.customEndDate,
-      minAmount: minAmount ?? this.minAmount,
-      maxAmount: maxAmount ?? this.maxAmount,
-      categoryIds: categoryIds ?? this.categoryIds,
-      accountIds: accountIds ?? this.accountIds,
-      transactionTypes: transactionTypes ?? this.transactionTypes,
-      tags: tags ?? this.tags,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is SearchFilterEntity &&
-        other.datePreset == datePreset &&
-        other.customStartDate == customStartDate &&
-        other.customEndDate == customEndDate &&
-        other.minAmount == minAmount &&
-        other.maxAmount == maxAmount &&
-        _setEquals(other.categoryIds, categoryIds) &&
-        _setEquals(other.accountIds, accountIds) &&
-        _setEquals(other.transactionTypes, transactionTypes) &&
-        _setEquals(other.tags, tags);
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        datePreset,
-        customStartDate,
-        customEndDate,
-        minAmount,
-        maxAmount,
-        Object.hashAll(categoryIds),
-        Object.hashAll(accountIds),
-        Object.hashAll(transactionTypes),
-        Object.hashAll(tags),
-      );
-
-  static bool _setEquals(Set<String> a, Set<String> b) {
-    if (a.length != b.length) return false;
-    return a.containsAll(b);
   }
 }

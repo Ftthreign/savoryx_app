@@ -1,17 +1,41 @@
 import 'package:savoryx/core/utils/financial_math.dart';
 import 'package:savoryx/features/account/domain/entities/account_entity.dart';
 
-class AccountModel extends AccountEntity {
+class AccountModel {
   const AccountModel({
-    required super.id,
-    required super.name,
-    required super.type,
-    super.currency = 'IDR',
-    required super.balance,
-    required super.createdAt,
-    required super.updatedAt,
-    super.deletedAt,
+    required this.id,
+    required this.name,
+    required this.type,
+    this.currency = 'IDR',
+    required this.balance,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
   });
+
+  final String id;
+  final String name;
+  final AccountType type;
+  final String currency;
+  final int balance;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
+
+  AccountEntity toEntity() {
+    return AccountEntity(
+      id: id,
+      name: name,
+      type: type,
+      currency: currency,
+      balance: balance,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt,
+    );
+  }
 
   factory AccountModel.fromJson(Map<String, dynamic> json) {
     final dynamic rawBalance = json['balance'];
@@ -48,7 +72,6 @@ class AccountModel extends AccountEntity {
     );
   }
 
-  /// Factory to convert pure domain AccountEntity to AccountModel.
   factory AccountModel.fromEntity(AccountEntity entity) {
     return AccountModel(
       id: entity.id,
@@ -62,7 +85,6 @@ class AccountModel extends AccountEntity {
     );
   }
 
-  /// Serializes AccountModel to JSON matching Go PostgreSQL schema.
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
@@ -76,7 +98,6 @@ class AccountModel extends AccountEntity {
     };
   }
 
-  @override
   AccountModel copyWith({
     String? id,
     String? name,
@@ -98,4 +119,30 @@ class AccountModel extends AccountEntity {
       deletedAt: deletedAt ?? this.deletedAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AccountModel &&
+        other.id == id &&
+        other.name == name &&
+        other.type == type &&
+        other.currency == currency &&
+        other.balance == balance &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt &&
+        other.deletedAt == deletedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        name,
+        type,
+        currency,
+        balance,
+        createdAt,
+        updatedAt,
+        deletedAt,
+      );
 }

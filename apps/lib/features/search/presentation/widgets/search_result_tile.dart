@@ -4,6 +4,7 @@ import 'package:savoryx/core/database/app_database.dart';
 import 'package:savoryx/core/theme/clay_colors.dart';
 import 'package:savoryx/core/theme/clay_shadows.dart';
 import 'package:savoryx/core/theme/clay_typography.dart';
+import 'package:savoryx/core/utils/currency_converter.dart';
 import 'package:savoryx/core/utils/currency_formatter.dart';
 import 'package:savoryx/features/search/domain/entities/search_result_entity.dart';
 import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
@@ -97,7 +98,6 @@ class SearchResultTile extends StatelessWidget {
     }
   }
 
-  /// Builds a [TextSpan] tree highlighting all occurrences of [highlightQuery] case-insensitively.
   InlineSpan _buildHighlightedText(
       String text, String query, Color normalColor, Color highlightColor) {
     final cleanQuery = query.trim().toLowerCase();
@@ -176,22 +176,22 @@ class SearchResultTile extends StatelessWidget {
       amountPrefix = '';
     }
 
-    // Minor unit integer formatting
     final int amountInt = transaction != null
         ? transaction!.amount.toInt()
         : transactionEntity!.amount;
     final currency = transaction?.currency ?? transactionEntity!.currency;
     final int baseAmountInt = transaction != null
         ? transaction!.baseAmount.toInt()
-        : (transactionEntity!.baseAmount?.toInt() ??
-            transactionEntity!.amount);
+        : (transactionEntity!.baseAmount?.toInt() ?? transactionEntity!.amount);
 
-    final formattedAmount = CurrencyFormatter.formatMinorUnit(
-      amountInt,
-      currency: currency,
-    );
+    final isForeign = currency.toUpperCase() != 'IDR';
+    final currencyInfo = CurrencyConverter.supportedCurrencies[currency.toUpperCase()];
+    final currencySymbol = currencyInfo?.symbol ?? currency;
 
-    // Format transaction date
+    final formattedAmount = isForeign
+        ? '$currencySymbol${NumberFormat('#,##0').format(amountInt)}'
+        : CurrencyFormatter.formatMinorUnit(amountInt);
+
     final txDate =
         transaction?.transactionTime ?? transactionEntity!.transactionDate;
     final dateStr = DateFormat('dd MMM yyyy, HH:mm').format(txDate.toLocal());

@@ -166,10 +166,12 @@ class _ClayButtonState extends State<ClayButton>
     );
 
     return Semantics(
+      container: true,
       button: true,
       enabled: widget.onTap != null,
       label: widget.semanticLabel,
       hint: widget.semanticHint,
+      excludeSemantics: widget.semanticLabel != null,
       child: buttonCore,
     );
   }

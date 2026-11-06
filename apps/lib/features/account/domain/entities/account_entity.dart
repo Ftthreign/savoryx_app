@@ -1,3 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'account_entity.freezed.dart';
+
 enum AccountType {
   cash,
   bank,
@@ -62,76 +66,20 @@ enum AccountType {
   }
 }
 
-/// Pure Dart domain entity for financial account/pocket.
-/// Zero-floating-point: balance is strictly stored as integer minor units.
-class AccountEntity {
-  const AccountEntity({
-    required this.id,
-    required this.name,
-    required this.type,
-    this.currency = 'IDR',
-    required this.balance,
-    required this.createdAt,
-    required this.updatedAt,
-    this.deletedAt,
-  });
+@freezed
+class AccountEntity with _$AccountEntity {
+  const AccountEntity._();
 
-  final String id;
-  final String name;
-  final AccountType type;
-  final String currency;
-  final int balance;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final DateTime? deletedAt;
+  const factory AccountEntity({
+    required String id,
+    required String name,
+    required AccountType type,
+    @Default('IDR') String currency,
+    required int balance,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    DateTime? deletedAt,
+  }) = _AccountEntity;
 
   bool get isDeleted => deletedAt != null;
-
-  AccountEntity copyWith({
-    String? id,
-    String? name,
-    AccountType? type,
-    String? currency,
-    int? balance,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    DateTime? deletedAt,
-  }) {
-    return AccountEntity(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      type: type ?? this.type,
-      currency: currency ?? this.currency,
-      balance: balance ?? this.balance,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      deletedAt: deletedAt ?? this.deletedAt,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is AccountEntity &&
-        other.id == id &&
-        other.name == name &&
-        other.type == type &&
-        other.currency == currency &&
-        other.balance == balance &&
-        other.createdAt == createdAt &&
-        other.updatedAt == updatedAt &&
-        other.deletedAt == deletedAt;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        id,
-        name,
-        type,
-        currency,
-        balance,
-        createdAt,
-        updatedAt,
-        deletedAt,
-      );
 }

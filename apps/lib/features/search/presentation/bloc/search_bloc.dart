@@ -17,6 +17,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
 
   final SearchTransactionsUseCase _searchTransactionsUseCase;
   Timer? _debounceTimer;
+  Completer<void>? _debounceCompleter;
   String _currentQuery = '';
   SearchFilterEntity _currentFilter = SearchFilterEntity.empty;
 
@@ -27,16 +28,23 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     Emitter<SearchState> emit,
   ) async {
     _currentQuery = event.query;
-    final completer = Completer<void>();
-
     _debounceTimer?.cancel();
+    if (_debounceCompleter != null && !_debounceCompleter!.isCompleted) {
+      _debounceCompleter!.complete();
+    }
+    final completer = Completer<void>();
+    _debounceCompleter = completer;
+
     _debounceTimer = Timer(debounceDuration, () {
-      completer.complete();
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
     });
 
     await completer.future;
 
     if (emit.isDone) return;
+    if (_currentQuery != event.query) return;
     await _executeSearch(emit);
   }
 
@@ -53,6 +61,9 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     Emitter<SearchState> emit,
   ) {
     _debounceTimer?.cancel();
+    if (_debounceCompleter != null && !_debounceCompleter!.isCompleted) {
+      _debounceCompleter!.complete();
+    }
     _currentQuery = '';
     _currentFilter = SearchFilterEntity.empty;
     emit(const SearchInitial());
@@ -90,6 +101,9 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
   @override
   Future<void> close() {
     _debounceTimer?.cancel();
+    if (_debounceCompleter != null && !_debounceCompleter!.isCompleted) {
+      _debounceCompleter!.complete();
+    }
     return super.close();
   }
 }

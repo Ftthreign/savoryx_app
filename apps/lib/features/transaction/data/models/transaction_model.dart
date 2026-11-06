@@ -18,24 +18,66 @@ List<TransactionModel> parseTransactionsJsonList(String jsonString) {
 
 /// Data Transfer Object (DTO) for Transaction entity.
 /// Handles type-safe JSON serialization/deserialization matching Go backend contracts.
-class TransactionModel extends TransactionEntity {
+class TransactionModel {
+  static Future<List<TransactionModel>> computeFromRawJson(String rawJson) {
+    return compute(parseTransactionsJsonList, rawJson);
+  }
+
   const TransactionModel({
-    required super.id,
-    required super.accountId,
-    super.destinationAccountId,
-    super.categoryId,
-    required super.amount,
-    required super.type,
-    super.note = '',
-    super.currency = 'IDR',
-    super.exchangeRateToBase,
-    super.baseAmount,
-    required super.transactionDate,
-    super.isSynced = false,
-    required super.createdAt,
-    required super.updatedAt,
-    super.deletedAt,
+    required this.id,
+    required this.accountId,
+    this.destinationAccountId,
+    this.categoryId,
+    required this.amount,
+    required this.type,
+    this.note = '',
+    this.currency = 'IDR',
+    this.exchangeRateToBase,
+    this.baseAmount,
+    required this.transactionDate,
+    this.isSynced = false,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
   });
+
+  final String id;
+  final String accountId;
+  final String? destinationAccountId;
+  final String? categoryId;
+  final int amount;
+  final TransactionType type;
+  final String note;
+  final String currency;
+  final BigInt? exchangeRateToBase;
+  final BigInt? baseAmount;
+  final DateTime transactionDate;
+  final bool isSynced;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
+
+  TransactionEntity toEntity() {
+    return TransactionEntity(
+      id: id,
+      accountId: accountId,
+      destinationAccountId: destinationAccountId,
+      categoryId: categoryId,
+      amount: amount,
+      type: type,
+      note: note,
+      currency: currency,
+      exchangeRateToBase: exchangeRateToBase,
+      baseAmount: baseAmount,
+      transactionDate: transactionDate,
+      isSynced: isSynced,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt,
+    );
+  }
 
   /// Factory constructor to deserialize JSON into TransactionModel.
   /// Handles numeric, string Decimal, and timestamp parsing deterministically.
@@ -60,11 +102,25 @@ class TransactionModel extends TransactionEntity {
     final String rawUpdatedAt = json['updated_at'] as String? ?? rawCreatedAt;
     final String? rawDeletedAt = json['deleted_at'] as String?;
 
-    final String currency = json['currency'] as String? ?? 'IDR';
-    final dynamic rawRate = json['exchange_rate_to_base'];
-    final BigInt? rate = rawRate != null ? BigInt.parse(rawRate.toString()) : null;
-    final dynamic rawBase = json['base_amount'];
-    final BigInt? base = rawBase != null ? BigInt.parse(rawBase.toString()) : null;
+    BigInt? parsedRate;
+    if (json['exchange_rate_to_base'] != null) {
+      final dynamic rawRate = json['exchange_rate_to_base'];
+      if (rawRate is String) {
+        parsedRate = BigInt.tryParse(rawRate);
+      } else if (rawRate is num) {
+        parsedRate = BigInt.from(rawRate.toInt());
+      }
+    }
+
+    BigInt? parsedBaseAmount;
+    if (json['base_amount'] != null) {
+      final dynamic rawBase = json['base_amount'];
+      if (rawBase is String) {
+        parsedBaseAmount = BigInt.tryParse(rawBase);
+      } else if (rawBase is num) {
+        parsedBaseAmount = BigInt.from(rawBase.toInt());
+      }
+    }
 
     return TransactionModel(
       id: json['id'] as String? ?? '',
@@ -74,9 +130,9 @@ class TransactionModel extends TransactionEntity {
       amount: parsedAmount,
       type: TransactionType.fromString(json['type'] as String? ?? 'EXPENSE'),
       note: json['note'] as String? ?? '',
-      currency: currency,
-      exchangeRateToBase: rate,
-      baseAmount: base,
+      currency: json['currency'] as String? ?? 'IDR',
+      exchangeRateToBase: parsedRate,
+      baseAmount: parsedBaseAmount,
       transactionDate: DateTime.parse(rawTxDate),
       isSynced: json['is_synced'] as bool? ?? false,
       createdAt: DateTime.parse(rawCreatedAt),
@@ -129,12 +185,6 @@ class TransactionModel extends TransactionEntity {
     };
   }
 
-  /// Helper to parse a bulk JSON string in a background isolate if payload is large.
-  static Future<List<TransactionModel>> computeFromRawJson(String rawJson) {
-    return compute(parseTransactionsJsonList, rawJson);
-  }
-
-  @override
   TransactionModel copyWith({
     String? id,
     String? accountId,
@@ -155,8 +205,7 @@ class TransactionModel extends TransactionEntity {
     return TransactionModel(
       id: id ?? this.id,
       accountId: accountId ?? this.accountId,
-      destinationAccountId:
-          destinationAccountId ?? this.destinationAccountId,
+      destinationAccountId: destinationAccountId ?? this.destinationAccountId,
       categoryId: categoryId ?? this.categoryId,
       amount: amount ?? this.amount,
       type: type ?? this.type,
@@ -171,4 +220,44 @@ class TransactionModel extends TransactionEntity {
       deletedAt: deletedAt ?? this.deletedAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is TransactionModel &&
+        other.id == id &&
+        other.accountId == accountId &&
+        other.destinationAccountId == destinationAccountId &&
+        other.categoryId == categoryId &&
+        other.amount == amount &&
+        other.type == type &&
+        other.note == note &&
+        other.currency == currency &&
+        other.exchangeRateToBase == exchangeRateToBase &&
+        other.baseAmount == baseAmount &&
+        other.transactionDate == transactionDate &&
+        other.isSynced == isSynced &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt &&
+        other.deletedAt == deletedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        accountId,
+        destinationAccountId,
+        categoryId,
+        amount,
+        type,
+        note,
+        currency,
+        exchangeRateToBase,
+        baseAmount,
+        transactionDate,
+        isSynced,
+        createdAt,
+        updatedAt,
+        deletedAt,
+      );
 }

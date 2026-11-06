@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:savoryx/core/database/app_database.dart';
+import 'package:savoryx/features/account/domain/entities/account_entity.dart';
+import 'package:savoryx/features/category/domain/entities/category_entity.dart';
 import 'package:savoryx/features/search/domain/entities/search_filter_entity.dart';
 import 'package:savoryx/features/search/presentation/widgets/search_filter_bottom_sheet.dart';
 
@@ -59,42 +60,35 @@ void main() {
   });
 
   group('SearchFilterBottomSheet Widget Tests (Task #32)', () {
+    final now = DateTime.now();
     final sampleAccounts = [
-      LocalAccount(
+      AccountEntity(
         id: 'acc-1',
         name: 'Rekening BCA',
-        type: 'BANK',
-        balance: BigInt.zero,
-        currency: 'IDR',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        deletedAt: null,
-        isSynced: false,
+        type: AccountType.bank,
+        balance: 0,
+        createdAt: now,
+        updatedAt: now,
       ),
-      LocalAccount(
+      AccountEntity(
         id: 'acc-2',
         name: 'Dompet Tunai',
-        type: 'CASH',
-        balance: BigInt.zero,
-        currency: 'IDR',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        deletedAt: null,
-        isSynced: false,
+        type: AccountType.cash,
+        balance: 0,
+        createdAt: now,
+        updatedAt: now,
       ),
     ];
 
     final sampleCategories = [
-      LocalCategory(
+      CategoryEntity(
         id: 'cat-1',
         name: 'Makan & Minum',
         icon: 'utensils',
         color: '#8DB355',
         isWants: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        deletedAt: null,
-        isSynced: false,
+        createdAt: now,
+        updatedAt: now,
       ),
     ];
 

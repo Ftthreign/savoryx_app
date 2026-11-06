@@ -98,6 +98,7 @@ class ClayContainer extends StatelessWidget {
       return Semantics(
         label: semanticLabel,
         container: true,
+        excludeSemantics: true,
         child: containerWidget,
       );
     }

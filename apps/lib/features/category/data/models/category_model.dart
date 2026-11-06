@@ -2,17 +2,41 @@ import 'package:savoryx/features/category/domain/entities/category_entity.dart';
 
 /// Data Transfer Object (DTO) for Category entity.
 /// Handles type-safe JSON serialization/deserialization matching Go backend contracts.
-class CategoryModel extends CategoryEntity {
+class CategoryModel {
   const CategoryModel({
-    required super.id,
-    required super.name,
-    required super.icon,
-    required super.color,
-    super.isWants = false,
-    required super.createdAt,
-    required super.updatedAt,
-    super.deletedAt,
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.color,
+    this.isWants = false,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
   });
+
+  final String id;
+  final String name;
+  final String icon;
+  final String color;
+  final bool isWants;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
+
+  CategoryEntity toEntity() {
+    return CategoryEntity(
+      id: id,
+      name: name,
+      icon: icon,
+      color: color,
+      isWants: isWants,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      deletedAt: deletedAt,
+    );
+  }
 
   /// Factory constructor to deserialize JSON into CategoryModel.
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
@@ -61,7 +85,6 @@ class CategoryModel extends CategoryEntity {
     };
   }
 
-  @override
   CategoryModel copyWith({
     String? id,
     String? name,
@@ -83,4 +106,30 @@ class CategoryModel extends CategoryEntity {
       deletedAt: deletedAt ?? this.deletedAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CategoryModel &&
+        other.id == id &&
+        other.name == name &&
+        other.icon == icon &&
+        other.color == color &&
+        other.isWants == isWants &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt &&
+        other.deletedAt == deletedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        name,
+        icon,
+        color,
+        isWants,
+        createdAt,
+        updatedAt,
+        deletedAt,
+      );
 }
