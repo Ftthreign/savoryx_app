@@ -526,11 +526,31 @@ paths:
   /api/v1/accounts:
     get:
       summary: List all active accounts
-      description: Retrieves all active accounts for the authenticated device.
+      description: Retrieves all active accounts for the authenticated device with dynamic pagination.
       tags:
         - Accounts
       security:
         - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of accounts to return (default 20, max 100)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+            example: 20
+        - name: offset
+          in: query
+          description: Number of initial records to skip (default 0)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+            example: 0
       responses:
         '200':
           description: List of active accounts with pagination metadata
@@ -773,11 +793,31 @@ paths:
   /api/v1/categories:
     get:
       summary: List all active categories
-      description: Retrieves all active categories including Needs/Wants classifications.
+      description: Retrieves all active categories including Needs/Wants classifications with dynamic pagination.
       tags:
         - Categories
       security:
         - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of categories to return (default 20, max 100)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+            example: 20
+        - name: offset
+          in: query
+          description: Number of initial records to skip (default 0)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+            example: 0
       responses:
         '200':
           description: List of active categories with pagination metadata

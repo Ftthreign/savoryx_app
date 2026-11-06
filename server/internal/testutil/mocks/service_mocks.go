@@ -42,7 +42,7 @@ var _ port.AuthService = (*MockAuthService)(nil)
 type MockAccountService struct {
 	CreateAccountFunc func(ctx context.Context, acc *domain.Account) error
 	GetAccountFunc    func(ctx context.Context, id domain.UUID) (*domain.Account, error)
-	ListAccountsFunc  func(ctx context.Context) ([]*domain.Account, error)
+	ListAccountsFunc  func(ctx context.Context, limit, offset int) ([]*domain.Account, int, error)
 	UpdateAccountFunc func(ctx context.Context, id domain.UUID, name string, accType domain.AccountType) (*domain.Account, error)
 	UpdateBalanceFunc func(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error
 	DeleteAccountFunc func(ctx context.Context, id domain.UUID) error
@@ -62,11 +62,11 @@ func (m *MockAccountService) GetAccount(ctx context.Context, id domain.UUID) (*d
 	return nil, nil
 }
 
-func (m *MockAccountService) ListAccounts(ctx context.Context) ([]*domain.Account, error) {
+func (m *MockAccountService) ListAccounts(ctx context.Context, limit, offset int) ([]*domain.Account, int, error) {
 	if m.ListAccountsFunc != nil {
-		return m.ListAccountsFunc(ctx)
+		return m.ListAccountsFunc(ctx, limit, offset)
 	}
-	return nil, nil
+	return nil, 0, nil
 }
 
 func (m *MockAccountService) UpdateAccount(ctx context.Context, id domain.UUID, name string, accType domain.AccountType) (*domain.Account, error) {
@@ -96,7 +96,7 @@ var _ port.AccountService = (*MockAccountService)(nil)
 type MockCategoryService struct {
 	CreateCategoryFunc func(ctx context.Context, cat *domain.Category) error
 	GetCategoryFunc    func(ctx context.Context, id domain.UUID) (*domain.Category, error)
-	ListCategoriesFunc func(ctx context.Context) ([]*domain.Category, error)
+	ListCategoriesFunc func(ctx context.Context, limit, offset int) ([]*domain.Category, int, error)
 	UpdateCategoryFunc func(ctx context.Context, id domain.UUID, name, icon, color string, isWants bool) (*domain.Category, error)
 	DeleteCategoryFunc func(ctx context.Context, id domain.UUID) error
 }
@@ -115,11 +115,11 @@ func (m *MockCategoryService) GetCategory(ctx context.Context, id domain.UUID) (
 	return nil, nil
 }
 
-func (m *MockCategoryService) ListCategories(ctx context.Context) ([]*domain.Category, error) {
+func (m *MockCategoryService) ListCategories(ctx context.Context, limit, offset int) ([]*domain.Category, int, error) {
 	if m.ListCategoriesFunc != nil {
-		return m.ListCategoriesFunc(ctx)
+		return m.ListCategoriesFunc(ctx, limit, offset)
 	}
-	return nil, nil
+	return nil, 0, nil
 }
 
 func (m *MockCategoryService) UpdateCategory(ctx context.Context, id domain.UUID, name, icon, color string, isWants bool) (*domain.Category, error) {

@@ -90,8 +90,8 @@ func TestContract_ListAccounts_ResponseEnvelope(t *testing.T) {
 	}
 
 	mockService := &mocks.MockAccountService{
-		ListAccountsFunc: func(ctx context.Context) ([]*domain.Account, error) {
-			return accounts, nil
+		ListAccountsFunc: func(ctx context.Context, limit, offset int) ([]*domain.Account, int, error) {
+			return accounts, len(accounts), nil
 		},
 	}
 
@@ -124,7 +124,7 @@ func TestContract_ListAccounts_ResponseEnvelope(t *testing.T) {
 
 	assert.Len(t, body.Data, 2)
 	assert.Equal(t, 2, body.Meta.Total)
-	assert.Equal(t, 50, body.Meta.Limit)
+	assert.Equal(t, 20, body.Meta.Limit)
 	assert.Equal(t, 0, body.Meta.Offset)
 	assert.Equal(t, "BCA Primary Checking", body.Data[0].Name)
 	assert.Equal(t, "15000000.00", body.Data[0].Balance)
@@ -145,8 +145,8 @@ func TestContract_ListCategories_ResponseEnvelope(t *testing.T) {
 	}
 
 	mockService := &mocks.MockCategoryService{
-		ListCategoriesFunc: func(ctx context.Context) ([]*domain.Category, error) {
-			return categories, nil
+		ListCategoriesFunc: func(ctx context.Context, limit, offset int) ([]*domain.Category, int, error) {
+			return categories, len(categories), nil
 		},
 	}
 
@@ -179,7 +179,7 @@ func TestContract_ListCategories_ResponseEnvelope(t *testing.T) {
 
 	assert.Len(t, body.Data, 1)
 	assert.Equal(t, 1, body.Meta.Total)
-	assert.Equal(t, 50, body.Meta.Limit)
+	assert.Equal(t, 20, body.Meta.Limit)
 	assert.Equal(t, 0, body.Meta.Offset)
 	assert.Equal(t, "Food and Dining", body.Data[0].Name)
 	assert.False(t, body.Data[0].IsWants)

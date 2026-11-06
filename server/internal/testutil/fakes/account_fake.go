@@ -60,7 +60,7 @@ func (r *InMemoryAccountRepository) GetByIDForUpdate(ctx context.Context, id dom
 	return r.GetByID(ctx, id)
 }
 
-func (r *InMemoryAccountRepository) List(ctx context.Context) ([]*domain.Account, error) {
+func (r *InMemoryAccountRepository) List(ctx context.Context, limit, offset int) ([]*domain.Account, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -71,7 +71,33 @@ func (r *InMemoryAccountRepository) List(ctx context.Context) ([]*domain.Account
 			result = append(result, &clone)
 		}
 	}
-	return result, nil
+
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= len(result) {
+		return []*domain.Account{}, nil
+	}
+
+	end := offset + limit
+	if limit <= 0 || end > len(result) {
+		end = len(result)
+	}
+
+	return result[offset:end], nil
+}
+
+func (r *InMemoryAccountRepository) Count(ctx context.Context) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	count := 0
+	for _, acc := range r.accounts {
+		if acc.DeletedAt == nil {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (r *InMemoryAccountRepository) Update(ctx context.Context, acc *domain.Account) error {

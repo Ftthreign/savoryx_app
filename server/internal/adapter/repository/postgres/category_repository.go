@@ -77,8 +77,13 @@ func (r *CategoryRepository) GetByID(ctx context.Context, id domain.UUID) (*doma
 	return toDomainCategory(row), nil
 }
 
-func (r *CategoryRepository) List(ctx context.Context) ([]*domain.Category, error) {
-	rows, err := r.q.ListCategories(ctx)
+func (r *CategoryRepository) List(ctx context.Context, limit, offset int) ([]*domain.Category, error) {
+	params := db.ListCategoriesParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	}
+
+	rows, err := r.q.ListCategories(ctx, params)
 	if err != nil {
 		return nil, oops.
 			In("category_repository").
@@ -92,6 +97,18 @@ func (r *CategoryRepository) List(ctx context.Context) ([]*domain.Category, erro
 		result[i] = toDomainCategory(row)
 	}
 	return result, nil
+}
+
+func (r *CategoryRepository) Count(ctx context.Context) (int, error) {
+	total, err := r.q.CountCategories(ctx)
+	if err != nil {
+		return 0, oops.
+			In("category_repository").
+			Tags("database", "postgres").
+			Code("ERR_CATEGORY_COUNT").
+			Wrapf(err, "failed to count categories")
+	}
+	return int(total), nil
 }
 
 func (r *CategoryRepository) Update(ctx context.Context, cat *domain.Category) error {

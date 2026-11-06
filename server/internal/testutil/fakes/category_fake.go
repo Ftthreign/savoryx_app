@@ -11,13 +11,11 @@ import (
 	"github.com/ftthreign/savoryx_app/server/internal/port"
 )
 
-// InMemoryCategoryRepository provides a thread-safe, in-memory implementation of port.CategoryRepository.
 type InMemoryCategoryRepository struct {
 	mu         sync.RWMutex
 	categories map[domain.UUID]*domain.Category
 }
 
-// NewInMemoryCategoryRepository initializes a new in-memory category store.
 func NewInMemoryCategoryRepository() *InMemoryCategoryRepository {
 	return &InMemoryCategoryRepository{
 		categories: make(map[domain.UUID]*domain.Category),
@@ -55,7 +53,7 @@ func (r *InMemoryCategoryRepository) GetByID(ctx context.Context, id domain.UUID
 	return &clone, nil
 }
 
-func (r *InMemoryCategoryRepository) List(ctx context.Context) ([]*domain.Category, error) {
+func (r *InMemoryCategoryRepository) List(ctx context.Context, limit, offset int) ([]*domain.Category, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -66,7 +64,33 @@ func (r *InMemoryCategoryRepository) List(ctx context.Context) ([]*domain.Catego
 			result = append(result, &clone)
 		}
 	}
-	return result, nil
+
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= len(result) {
+		return []*domain.Category{}, nil
+	}
+
+	end := offset + limit
+	if limit <= 0 || end > len(result) {
+		end = len(result)
+	}
+
+	return result[offset:end], nil
+}
+
+func (r *InMemoryCategoryRepository) Count(ctx context.Context) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	count := 0
+	for _, cat := range r.categories {
+		if cat.DeletedAt == nil {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (r *InMemoryCategoryRepository) Update(ctx context.Context, cat *domain.Category) error {

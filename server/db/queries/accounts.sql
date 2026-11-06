@@ -21,7 +21,13 @@ FOR UPDATE;
 SELECT id, name, type, currency, balance, created_at, updated_at, deleted_at
 FROM accounts
 WHERE deleted_at IS NULL
-ORDER BY created_at ASC;
+ORDER BY created_at ASC
+LIMIT $1 OFFSET $2;
+
+-- name: CountAccounts :one
+SELECT COUNT(*)
+FROM accounts
+WHERE deleted_at IS NULL;
 
 -- name: UpdateAccountBalance :one
 UPDATE accounts

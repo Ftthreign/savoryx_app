@@ -188,47 +188,60 @@ func TestAccountService_GetAccount(t *testing.T) {
 func TestAccountService_ListAccounts(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("happy path - returns list of accounts", func(t *testing.T) {
+	t.Run("happy path - returns list of accounts with pagination", func(t *testing.T) {
 		expectedList := []*domain.Account{
 			{ID: testutil.DefaultDeviceID, Name: "Cash", Type: domain.AccountTypeCash},
 			{ID: domain.MustParseUUID("0192d6e2-5b9c-7000-8000-000000000002"), Name: "Bank", Type: domain.AccountTypeBank},
 		}
 		repo := &mocks.MockAccountRepository{
-			ListFunc: func(ctx context.Context) ([]*domain.Account, error) {
+			CountFunc: func(ctx context.Context) (int, error) {
+				return 2, nil
+			},
+			ListFunc: func(ctx context.Context, limit, offset int) ([]*domain.Account, error) {
+				assert.Equal(t, 20, limit)
+				assert.Equal(t, 0, offset)
 				return expectedList, nil
 			},
 		}
 		svc := service.NewAccountService(repo)
 
-		list, err := svc.ListAccounts(ctx)
+		list, total, err := svc.ListAccounts(ctx, 0, 0)
 		require.NoError(t, err)
+		assert.Equal(t, 2, total)
 		assert.Len(t, list, 2)
 	})
 
 	t.Run("empty list returns non-nil slice", func(t *testing.T) {
 		repo := &mocks.MockAccountRepository{
-			ListFunc: func(ctx context.Context) ([]*domain.Account, error) {
+			CountFunc: func(ctx context.Context) (int, error) {
+				return 0, nil
+			},
+			ListFunc: func(ctx context.Context, limit, offset int) ([]*domain.Account, error) {
 				return nil, nil
 			},
 		}
 		svc := service.NewAccountService(repo)
 
-		list, err := svc.ListAccounts(ctx)
+		list, total, err := svc.ListAccounts(ctx, 10, 0)
 		require.NoError(t, err)
+		assert.Equal(t, 0, total)
 		assert.NotNil(t, list)
 		assert.Empty(t, list)
 	})
 
-	t.Run("repository error", func(t *testing.T) {
+	t.Run("repository error on list", func(t *testing.T) {
 		dbErr := errors.New("read replica down")
 		repo := &mocks.MockAccountRepository{
-			ListFunc: func(ctx context.Context) ([]*domain.Account, error) {
+			CountFunc: func(ctx context.Context) (int, error) {
+				return 5, nil
+			},
+			ListFunc: func(ctx context.Context, limit, offset int) ([]*domain.Account, error) {
 				return nil, dbErr
 			},
 		}
 		svc := service.NewAccountService(repo)
 
-		_, err := svc.ListAccounts(ctx)
+		_, _, err := svc.ListAccounts(ctx, 10, 0)
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, dbErr))
 	})

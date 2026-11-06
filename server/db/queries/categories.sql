@@ -15,7 +15,13 @@ WHERE id = $1 AND deleted_at IS NULL LIMIT 1;
 SELECT id, name, icon, color, is_wants, created_at, updated_at, deleted_at
 FROM categories
 WHERE deleted_at IS NULL
-ORDER BY name ASC;
+ORDER BY name ASC
+LIMIT $1 OFFSET $2;
+
+-- name: CountCategories :one
+SELECT COUNT(*)
+FROM categories
+WHERE deleted_at IS NULL;
 
 -- name: UpdateCategory :one
 UPDATE categories

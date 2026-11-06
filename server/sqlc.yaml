@@ -15,5 +15,7 @@ sql:
             go_type: "github.com/shopspring/decimal.Decimal"
           - column: "accounts.balance"
             go_type: "github.com/shopspring/decimal.Decimal"
+          - column: "exchange_rates.rate"
+            go_type: "github.com/shopspring/decimal.Decimal"
           - column: "user_preferences.monthly_income_net"
             go_type: "github.com/shopspring/decimal.Decimal"

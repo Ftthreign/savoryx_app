@@ -108,11 +108,29 @@ func (s *accountService) GetAccount(ctx context.Context, id domain.UUID) (*domai
 	return acc, nil
 }
 
-// ListAccounts retrieves all non-deleted accounts.
-func (s *accountService) ListAccounts(ctx context.Context) ([]*domain.Account, error) {
-	accounts, err := s.repo.List(ctx)
+// ListAccounts retrieves non-deleted accounts with pagination.
+func (s *accountService) ListAccounts(ctx context.Context, limit, offset int) ([]*domain.Account, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	total, err := s.repo.Count(ctx)
 	if err != nil {
-		return nil, oops.
+		return nil, 0, oops.
+			In("account_service").
+			Code("ERR_ACCOUNT_COUNT_FAILED").
+			Wrapf(err, "failed to count accounts")
+	}
+
+	accounts, err := s.repo.List(ctx, limit, offset)
+	if err != nil {
+		return nil, 0, oops.
 			In("account_service").
 			Code("ERR_ACCOUNT_LIST_FAILED").
 			Wrapf(err, "failed to retrieve accounts list")
@@ -121,7 +139,7 @@ func (s *accountService) ListAccounts(ctx context.Context) ([]*domain.Account, e
 	if accounts == nil {
 		accounts = make([]*domain.Account, 0)
 	}
-	return accounts, nil
+	return accounts, total, nil
 }
 
 // UpdateAccount updates account metadata (name and type) after verifying existence and input constraints.

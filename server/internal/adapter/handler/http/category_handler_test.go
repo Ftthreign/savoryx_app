@@ -114,7 +114,7 @@ func TestCategoryHandler_CreateCategory(t *testing.T) {
 func TestCategoryHandler_ListCategories(t *testing.T) {
 	t.Parallel()
 
-	t.Run("success returns list of categories", func(t *testing.T) {
+	t.Run("success returns list of categories with default pagination", func(t *testing.T) {
 		t.Parallel()
 
 		testCategories := []*domain.Category{
@@ -130,8 +130,11 @@ func TestCategoryHandler_ListCategories(t *testing.T) {
 		}
 
 		mockService := &mocks.MockCategoryService{
-			ListCategoriesFunc: func(ctx context.Context) ([]*domain.Category, error) {
-				return testCategories, nil
+			ListCategoriesFunc: func(ctx context.Context, limit, offset int) ([]*domain.Category, int, error) {
+				if limit != 20 || offset != 0 {
+					t.Errorf("expected limit=20 offset=0, got limit=%d offset=%d", limit, offset)
+				}
+				return testCategories, 1, nil
 			},
 		}
 
@@ -156,8 +159,38 @@ func TestCategoryHandler_ListCategories(t *testing.T) {
 		if len(resp.Data) != 1 {
 			t.Fatalf("expected 1 category, got %d", len(resp.Data))
 		}
-		if resp.Meta.Total != 1 || resp.Meta.Limit != 50 || resp.Meta.Offset != 0 {
+		if resp.Meta.Total != 1 || resp.Meta.Limit != 20 || resp.Meta.Offset != 0 {
 			t.Fatalf("unexpected pagination meta: %+v", resp.Meta)
+		}
+	})
+
+	t.Run("custom query params limit and offset are respected and bounded", func(t *testing.T) {
+		t.Parallel()
+
+		calledLimit, calledOffset := 0, 0
+		mockService := &mocks.MockCategoryService{
+			ListCategoriesFunc: func(ctx context.Context, limit, offset int) ([]*domain.Category, int, error) {
+				calledLimit = limit
+				calledOffset = offset
+				return []*domain.Category{}, 35, nil
+			},
+		}
+
+		handler := httpAdapter.NewCategoryHandler(mockService)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/categories?limit=50&offset=15", nil)
+		rec := httptest.NewRecorder()
+
+		handler.ListCategories(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rec.Code)
+		}
+		if calledLimit != 50 {
+			t.Errorf("expected limit=50, got %d", calledLimit)
+		}
+		if calledOffset != 15 {
+			t.Errorf("expected offset=15, got %d", calledOffset)
 		}
 	})
 }

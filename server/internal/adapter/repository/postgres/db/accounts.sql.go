@@ -12,6 +12,19 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const countAccounts = `-- name: CountAccounts :one
+SELECT COUNT(*)
+FROM accounts
+WHERE deleted_at IS NULL
+`
+
+func (q *Queries) CountAccounts(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countAccounts)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (
     id, name, type, currency, balance, created_at, updated_at
@@ -101,10 +114,16 @@ SELECT id, name, type, currency, balance, created_at, updated_at, deleted_at
 FROM accounts
 WHERE deleted_at IS NULL
 ORDER BY created_at ASC
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
-	rows, err := q.db.Query(ctx, listAccounts)
+type ListAccountsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccounts, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -144,35 +163,6 @@ func (q *Queries) SoftDeleteAccount(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
-const updateAccountBalance = `-- name: UpdateAccountBalance :one
-UPDATE accounts
-SET balance = $2,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, name, type, currency, balance, created_at, updated_at, deleted_at
-`
-
-type UpdateAccountBalanceParams struct {
-	ID      pgtype.UUID     `json:"id"`
-	Balance decimal.Decimal `json:"balance"`
-}
-
-func (q *Queries) UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error) {
-	row := q.db.QueryRow(ctx, updateAccountBalance, arg.ID, arg.Balance)
-	var i Account
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Type,
-		&i.Currency,
-		&i.Balance,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return i, err
-}
-
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE accounts
 SET name = $2,
@@ -190,6 +180,35 @@ type UpdateAccountParams struct {
 
 func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {
 	row := q.db.QueryRow(ctx, updateAccount, arg.ID, arg.Name, arg.Type)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Type,
+		&i.Currency,
+		&i.Balance,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const updateAccountBalance = `-- name: UpdateAccountBalance :one
+UPDATE accounts
+SET balance = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, name, type, currency, balance, created_at, updated_at, deleted_at
+`
+
+type UpdateAccountBalanceParams struct {
+	ID      pgtype.UUID     `json:"id"`
+	Balance decimal.Decimal `json:"balance"`
+}
+
+func (q *Queries) UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error) {
+	row := q.db.QueryRow(ctx, updateAccountBalance, arg.ID, arg.Balance)
 	var i Account
 	err := row.Scan(
 		&i.ID,

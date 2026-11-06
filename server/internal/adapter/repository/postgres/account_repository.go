@@ -108,8 +108,13 @@ func (r *AccountRepository) GetByIDForUpdate(ctx context.Context, id domain.UUID
 	return toDomainAccount(row), nil
 }
 
-func (r *AccountRepository) List(ctx context.Context) ([]*domain.Account, error) {
-	rows, err := r.queries(ctx).ListAccounts(ctx)
+func (r *AccountRepository) List(ctx context.Context, limit, offset int) ([]*domain.Account, error) {
+	params := db.ListAccountsParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	}
+
+	rows, err := r.queries(ctx).ListAccounts(ctx, params)
 	if err != nil {
 		return nil, oops.
 			In("account_repository").
@@ -123,6 +128,18 @@ func (r *AccountRepository) List(ctx context.Context) ([]*domain.Account, error)
 		result[i] = toDomainAccount(row)
 	}
 	return result, nil
+}
+
+func (r *AccountRepository) Count(ctx context.Context) (int, error) {
+	total, err := r.queries(ctx).CountAccounts(ctx)
+	if err != nil {
+		return 0, oops.
+			In("account_repository").
+			Tags("database", "postgres").
+			Code("ERR_ACCOUNT_COUNT").
+			Wrapf(err, "failed to count accounts")
+	}
+	return int(total), nil
 }
 
 func (r *AccountRepository) UpdateBalance(ctx context.Context, id domain.UUID, balance decimal.Decimal) error {

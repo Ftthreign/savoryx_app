@@ -26,7 +26,7 @@ type AuthService interface {
 type AccountService interface {
 	CreateAccount(ctx context.Context, acc *domain.Account) error
 	GetAccount(ctx context.Context, id domain.UUID) (*domain.Account, error)
-	ListAccounts(ctx context.Context) ([]*domain.Account, error)
+	ListAccounts(ctx context.Context, limit, offset int) ([]*domain.Account, int, error)
 	UpdateAccount(ctx context.Context, id domain.UUID, name string, accType domain.AccountType) (*domain.Account, error)
 	UpdateBalance(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error
 	DeleteAccount(ctx context.Context, id domain.UUID) error
@@ -35,7 +35,7 @@ type AccountService interface {
 type CategoryService interface {
 	CreateCategory(ctx context.Context, cat *domain.Category) error
 	GetCategory(ctx context.Context, id domain.UUID) (*domain.Category, error)
-	ListCategories(ctx context.Context) ([]*domain.Category, error)
+	ListCategories(ctx context.Context, limit, offset int) ([]*domain.Category, int, error)
 	UpdateCategory(ctx context.Context, id domain.UUID, name, icon, color string, isWants bool) (*domain.Category, error)
 	DeleteCategory(ctx context.Context, id domain.UUID) error
 }

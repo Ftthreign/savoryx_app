@@ -114,7 +114,7 @@ func TestAccountHandler_CreateAccount(t *testing.T) {
 func TestAccountHandler_ListAccounts(t *testing.T) {
 	t.Parallel()
 
-	t.Run("success returns list of accounts", func(t *testing.T) {
+	t.Run("success returns list of accounts with default pagination", func(t *testing.T) {
 		t.Parallel()
 
 		testAccounts := []*domain.Account{
@@ -130,8 +130,11 @@ func TestAccountHandler_ListAccounts(t *testing.T) {
 		}
 
 		mockService := &mocks.MockAccountService{
-			ListAccountsFunc: func(ctx context.Context) ([]*domain.Account, error) {
-				return testAccounts, nil
+			ListAccountsFunc: func(ctx context.Context, limit, offset int) ([]*domain.Account, int, error) {
+				if limit != 20 || offset != 0 {
+					t.Errorf("expected limit=20 offset=0, got limit=%d offset=%d", limit, offset)
+				}
+				return testAccounts, 1, nil
 			},
 		}
 
@@ -156,8 +159,39 @@ func TestAccountHandler_ListAccounts(t *testing.T) {
 		if len(resp.Data) != 1 {
 			t.Fatalf("expected 1 account, got %d", len(resp.Data))
 		}
-		if resp.Meta.Total != 1 || resp.Meta.Limit != 50 || resp.Meta.Offset != 0 {
+		if resp.Meta.Total != 1 || resp.Meta.Limit != 20 || resp.Meta.Offset != 0 {
 			t.Fatalf("unexpected pagination meta: %+v", resp.Meta)
+		}
+	})
+
+	t.Run("custom query params limit and offset are respected and bounded", func(t *testing.T) {
+		t.Parallel()
+
+		calledLimit, calledOffset := 0, 0
+		mockService := &mocks.MockAccountService{
+			ListAccountsFunc: func(ctx context.Context, limit, offset int) ([]*domain.Account, int, error) {
+				calledLimit = limit
+				calledOffset = offset
+				return []*domain.Account{}, 50, nil
+			},
+		}
+
+		handler := httpAdapter.NewAccountHandler(mockService)
+
+		// Test limit=500 (capped at 100), offset=-10 (normalized to 0)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/accounts?limit=500&offset=-10", nil)
+		rec := httptest.NewRecorder()
+
+		handler.ListAccounts(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d", rec.Code)
+		}
+		if calledLimit != 100 {
+			t.Errorf("expected limit capped to 100, got %d", calledLimit)
+		}
+		if calledOffset != 0 {
+			t.Errorf("expected offset normalized to 0, got %d", calledOffset)
 		}
 	})
 }

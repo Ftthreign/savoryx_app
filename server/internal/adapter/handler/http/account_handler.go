@@ -42,7 +42,9 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AccountHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.accountService.ListAccounts(r.Context())
+	limit, offset := ParsePaginationParams(r)
+
+	accounts, total, err := h.accountService.ListAccounts(r.Context(), limit, offset)
 	if err != nil {
 		WriteDomainError(w, err)
 		return
@@ -50,9 +52,9 @@ func (h *AccountHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 
 	resList := dto.ToAccountResponseList(accounts)
 	meta := PaginationMeta{
-		Total:  len(resList),
-		Limit:  50,
-		Offset: 0,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	}
 	WriteJSONWithMeta(w, http.StatusOK, resList, meta)
 }

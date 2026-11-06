@@ -108,10 +108,28 @@ func (s *categoryService) GetCategory(ctx context.Context, id domain.UUID) (*dom
 	return cat, nil
 }
 
-func (s *categoryService) ListCategories(ctx context.Context) ([]*domain.Category, error) {
-	categories, err := s.repo.List(ctx)
+func (s *categoryService) ListCategories(ctx context.Context, limit, offset int) ([]*domain.Category, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	total, err := s.repo.Count(ctx)
 	if err != nil {
-		return nil, oops.
+		return nil, 0, oops.
+			In("category_service").
+			Code("ERR_CATEGORY_COUNT_FAILED").
+			Wrapf(err, "failed to count categories")
+	}
+
+	categories, err := s.repo.List(ctx, limit, offset)
+	if err != nil {
+		return nil, 0, oops.
 			In("category_service").
 			Code("ERR_CATEGORY_LIST_FAILED").
 			Wrapf(err, "failed to list categories")
@@ -120,7 +138,7 @@ func (s *categoryService) ListCategories(ctx context.Context) ([]*domain.Categor
 	if categories == nil {
 		categories = make([]*domain.Category, 0)
 	}
-	return categories, nil
+	return categories, total, nil
 }
 
 func (s *categoryService) UpdateCategory(

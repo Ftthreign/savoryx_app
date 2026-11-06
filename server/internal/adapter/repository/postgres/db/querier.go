@@ -11,29 +11,33 @@ import (
 )
 
 type Querier interface {
+	CountAccounts(ctx context.Context) (int64, error)
+	CountCategories(ctx context.Context) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
+	CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error)
 	GetAccountByID(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetAccountByIDForUpdate(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetCategoryByID(ctx context.Context, id pgtype.UUID) (Category, error)
+	GetCurrencyByCode(ctx context.Context, code string) (Currency, error)
 	GetDeviceByID(ctx context.Context, id pgtype.UUID) (Device, error)
+	GetHistoricalRateByDate(ctx context.Context, arg GetHistoricalRateByDateParams) (ExchangeRate, error)
+	GetLatestRate(ctx context.Context, arg GetLatestRateParams) (ExchangeRate, error)
 	GetUserPreferences(ctx context.Context, id pgtype.UUID) (UserPreference, error)
-	ListAccounts(ctx context.Context) ([]Account, error)
-	ListCategories(ctx context.Context) ([]Category, error)
+	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error)
+	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
+	ListLatestRates(ctx context.Context, baseCurrency string) ([]ExchangeRate, error)
+	ListSupportedCurrencies(ctx context.Context) ([]Currency, error)
 	RegisterDevice(ctx context.Context, arg RegisterDeviceParams) (Device, error)
 	RevokeDevice(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteAccount(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteCategory(ctx context.Context, id pgtype.UUID) error
+	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error)
+	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateDeviceLastActive(ctx context.Context, id pgtype.UUID) error
-	UpsertUserPreferences(ctx context.Context, arg UpsertUserPreferencesParams) (UserPreference, error)
-	CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error)
 	UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRateParams) (ExchangeRate, error)
-	GetLatestRate(ctx context.Context, arg GetLatestRateParams) (ExchangeRate, error)
-	GetHistoricalRateByDate(ctx context.Context, arg GetHistoricalRateByDateParams) (ExchangeRate, error)
-	ListLatestRates(ctx context.Context, baseCurrency string) ([]ExchangeRate, error)
-	ListSupportedCurrencies(ctx context.Context) ([]Currency, error)
-	GetCurrencyByCode(ctx context.Context, code string) (Currency, error)
+	UpsertUserPreferences(ctx context.Context, arg UpsertUserPreferencesParams) (UserPreference, error)
 }
 
 var _ Querier = (*Queries)(nil)

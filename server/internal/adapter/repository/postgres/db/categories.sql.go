@@ -11,6 +11,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countCategories = `-- name: CountCategories :one
+SELECT COUNT(*)
+FROM categories
+WHERE deleted_at IS NULL
+`
+
+func (q *Queries) CountCategories(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countCategories)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createCategory = `-- name: CreateCategory :one
 INSERT INTO categories (
     id, name, icon, color, is_wants, created_at, updated_at
@@ -77,10 +90,16 @@ SELECT id, name, icon, color, is_wants, created_at, updated_at, deleted_at
 FROM categories
 WHERE deleted_at IS NULL
 ORDER BY name ASC
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) ListCategories(ctx context.Context) ([]Category, error) {
-	rows, err := q.db.Query(ctx, listCategories)
+type ListCategoriesParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error) {
+	rows, err := q.db.Query(ctx, listCategories, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
