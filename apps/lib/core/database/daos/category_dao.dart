@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:savoryx/core/database/app_database.dart';
+import 'package:savoryx/core/database/daos/outbox_dao.dart';
 import 'package:savoryx/core/database/tables/categories_table.dart';
 
 part 'category_dao.g.dart';
@@ -39,27 +40,64 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
         .getSingleOrNull();
   }
 
-  /// Inserts a new category record.
+  /// Inserts a new category record and atomically enqueues an outbox mutation.
   Future<int> insertCategory(LocalCategoriesCompanion companion) {
-    return into(localCategories).insert(companion);
+    return transaction<int>(() async {
+      final rowId = await into(localCategories).insert(companion);
+      final inserted = await getCategoryById(companion.id.value);
+      if (inserted != null && !inserted.isSynced) {
+        await db.outboxDao.enqueueCategoryMutation(
+          category: inserted,
+          operation: OutboxOperation.create,
+        );
+      }
+      return rowId;
+    });
   }
 
-  /// Updates an existing category metadata.
+  /// Updates an existing category metadata and atomically enqueues an outbox mutation.
   Future<int> updateCategory(LocalCategoriesCompanion companion) {
-    return (update(localCategories)
-          ..where((t) => t.id.equals(companion.id.value)))
-        .write(companion);
+    return transaction<int>(() async {
+      final targetId = companion.id.value;
+      final effective = companion.copyWith(isSynced: const Value(false));
+      final updatedCount = await (update(localCategories)
+            ..where((t) => t.id.equals(targetId)))
+          .write(effective);
+      if (updatedCount > 0) {
+        final updated = await getCategoryById(targetId);
+        if (updated != null) {
+          await db.outboxDao.enqueueCategoryMutation(
+            category: updated,
+            operation: OutboxOperation.update,
+          );
+        }
+      }
+      return updatedCount;
+    });
   }
 
-  /// Soft deletes a category using the tombstone pattern.
+  /// Soft deletes a category using the tombstone pattern and atomically enqueues an outbox mutation.
   Future<int> softDeleteCategory(String id) {
-    final now = DateTime.now().toUtc();
-    return (update(localCategories)..where((t) => t.id.equals(id))).write(
-      LocalCategoriesCompanion(
-        deletedAt: Value(now),
-        updatedAt: Value(now),
-        isSynced: const Value(false),
-      ),
-    );
+    return transaction<int>(() async {
+      final now = DateTime.now().toUtc();
+      final updatedCount =
+          await (update(localCategories)..where((t) => t.id.equals(id))).write(
+        LocalCategoriesCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          isSynced: const Value(false),
+        ),
+      );
+      if (updatedCount > 0) {
+        final deleted = await getCategoryById(id);
+        if (deleted != null) {
+          await db.outboxDao.enqueueCategoryMutation(
+            category: deleted,
+            operation: OutboxOperation.delete,
+          );
+        }
+      }
+      return updatedCount;
+    });
   }
 }

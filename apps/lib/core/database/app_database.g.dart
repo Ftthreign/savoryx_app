@@ -1985,6 +1985,447 @@ class LocalExchangeRatesCompanion extends UpdateCompanion<LocalExchangeRate> {
   }
 }
 
+class $LocalOutboxMutationsTable extends LocalOutboxMutations
+    with TableInfo<$LocalOutboxMutationsTable, LocalOutboxMutation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalOutboxMutationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entityTypeMeta =
+      const VerificationMeta('entityType');
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+      'entity_type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entityIdMeta =
+      const VerificationMeta('entityId');
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+      'entity_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _operationMeta =
+      const VerificationMeta('operation');
+  @override
+  late final GeneratedColumn<String> operation = GeneratedColumn<String>(
+      'operation', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _payloadJsonMeta =
+      const VerificationMeta('payloadJson');
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+      'payload_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _retryCountMeta =
+      const VerificationMeta('retryCount');
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+      'retry_count', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _lastErrorMeta =
+      const VerificationMeta('lastError');
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+      'last_error', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        entityType,
+        entityId,
+        operation,
+        payloadJson,
+        createdAt,
+        retryCount,
+        lastError
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_outbox_mutations';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<LocalOutboxMutation> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+          _entityTypeMeta,
+          entityType.isAcceptableOrUnknown(
+              data['entity_type']!, _entityTypeMeta));
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(_entityIdMeta,
+          entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta));
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('operation')) {
+      context.handle(_operationMeta,
+          operation.isAcceptableOrUnknown(data['operation']!, _operationMeta));
+    } else if (isInserting) {
+      context.missing(_operationMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+          _payloadJsonMeta,
+          payloadJson.isAcceptableOrUnknown(
+              data['payload_json']!, _payloadJsonMeta));
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+          _retryCountMeta,
+          retryCount.isAcceptableOrUnknown(
+              data['retry_count']!, _retryCountMeta));
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(_lastErrorMeta,
+          lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalOutboxMutation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalOutboxMutation(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      entityType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_type'])!,
+      entityId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_id'])!,
+      operation: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}operation'])!,
+      payloadJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload_json'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      retryCount: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}retry_count'])!,
+      lastError: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}last_error']),
+    );
+  }
+
+  @override
+  $LocalOutboxMutationsTable createAlias(String alias) {
+    return $LocalOutboxMutationsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalOutboxMutation extends DataClass
+    implements Insertable<LocalOutboxMutation> {
+  final String id;
+  final String entityType;
+  final String entityId;
+  final String operation;
+  final String payloadJson;
+  final DateTime createdAt;
+  final int retryCount;
+  final String? lastError;
+  const LocalOutboxMutation(
+      {required this.id,
+      required this.entityType,
+      required this.entityId,
+      required this.operation,
+      required this.payloadJson,
+      required this.createdAt,
+      required this.retryCount,
+      this.lastError});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['operation'] = Variable<String>(operation);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  LocalOutboxMutationsCompanion toCompanion(bool nullToAbsent) {
+    return LocalOutboxMutationsCompanion(
+      id: Value(id),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      operation: Value(operation),
+      payloadJson: Value(payloadJson),
+      createdAt: Value(createdAt),
+      retryCount: Value(retryCount),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory LocalOutboxMutation.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalOutboxMutation(
+      id: serializer.fromJson<String>(json['id']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      operation: serializer.fromJson<String>(json['operation']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'operation': serializer.toJson<String>(operation),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  LocalOutboxMutation copyWith(
+          {String? id,
+          String? entityType,
+          String? entityId,
+          String? operation,
+          String? payloadJson,
+          DateTime? createdAt,
+          int? retryCount,
+          Value<String?> lastError = const Value.absent()}) =>
+      LocalOutboxMutation(
+        id: id ?? this.id,
+        entityType: entityType ?? this.entityType,
+        entityId: entityId ?? this.entityId,
+        operation: operation ?? this.operation,
+        payloadJson: payloadJson ?? this.payloadJson,
+        createdAt: createdAt ?? this.createdAt,
+        retryCount: retryCount ?? this.retryCount,
+        lastError: lastError.present ? lastError.value : this.lastError,
+      );
+  LocalOutboxMutation copyWithCompanion(LocalOutboxMutationsCompanion data) {
+    return LocalOutboxMutation(
+      id: data.id.present ? data.id.value : this.id,
+      entityType:
+          data.entityType.present ? data.entityType.value : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      operation: data.operation.present ? data.operation.value : this.operation,
+      payloadJson:
+          data.payloadJson.present ? data.payloadJson.value : this.payloadJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      retryCount:
+          data.retryCount.present ? data.retryCount.value : this.retryCount,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalOutboxMutation(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('operation: $operation, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, entityType, entityId, operation,
+      payloadJson, createdAt, retryCount, lastError);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalOutboxMutation &&
+          other.id == this.id &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.operation == this.operation &&
+          other.payloadJson == this.payloadJson &&
+          other.createdAt == this.createdAt &&
+          other.retryCount == this.retryCount &&
+          other.lastError == this.lastError);
+}
+
+class LocalOutboxMutationsCompanion
+    extends UpdateCompanion<LocalOutboxMutation> {
+  final Value<String> id;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> operation;
+  final Value<String> payloadJson;
+  final Value<DateTime> createdAt;
+  final Value<int> retryCount;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const LocalOutboxMutationsCompanion({
+    this.id = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.operation = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalOutboxMutationsCompanion.insert({
+    required String id,
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required String payloadJson,
+    required DateTime createdAt,
+    this.retryCount = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        entityType = Value(entityType),
+        entityId = Value(entityId),
+        operation = Value(operation),
+        payloadJson = Value(payloadJson),
+        createdAt = Value(createdAt);
+  static Insertable<LocalOutboxMutation> custom({
+    Expression<String>? id,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? operation,
+    Expression<String>? payloadJson,
+    Expression<DateTime>? createdAt,
+    Expression<int>? retryCount,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (operation != null) 'operation': operation,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalOutboxMutationsCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? entityType,
+      Value<String>? entityId,
+      Value<String>? operation,
+      Value<String>? payloadJson,
+      Value<DateTime>? createdAt,
+      Value<int>? retryCount,
+      Value<String?>? lastError,
+      Value<int>? rowid}) {
+    return LocalOutboxMutationsCompanion(
+      id: id ?? this.id,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      operation: operation ?? this.operation,
+      payloadJson: payloadJson ?? this.payloadJson,
+      createdAt: createdAt ?? this.createdAt,
+      retryCount: retryCount ?? this.retryCount,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (operation.present) {
+      map['operation'] = Variable<String>(operation.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalOutboxMutationsCompanion(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('operation: $operation, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1995,6 +2436,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LocalTransactionsTable(this);
   late final $LocalExchangeRatesTable localExchangeRates =
       $LocalExchangeRatesTable(this);
+  late final $LocalOutboxMutationsTable localOutboxMutations =
+      $LocalOutboxMutationsTable(this);
   late final Index idxLocalAccActiveName = Index('idx_local_acc_active_name',
       'CREATE INDEX idx_local_acc_active_name ON local_accounts (deleted_at, name)');
   late final Index idxLocalAccSync = Index('idx_local_acc_sync',
@@ -2014,6 +2457,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       'CREATE INDEX idx_local_tx_sync ON local_transactions (is_synced)');
   late final Index idxLocalFxPairDate = Index('idx_local_fx_pair_date',
       'CREATE INDEX idx_local_fx_pair_date ON local_exchange_rates (base_currency, target_currency, effective_date)');
+  late final Index idxOutboxCreatedAt = Index('idx_outbox_created_at',
+      'CREATE INDEX idx_outbox_created_at ON local_outbox_mutations (created_at)');
+  late final Index idxOutboxEntityLookup = Index('idx_outbox_entity_lookup',
+      'CREATE INDEX idx_outbox_entity_lookup ON local_outbox_mutations (entity_type, entity_id)');
   late final AccountDao accountDao = AccountDao(this as AppDatabase);
   late final CategoryDao categoryDao = CategoryDao(this as AppDatabase);
   late final TransactionDao transactionDao =
@@ -2021,6 +2468,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final FtsSearchDao ftsSearchDao = FtsSearchDao(this as AppDatabase);
   late final ExchangeRateDao exchangeRateDao =
       ExchangeRateDao(this as AppDatabase);
+  late final OutboxDao outboxDao = OutboxDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2030,6 +2478,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         localCategories,
         localTransactions,
         localExchangeRates,
+        localOutboxMutations,
         idxLocalAccActiveName,
         idxLocalAccSync,
         idxLocalCatActiveWants,
@@ -2038,7 +2487,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         idxLocalTxActiveTime,
         idxLocalTxAccActiveTime,
         idxLocalTxSync,
-        idxLocalFxPairDate
+        idxLocalFxPairDate,
+        idxOutboxCreatedAt,
+        idxOutboxEntityLookup
       ];
 }
 
@@ -2894,6 +3345,183 @@ class $$LocalExchangeRatesTableOrderingComposer
           ColumnOrderings(column, joinBuilders: joinBuilders));
 }
 
+typedef $$LocalOutboxMutationsTableCreateCompanionBuilder
+    = LocalOutboxMutationsCompanion Function({
+  required String id,
+  required String entityType,
+  required String entityId,
+  required String operation,
+  required String payloadJson,
+  required DateTime createdAt,
+  Value<int> retryCount,
+  Value<String?> lastError,
+  Value<int> rowid,
+});
+typedef $$LocalOutboxMutationsTableUpdateCompanionBuilder
+    = LocalOutboxMutationsCompanion Function({
+  Value<String> id,
+  Value<String> entityType,
+  Value<String> entityId,
+  Value<String> operation,
+  Value<String> payloadJson,
+  Value<DateTime> createdAt,
+  Value<int> retryCount,
+  Value<String?> lastError,
+  Value<int> rowid,
+});
+
+class $$LocalOutboxMutationsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $LocalOutboxMutationsTable,
+    LocalOutboxMutation,
+    $$LocalOutboxMutationsTableFilterComposer,
+    $$LocalOutboxMutationsTableOrderingComposer,
+    $$LocalOutboxMutationsTableCreateCompanionBuilder,
+    $$LocalOutboxMutationsTableUpdateCompanionBuilder> {
+  $$LocalOutboxMutationsTableTableManager(
+      _$AppDatabase db, $LocalOutboxMutationsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          filteringComposer: $$LocalOutboxMutationsTableFilterComposer(
+              ComposerState(db, table)),
+          orderingComposer: $$LocalOutboxMutationsTableOrderingComposer(
+              ComposerState(db, table)),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> entityType = const Value.absent(),
+            Value<String> entityId = const Value.absent(),
+            Value<String> operation = const Value.absent(),
+            Value<String> payloadJson = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<int> retryCount = const Value.absent(),
+            Value<String?> lastError = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LocalOutboxMutationsCompanion(
+            id: id,
+            entityType: entityType,
+            entityId: entityId,
+            operation: operation,
+            payloadJson: payloadJson,
+            createdAt: createdAt,
+            retryCount: retryCount,
+            lastError: lastError,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String entityType,
+            required String entityId,
+            required String operation,
+            required String payloadJson,
+            required DateTime createdAt,
+            Value<int> retryCount = const Value.absent(),
+            Value<String?> lastError = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LocalOutboxMutationsCompanion.insert(
+            id: id,
+            entityType: entityType,
+            entityId: entityId,
+            operation: operation,
+            payloadJson: payloadJson,
+            createdAt: createdAt,
+            retryCount: retryCount,
+            lastError: lastError,
+            rowid: rowid,
+          ),
+        ));
+}
+
+class $$LocalOutboxMutationsTableFilterComposer
+    extends FilterComposer<_$AppDatabase, $LocalOutboxMutationsTable> {
+  $$LocalOutboxMutationsTableFilterComposer(super.$state);
+  ColumnFilters<String> get id => $state.composableBuilder(
+      column: $state.table.id,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get entityType => $state.composableBuilder(
+      column: $state.table.entityType,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get entityId => $state.composableBuilder(
+      column: $state.table.entityId,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get operation => $state.composableBuilder(
+      column: $state.table.operation,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get payloadJson => $state.composableBuilder(
+      column: $state.table.payloadJson,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<DateTime> get createdAt => $state.composableBuilder(
+      column: $state.table.createdAt,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<int> get retryCount => $state.composableBuilder(
+      column: $state.table.retryCount,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get lastError => $state.composableBuilder(
+      column: $state.table.lastError,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+}
+
+class $$LocalOutboxMutationsTableOrderingComposer
+    extends OrderingComposer<_$AppDatabase, $LocalOutboxMutationsTable> {
+  $$LocalOutboxMutationsTableOrderingComposer(super.$state);
+  ColumnOrderings<String> get id => $state.composableBuilder(
+      column: $state.table.id,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get entityType => $state.composableBuilder(
+      column: $state.table.entityType,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get entityId => $state.composableBuilder(
+      column: $state.table.entityId,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get operation => $state.composableBuilder(
+      column: $state.table.operation,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get payloadJson => $state.composableBuilder(
+      column: $state.table.payloadJson,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<DateTime> get createdAt => $state.composableBuilder(
+      column: $state.table.createdAt,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<int> get retryCount => $state.composableBuilder(
+      column: $state.table.retryCount,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get lastError => $state.composableBuilder(
+      column: $state.table.lastError,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+}
+
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
@@ -2905,4 +3533,6 @@ class $AppDatabaseManager {
       $$LocalTransactionsTableTableManager(_db, _db.localTransactions);
   $$LocalExchangeRatesTableTableManager get localExchangeRates =>
       $$LocalExchangeRatesTableTableManager(_db, _db.localExchangeRates);
+  $$LocalOutboxMutationsTableTableManager get localOutboxMutations =>
+      $$LocalOutboxMutationsTableTableManager(_db, _db.localOutboxMutations);
 }
