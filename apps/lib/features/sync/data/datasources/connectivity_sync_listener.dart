@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
 
 abstract interface class NetworkConnectivityMonitor {
   Stream<bool> get onOnlineChanged;
@@ -19,13 +20,21 @@ class ConnectivityPlusMonitor implements NetworkConnectivityMonitor {
   final Connectivity _connectivity;
 
   @override
-  Stream<bool> get onOnlineChanged =>
-      _connectivity.onConnectivityChanged.map(isOnlineConnectivityResults);
+  Stream<bool> get onOnlineChanged => _connectivity.onConnectivityChanged
+      .map(isOnlineConnectivityResults)
+      .handleError(
+        (Object _) {},
+        test: (error) => error is MissingPluginException,
+      );
 
   @override
   Future<bool> isConnected() async {
-    final results = await _connectivity.checkConnectivity();
-    return isOnlineConnectivityResults(results);
+    try {
+      final results = await _connectivity.checkConnectivity();
+      return isOnlineConnectivityResults(results);
+    } on MissingPluginException {
+      return false;
+    }
   }
 }
 

@@ -9,16 +9,18 @@ class DioClient {
     required DeviceCredentialsStorage credentialsStorage,
     HmacSigner? hmacSigner,
     UtcTimekeeper? timekeeper,
+    SyncSecurityInterceptor? securityInterceptor,
     HttpClientAdapter? httpClientAdapter,
     Duration connectTimeout = const Duration(seconds: 10),
     Duration receiveTimeout = const Duration(seconds: 15),
     Duration sendTimeout = const Duration(seconds: 15),
   }) {
-    final securityInterceptor = SyncSecurityInterceptor(
-      credentialsStorage: credentialsStorage,
-      hmacSigner: hmacSigner ?? const HmacSigner(),
-      timekeeper: timekeeper ?? UtcTimekeeper(),
-    );
+    final effectiveSecurityInterceptor = securityInterceptor ??
+        SyncSecurityInterceptor(
+          credentialsStorage: credentialsStorage,
+          hmacSigner: hmacSigner ?? const HmacSigner(),
+          timekeeper: timekeeper ?? UtcTimekeeper(),
+        );
 
     _dio = Dio(
       BaseOptions(
@@ -37,13 +39,12 @@ class DioClient {
       _dio.httpClientAdapter = httpClientAdapter;
     }
 
-    securityInterceptor.retryExecutor =
+    effectiveSecurityInterceptor.retryExecutor =
         (options) => _dio.fetch<dynamic>(options);
-    _dio.interceptors.add(securityInterceptor);
+    _dio.interceptors.add(effectiveSecurityInterceptor);
   }
 
   late final Dio _dio;
 
-  /// Underlying configured [Dio] instance.
   Dio get dio => _dio;
 }
