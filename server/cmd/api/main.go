@@ -56,10 +56,14 @@ func main() {
 
 	var fxWorker *worker.FXCronWorker
 	var routerOpts []httpAdapter.RouterOption
+	if cfg.HMACSecretKey != "" {
+		routerOpts = append(routerOpts, httpAdapter.WithHMACSecretKey(cfg.HMACSecretKey))
+	}
 	if dbConn != nil {
 		deviceRepo := postgres.NewDeviceRepository(dbConn)
 		accountRepo := postgres.NewAccountRepository(dbConn)
 		categoryRepo := postgres.NewCategoryRepository(dbConn)
+		txRepo := postgres.NewTransactionRepository(dbConn)
 
 		tokenManager, err := security.NewPasetoTokenManager("")
 		if err != nil {
@@ -69,11 +73,15 @@ func main() {
 			authService := service.NewAuthService(deviceRepo, tokenManager)
 			accountService := service.NewAccountService(accountRepo, txManager)
 			categoryService := service.NewCategoryService(categoryRepo)
+			transactionService := service.NewTransactionService(txRepo, accountRepo, categoryRepo, txManager)
+			syncService := service.NewSyncService(accountRepo, categoryRepo, txRepo, txManager)
 
 			routerOpts = append(routerOpts,
 				httpAdapter.WithAuthService(authService),
 				httpAdapter.WithAccountService(accountService),
 				httpAdapter.WithCategoryService(categoryService),
+				httpAdapter.WithTransactionService(transactionService),
+				httpAdapter.WithSyncService(syncService),
 				httpAdapter.WithTokenManager(tokenManager),
 			)
 		}

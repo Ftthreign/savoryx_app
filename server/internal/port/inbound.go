@@ -26,7 +26,7 @@ type AuthService interface {
 type AccountService interface {
 	CreateAccount(ctx context.Context, acc *domain.Account) error
 	GetAccount(ctx context.Context, id domain.UUID) (*domain.Account, error)
-	ListAccounts(ctx context.Context) ([]*domain.Account, error)
+	ListAccounts(ctx context.Context, limit, offset int) ([]*domain.Account, int, error)
 	UpdateAccount(ctx context.Context, id domain.UUID, name string, accType domain.AccountType) (*domain.Account, error)
 	UpdateBalance(ctx context.Context, id domain.UUID, newBalance decimal.Decimal) error
 	DeleteAccount(ctx context.Context, id domain.UUID) error
@@ -35,9 +35,41 @@ type AccountService interface {
 type CategoryService interface {
 	CreateCategory(ctx context.Context, cat *domain.Category) error
 	GetCategory(ctx context.Context, id domain.UUID) (*domain.Category, error)
-	ListCategories(ctx context.Context) ([]*domain.Category, error)
+	ListCategories(ctx context.Context, limit, offset int) ([]*domain.Category, int, error)
 	UpdateCategory(ctx context.Context, id domain.UUID, name, icon, color string, isWants bool) (*domain.Category, error)
 	DeleteCategory(ctx context.Context, id domain.UUID) error
+}
+
+type TransactionService interface {
+	CreateTransaction(ctx context.Context, tx *domain.Transaction) error
+	GetTransaction(ctx context.Context, id domain.UUID) (*domain.Transaction, error)
+	ListTransactions(ctx context.Context, accountID *domain.UUID, limit, offset int) ([]*domain.Transaction, int, error)
+	DeleteTransaction(ctx context.Context, id domain.UUID) error
+}
+
+type SyncPullResult struct {
+	Accounts     []*domain.Account     `json:"accounts"`
+	Categories   []*domain.Category    `json:"categories"`
+	Transactions []*domain.Transaction `json:"transactions"`
+	PulledAt     time.Time             `json:"pulled_at"`
+}
+
+type SyncPushPayload struct {
+	Accounts     []*domain.Account     `json:"accounts"`
+	Categories   []*domain.Category    `json:"categories"`
+	Transactions []*domain.Transaction `json:"transactions"`
+}
+
+type SyncPushResult struct {
+	AccountsApplied     int       `json:"accounts_applied"`
+	CategoriesApplied   int       `json:"categories_applied"`
+	TransactionsApplied int       `json:"transactions_applied"`
+	SyncedAt            time.Time `json:"synced_at"`
+}
+
+type SyncService interface {
+	PullChanges(ctx context.Context, lastPulledAt time.Time) (*SyncPullResult, error)
+	PushChanges(ctx context.Context, payload *SyncPushPayload) (*SyncPushResult, error)
 }
 
 type ExchangeRateService interface {

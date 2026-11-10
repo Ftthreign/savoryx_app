@@ -42,7 +42,9 @@ func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *CategoryHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.categoryService.ListCategories(r.Context())
+	limit, offset := ParsePaginationParams(r)
+
+	categories, total, err := h.categoryService.ListCategories(r.Context(), limit, offset)
 	if err != nil {
 		WriteDomainError(w, err)
 		return
@@ -50,9 +52,9 @@ func (h *CategoryHandler) ListCategories(w http.ResponseWriter, r *http.Request)
 
 	resList := dto.ToCategoryResponseList(categories)
 	meta := PaginationMeta{
-		Total:  len(resList),
-		Limit:  50,
-		Offset: 0,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	}
 	WriteJSONWithMeta(w, http.StatusOK, resList, meta)
 }

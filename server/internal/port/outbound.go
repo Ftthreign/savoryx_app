@@ -16,17 +16,35 @@ type AccountRepository interface {
 	Create(ctx context.Context, acc *domain.Account) error
 	GetByID(ctx context.Context, id domain.UUID) (*domain.Account, error)
 	GetByIDForUpdate(ctx context.Context, id domain.UUID) (*domain.Account, error)
-	List(ctx context.Context) ([]*domain.Account, error)
+	List(ctx context.Context, limit, offset int) ([]*domain.Account, error)
+	Count(ctx context.Context) (int, error)
 	Update(ctx context.Context, acc *domain.Account) error
 	UpdateBalance(ctx context.Context, id domain.UUID, balance decimal.Decimal) error
 	Delete(ctx context.Context, id domain.UUID) error
+	ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Account, error)
+	UpsertSync(ctx context.Context, acc *domain.Account) error
 }
 
 type CategoryRepository interface {
 	Create(ctx context.Context, cat *domain.Category) error
 	GetByID(ctx context.Context, id domain.UUID) (*domain.Category, error)
-	List(ctx context.Context) ([]*domain.Category, error)
+	List(ctx context.Context, limit, offset int) ([]*domain.Category, error)
+	Count(ctx context.Context) (int, error)
 	Update(ctx context.Context, cat *domain.Category) error
+	Delete(ctx context.Context, id domain.UUID) error
+	ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Category, error)
+	UpsertSync(ctx context.Context, cat *domain.Category) error
+}
+
+type TransactionRepository interface {
+	Create(ctx context.Context, tx *domain.Transaction) error
+	Upsert(ctx context.Context, tx *domain.Transaction) error
+	GetByID(ctx context.Context, id domain.UUID) (*domain.Transaction, error)
+	List(ctx context.Context, limit, offset int) ([]*domain.Transaction, error)
+	ListByAccount(ctx context.Context, accountID domain.UUID, limit, offset int) ([]*domain.Transaction, error)
+	Count(ctx context.Context) (int, error)
+	CountByAccount(ctx context.Context, accountID domain.UUID) (int, error)
+	ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Transaction, error)
 	Delete(ctx context.Context, id domain.UUID) error
 }
 

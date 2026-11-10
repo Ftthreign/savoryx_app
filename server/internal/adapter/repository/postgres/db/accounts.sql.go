@@ -12,6 +12,19 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const countAccounts = `-- name: CountAccounts :one
+SELECT COUNT(*)
+FROM accounts
+WHERE deleted_at IS NULL
+`
+
+func (q *Queries) CountAccounts(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countAccounts)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (
     id, name, type, currency, balance, created_at, updated_at
@@ -101,10 +114,52 @@ SELECT id, name, type, currency, balance, created_at, updated_at, deleted_at
 FROM accounts
 WHERE deleted_at IS NULL
 ORDER BY created_at ASC
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
-	rows, err := q.db.Query(ctx, listAccounts)
+type ListAccountsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccounts, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Account
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Type,
+			&i.Currency,
+			&i.Balance,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAccountsUpdatedAfter = `-- name: ListAccountsUpdatedAfter :many
+SELECT id, name, type, currency, balance, created_at, updated_at, deleted_at
+FROM accounts
+WHERE updated_at > $1
+ORDER BY updated_at ASC
+`
+
+func (q *Queries) ListAccountsUpdatedAfter(ctx context.Context, updatedAt pgtype.Timestamptz) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccountsUpdatedAfter, updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +199,37 @@ func (q *Queries) SoftDeleteAccount(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const updateAccount = `-- name: UpdateAccount :one
+UPDATE accounts
+SET name = $2,
+    type = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, name, type, currency, balance, created_at, updated_at, deleted_at
+`
+
+type UpdateAccountParams struct {
+	ID   pgtype.UUID `json:"id"`
+	Name string      `json:"name"`
+	Type AccountType `json:"type"`
+}
+
+func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {
+	row := q.db.QueryRow(ctx, updateAccount, arg.ID, arg.Name, arg.Type)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Type,
+		&i.Currency,
+		&i.Balance,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const updateAccountBalance = `-- name: UpdateAccountBalance :one
 UPDATE accounts
 SET balance = $2,
@@ -173,23 +259,45 @@ func (q *Queries) UpdateAccountBalance(ctx context.Context, arg UpdateAccountBal
 	return i, err
 }
 
-const updateAccount = `-- name: UpdateAccount :one
-UPDATE accounts
-SET name = $2,
-    type = $3,
-    updated_at = CURRENT_TIMESTAMP
-WHERE id = $1 AND deleted_at IS NULL
+const upsertAccountSync = `-- name: UpsertAccountSync :one
+INSERT INTO accounts (
+    id, name, type, currency, balance, created_at, updated_at, deleted_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    type = EXCLUDED.type,
+    currency = EXCLUDED.currency,
+    balance = EXCLUDED.balance,
+    updated_at = EXCLUDED.updated_at,
+    deleted_at = EXCLUDED.deleted_at
+WHERE accounts.updated_at < EXCLUDED.updated_at
 RETURNING id, name, type, currency, balance, created_at, updated_at, deleted_at
 `
 
-type UpdateAccountParams struct {
-	ID   pgtype.UUID `json:"id"`
-	Name string      `json:"name"`
-	Type AccountType `json:"type"`
+type UpsertAccountSyncParams struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Type      AccountType        `json:"type"`
+	Currency  string             `json:"currency"`
+	Balance   decimal.Decimal    `json:"balance"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
-func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {
-	row := q.db.QueryRow(ctx, updateAccount, arg.ID, arg.Name, arg.Type)
+func (q *Queries) UpsertAccountSync(ctx context.Context, arg UpsertAccountSyncParams) (Account, error) {
+	row := q.db.QueryRow(ctx, upsertAccountSync,
+		arg.ID,
+		arg.Name,
+		arg.Type,
+		arg.Currency,
+		arg.Balance,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.DeletedAt,
+	)
 	var i Account
 	err := row.Scan(
 		&i.ID,

@@ -11,6 +11,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countCategories = `-- name: CountCategories :one
+SELECT COUNT(*)
+FROM categories
+WHERE deleted_at IS NULL
+`
+
+func (q *Queries) CountCategories(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countCategories)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createCategory = `-- name: CreateCategory :one
 INSERT INTO categories (
     id, name, icon, color, is_wants, created_at, updated_at
@@ -77,10 +90,52 @@ SELECT id, name, icon, color, is_wants, created_at, updated_at, deleted_at
 FROM categories
 WHERE deleted_at IS NULL
 ORDER BY name ASC
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) ListCategories(ctx context.Context) ([]Category, error) {
-	rows, err := q.db.Query(ctx, listCategories)
+type ListCategoriesParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error) {
+	rows, err := q.db.Query(ctx, listCategories, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Category
+	for rows.Next() {
+		var i Category
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Icon,
+			&i.Color,
+			&i.IsWants,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCategoriesUpdatedAfter = `-- name: ListCategoriesUpdatedAfter :many
+SELECT id, name, icon, color, is_wants, created_at, updated_at, deleted_at
+FROM categories
+WHERE updated_at > $1
+ORDER BY updated_at ASC
+`
+
+func (q *Queries) ListCategoriesUpdatedAfter(ctx context.Context, updatedAt pgtype.Timestamptz) ([]Category, error) {
+	rows, err := q.db.Query(ctx, listCategoriesUpdatedAfter, updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +201,59 @@ func (q *Queries) UpdateCategory(ctx context.Context, arg UpdateCategoryParams) 
 		arg.Icon,
 		arg.Color,
 		arg.IsWants,
+	)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Icon,
+		&i.Color,
+		&i.IsWants,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const upsertCategorySync = `-- name: UpsertCategorySync :one
+INSERT INTO categories (
+    id, name, icon, color, is_wants, created_at, updated_at, deleted_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    icon = EXCLUDED.icon,
+    color = EXCLUDED.color,
+    is_wants = EXCLUDED.is_wants,
+    updated_at = EXCLUDED.updated_at,
+    deleted_at = EXCLUDED.deleted_at
+WHERE categories.updated_at < EXCLUDED.updated_at
+RETURNING id, name, icon, color, is_wants, created_at, updated_at, deleted_at
+`
+
+type UpsertCategorySyncParams struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Icon      string             `json:"icon"`
+	Color     string             `json:"color"`
+	IsWants   bool               `json:"is_wants"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+}
+
+func (q *Queries) UpsertCategorySync(ctx context.Context, arg UpsertCategorySyncParams) (Category, error) {
+	row := q.db.QueryRow(ctx, upsertCategorySync,
+		arg.ID,
+		arg.Name,
+		arg.Icon,
+		arg.Color,
+		arg.IsWants,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.DeletedAt,
 	)
 	var i Category
 	err := row.Scan(

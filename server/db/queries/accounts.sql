@@ -21,7 +21,13 @@ FOR UPDATE;
 SELECT id, name, type, currency, balance, created_at, updated_at, deleted_at
 FROM accounts
 WHERE deleted_at IS NULL
-ORDER BY created_at ASC;
+ORDER BY created_at ASC
+LIMIT $1 OFFSET $2;
+
+-- name: CountAccounts :one
+SELECT COUNT(*)
+FROM accounts
+WHERE deleted_at IS NULL;
 
 -- name: UpdateAccountBalance :one
 UPDATE accounts
@@ -43,3 +49,25 @@ UPDATE accounts
 SET deleted_at = CURRENT_TIMESTAMP,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: ListAccountsUpdatedAfter :many
+SELECT id, name, type, currency, balance, created_at, updated_at, deleted_at
+FROM accounts
+WHERE updated_at > $1
+ORDER BY updated_at ASC;
+
+-- name: UpsertAccountSync :one
+INSERT INTO accounts (
+    id, name, type, currency, balance, created_at, updated_at, deleted_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    type = EXCLUDED.type,
+    currency = EXCLUDED.currency,
+    balance = EXCLUDED.balance,
+    updated_at = EXCLUDED.updated_at,
+    deleted_at = EXCLUDED.deleted_at
+WHERE accounts.updated_at < EXCLUDED.updated_at
+RETURNING id, name, type, currency, balance, created_at, updated_at, deleted_at;
