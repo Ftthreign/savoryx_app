@@ -147,6 +147,49 @@ func (ns NullThemePreference) Value() (driver.Value, error) {
 	return string(ns.ThemePreference), nil
 }
 
+type TransactionType string
+
+const (
+	TransactionTypeINCOME   TransactionType = "INCOME"
+	TransactionTypeEXPENSE  TransactionType = "EXPENSE"
+	TransactionTypeTRANSFER TransactionType = "TRANSFER"
+)
+
+func (e *TransactionType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TransactionType(s)
+	case string:
+		*e = TransactionType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TransactionType: %T", src)
+	}
+	return nil
+}
+
+type NullTransactionType struct {
+	TransactionType TransactionType `json:"transaction_type"`
+	Valid           bool            `json:"valid"` // Valid is true if TransactionType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTransactionType) Scan(value interface{}) error {
+	if value == nil {
+		ns.TransactionType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TransactionType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTransactionType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TransactionType), nil
+}
+
 type Account struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
@@ -197,6 +240,24 @@ type ExchangeRate struct {
 	EffectiveDate  pgtype.Date        `json:"effective_date"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Transaction struct {
+	ID                   pgtype.UUID        `json:"id"`
+	AccountID            pgtype.UUID        `json:"account_id"`
+	CategoryID           pgtype.UUID        `json:"category_id"`
+	DestinationAccountID pgtype.UUID        `json:"destination_account_id"`
+	Type                 TransactionType    `json:"type"`
+	Amount               decimal.Decimal    `json:"amount"`
+	Currency             string             `json:"currency"`
+	ExchangeRateToBase   decimal.Decimal    `json:"exchange_rate_to_base"`
+	BaseAmount           decimal.Decimal    `json:"base_amount"`
+	Note                 string             `json:"note"`
+	IsTalangan           bool               `json:"is_talangan"`
+	TransactionDate      pgtype.Timestamptz `json:"transaction_date"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt            pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type UserPreference struct {

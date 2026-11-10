@@ -9,6 +9,8 @@ var (
 	ErrInvalidInput        = errors.New("invalid input parameter")
 	ErrAccountNotFound     = errors.New("account not found")
 	ErrCategoryNotFound    = errors.New("category not found")
+	ErrTransactionNotFound = errors.New("transaction not found")
+	ErrInsufficientBalance = errors.New("insufficient account balance")
 	ErrPreferenceNotFound  = errors.New("user preference not found")
 	ErrDeviceNotFound      = errors.New("device not found")
 	ErrDeviceRevoked       = errors.New("device authorization has been revoked")

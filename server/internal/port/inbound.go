@@ -40,6 +40,13 @@ type CategoryService interface {
 	DeleteCategory(ctx context.Context, id domain.UUID) error
 }
 
+type TransactionService interface {
+	CreateTransaction(ctx context.Context, tx *domain.Transaction) error
+	GetTransaction(ctx context.Context, id domain.UUID) (*domain.Transaction, error)
+	ListTransactions(ctx context.Context, accountID *domain.UUID, limit, offset int) ([]*domain.Transaction, int, error)
+	DeleteTransaction(ctx context.Context, id domain.UUID) error
+}
+
 type ExchangeRateService interface {
 	GetLatestRate(ctx context.Context, base, target string) (*domain.ExchangeRate, error)
 	GetHistoricalRate(ctx context.Context, base, target string, date time.Time) (*domain.ExchangeRate, error)

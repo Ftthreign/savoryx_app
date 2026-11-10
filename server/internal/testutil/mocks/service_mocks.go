@@ -137,3 +137,41 @@ func (m *MockCategoryService) DeleteCategory(ctx context.Context, id domain.UUID
 }
 
 var _ port.CategoryService = (*MockCategoryService)(nil)
+
+// MockTransactionService implements port.TransactionService for unit testing.
+type MockTransactionService struct {
+	CreateTransactionFunc func(ctx context.Context, tx *domain.Transaction) error
+	GetTransactionFunc    func(ctx context.Context, id domain.UUID) (*domain.Transaction, error)
+	ListTransactionsFunc  func(ctx context.Context, accountID *domain.UUID, limit, offset int) ([]*domain.Transaction, int, error)
+	DeleteTransactionFunc func(ctx context.Context, id domain.UUID) error
+}
+
+func (m *MockTransactionService) CreateTransaction(ctx context.Context, tx *domain.Transaction) error {
+	if m.CreateTransactionFunc != nil {
+		return m.CreateTransactionFunc(ctx, tx)
+	}
+	return nil
+}
+
+func (m *MockTransactionService) GetTransaction(ctx context.Context, id domain.UUID) (*domain.Transaction, error) {
+	if m.GetTransactionFunc != nil {
+		return m.GetTransactionFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *MockTransactionService) ListTransactions(ctx context.Context, accountID *domain.UUID, limit, offset int) ([]*domain.Transaction, int, error) {
+	if m.ListTransactionsFunc != nil {
+		return m.ListTransactionsFunc(ctx, accountID, limit, offset)
+	}
+	return nil, 0, nil
+}
+
+func (m *MockTransactionService) DeleteTransaction(ctx context.Context, id domain.UUID) error {
+	if m.DeleteTransactionFunc != nil {
+		return m.DeleteTransactionFunc(ctx, id)
+	}
+	return nil
+}
+
+var _ port.TransactionService = (*MockTransactionService)(nil)

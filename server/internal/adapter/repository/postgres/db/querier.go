@@ -13,9 +13,12 @@ import (
 type Querier interface {
 	CountAccounts(ctx context.Context) (int64, error)
 	CountCategories(ctx context.Context) (int64, error)
+	CountTransactions(ctx context.Context) (int64, error)
+	CountTransactionsByAccount(ctx context.Context, accountID pgtype.UUID) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateExchangeRate(ctx context.Context, arg CreateExchangeRateParams) (ExchangeRate, error)
+	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	GetAccountByID(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetAccountByIDForUpdate(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetCategoryByID(ctx context.Context, id pgtype.UUID) (Category, error)
@@ -23,20 +26,26 @@ type Querier interface {
 	GetDeviceByID(ctx context.Context, id pgtype.UUID) (Device, error)
 	GetHistoricalRateByDate(ctx context.Context, arg GetHistoricalRateByDateParams) (ExchangeRate, error)
 	GetLatestRate(ctx context.Context, arg GetLatestRateParams) (ExchangeRate, error)
+	GetTransactionByID(ctx context.Context, id pgtype.UUID) (Transaction, error)
 	GetUserPreferences(ctx context.Context, id pgtype.UUID) (UserPreference, error)
 	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
 	ListLatestRates(ctx context.Context, baseCurrency string) ([]ExchangeRate, error)
 	ListSupportedCurrencies(ctx context.Context) ([]Currency, error)
+	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error)
+	ListTransactionsByAccount(ctx context.Context, arg ListTransactionsByAccountParams) ([]Transaction, error)
+	ListTransactionsUpdatedAfter(ctx context.Context, updatedAt pgtype.Timestamptz) ([]Transaction, error)
 	RegisterDevice(ctx context.Context, arg RegisterDeviceParams) (Device, error)
 	RevokeDevice(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteAccount(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteCategory(ctx context.Context, id pgtype.UUID) error
+	SoftDeleteTransaction(ctx context.Context, id pgtype.UUID) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateDeviceLastActive(ctx context.Context, id pgtype.UUID) error
 	UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRateParams) (ExchangeRate, error)
+	UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error)
 	UpsertUserPreferences(ctx context.Context, arg UpsertUserPreferencesParams) (UserPreference, error)
 }
 

@@ -32,6 +32,18 @@ type CategoryRepository interface {
 	Delete(ctx context.Context, id domain.UUID) error
 }
 
+type TransactionRepository interface {
+	Create(ctx context.Context, tx *domain.Transaction) error
+	Upsert(ctx context.Context, tx *domain.Transaction) error
+	GetByID(ctx context.Context, id domain.UUID) (*domain.Transaction, error)
+	List(ctx context.Context, limit, offset int) ([]*domain.Transaction, error)
+	ListByAccount(ctx context.Context, accountID domain.UUID, limit, offset int) ([]*domain.Transaction, error)
+	Count(ctx context.Context) (int, error)
+	CountByAccount(ctx context.Context, accountID domain.UUID) (int, error)
+	ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Transaction, error)
+	Delete(ctx context.Context, id domain.UUID) error
+}
+
 type PreferenceRepository interface {
 	Get(ctx context.Context, id domain.UUID) (*domain.UserPreference, error)
 	Upsert(ctx context.Context, pref *domain.UserPreference) error

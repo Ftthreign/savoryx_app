@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
@@ -184,6 +185,84 @@ func (m *MockCategoryRepository) Delete(ctx context.Context, id domain.UUID) err
 }
 
 var _ port.CategoryRepository = (*MockCategoryRepository)(nil)
+
+// MockTransactionRepository implements port.TransactionRepository for unit testing.
+type MockTransactionRepository struct {
+	CreateFunc           func(ctx context.Context, tx *domain.Transaction) error
+	UpsertFunc           func(ctx context.Context, tx *domain.Transaction) error
+	GetByIDFunc          func(ctx context.Context, id domain.UUID) (*domain.Transaction, error)
+	ListFunc             func(ctx context.Context, limit, offset int) ([]*domain.Transaction, error)
+	ListByAccountFunc    func(ctx context.Context, accountID domain.UUID, limit, offset int) ([]*domain.Transaction, error)
+	CountFunc            func(ctx context.Context) (int, error)
+	CountByAccountFunc   func(ctx context.Context, accountID domain.UUID) (int, error)
+	ListUpdatedAfterFunc func(ctx context.Context, since time.Time) ([]*domain.Transaction, error)
+	DeleteFunc           func(ctx context.Context, id domain.UUID) error
+}
+
+func (m *MockTransactionRepository) Create(ctx context.Context, tx *domain.Transaction) error {
+	if m.CreateFunc != nil {
+		return m.CreateFunc(ctx, tx)
+	}
+	return nil
+}
+
+func (m *MockTransactionRepository) Upsert(ctx context.Context, tx *domain.Transaction) error {
+	if m.UpsertFunc != nil {
+		return m.UpsertFunc(ctx, tx)
+	}
+	return nil
+}
+
+func (m *MockTransactionRepository) GetByID(ctx context.Context, id domain.UUID) (*domain.Transaction, error) {
+	if m.GetByIDFunc != nil {
+		return m.GetByIDFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *MockTransactionRepository) List(ctx context.Context, limit, offset int) ([]*domain.Transaction, error) {
+	if m.ListFunc != nil {
+		return m.ListFunc(ctx, limit, offset)
+	}
+	return nil, nil
+}
+
+func (m *MockTransactionRepository) ListByAccount(ctx context.Context, accountID domain.UUID, limit, offset int) ([]*domain.Transaction, error) {
+	if m.ListByAccountFunc != nil {
+		return m.ListByAccountFunc(ctx, accountID, limit, offset)
+	}
+	return nil, nil
+}
+
+func (m *MockTransactionRepository) Count(ctx context.Context) (int, error) {
+	if m.CountFunc != nil {
+		return m.CountFunc(ctx)
+	}
+	return 0, nil
+}
+
+func (m *MockTransactionRepository) CountByAccount(ctx context.Context, accountID domain.UUID) (int, error) {
+	if m.CountByAccountFunc != nil {
+		return m.CountByAccountFunc(ctx, accountID)
+	}
+	return 0, nil
+}
+
+func (m *MockTransactionRepository) ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Transaction, error) {
+	if m.ListUpdatedAfterFunc != nil {
+		return m.ListUpdatedAfterFunc(ctx, since)
+	}
+	return nil, nil
+}
+
+func (m *MockTransactionRepository) Delete(ctx context.Context, id domain.UUID) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(ctx, id)
+	}
+	return nil
+}
+
+var _ port.TransactionRepository = (*MockTransactionRepository)(nil)
 
 type MockTxManager struct {
 	RunInTxFunc func(ctx context.Context, fn func(ctx context.Context) error) error
