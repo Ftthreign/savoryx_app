@@ -21,6 +21,11 @@ class _FakeSyncRemoteDataSource implements SyncRemoteDataSource {
   Future<SyncPushResponseModel> pushBatch(SyncPushRequestModel request) {
     return onPush(request);
   }
+
+  @override
+  Future<SyncPullResponseModel> pullDelta(String lastPulledAtIso) {
+    throw UnimplementedError();
+  }
 }
 
 void main() {

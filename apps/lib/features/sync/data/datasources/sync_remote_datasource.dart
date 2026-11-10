@@ -13,6 +13,7 @@ import 'package:savoryx/features/sync/domain/usecases/push_mutations_usecase.dar
 /// Remote API contract for delta sync operations.
 abstract interface class SyncRemoteDataSource {
   Future<SyncPushResponseModel> pushBatch(SyncPushRequestModel request);
+  Future<SyncPullResponseModel> pullDelta(String lastPulledAtIso);
 }
 
 /// Dio-backed [SyncRemoteDataSource] communicating with Savoryx Go backend.
@@ -29,6 +30,16 @@ class DioSyncRemoteDataSource implements SyncRemoteDataSource {
     );
     final data = response.data ?? const <String, dynamic>{};
     return SyncPushResponseModel.fromJson(data);
+  }
+
+  @override
+  Future<SyncPullResponseModel> pullDelta(String lastPulledAtIso) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/sync/pull',
+      data: <String, dynamic>{'last_pulled_at': lastPulledAtIso},
+    );
+    final data = response.data ?? const <String, dynamic>{};
+    return SyncPullResponseModel.fromJson(data);
   }
 }
 

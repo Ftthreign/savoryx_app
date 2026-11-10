@@ -360,3 +360,218 @@ class SyncPushResponseModel {
     );
   }
 }
+
+DateTime _parseRequiredUtcTimestamp(Object? raw, String fieldName) {
+  if (raw is String && raw.trim().isNotEmpty) {
+    final parsed = DateTime.tryParse(raw.trim());
+    if (parsed != null) {
+      return parsed.toUtc();
+    }
+  }
+  throw FormatException('Invalid timestamp for $fieldName: $raw');
+}
+
+DateTime? _parseNullableUtcTimestamp(Object? raw) {
+  if (raw == null) return null;
+  if (raw is String && raw.trim().isNotEmpty) {
+    return DateTime.tryParse(raw.trim())?.toUtc();
+  }
+  return null;
+}
+
+/// Remote account snapshot received from `POST /api/v1/sync/pull`.
+@immutable
+class SyncRemoteAccountModel {
+  const SyncRemoteAccountModel({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.currency,
+    required this.balanceMinor,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String name;
+  final String type;
+  final String currency;
+  final BigInt balanceMinor;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  factory SyncRemoteAccountModel.fromJson(Map<String, dynamic> json) {
+    final currency = (json['currency'] as String? ?? 'IDR').toUpperCase();
+    final balanceStr = json['balance']?.toString() ?? '0';
+    return SyncRemoteAccountModel(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      type: json['type'] as String,
+      currency: currency,
+      balanceMinor: FixedPointDecimalCodec.parseCurrencyToMinorUnits(
+        balanceStr,
+        currency: currency,
+      ),
+      createdAt: _parseRequiredUtcTimestamp(json['created_at'], 'created_at'),
+      updatedAt: _parseRequiredUtcTimestamp(json['updated_at'], 'updated_at'),
+      deletedAt: _parseNullableUtcTimestamp(json['deleted_at']),
+    );
+  }
+}
+
+/// Remote category snapshot received from `POST /api/v1/sync/pull`.
+@immutable
+class SyncRemoteCategoryModel {
+  const SyncRemoteCategoryModel({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.color,
+    required this.isWants,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String name;
+  final String icon;
+  final String color;
+  final bool isWants;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  factory SyncRemoteCategoryModel.fromJson(Map<String, dynamic> json) {
+    return SyncRemoteCategoryModel(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      icon: json['icon'] as String,
+      color: json['color'] as String,
+      isWants: json['is_wants'] as bool? ?? false,
+      createdAt: _parseRequiredUtcTimestamp(json['created_at'], 'created_at'),
+      updatedAt: _parseRequiredUtcTimestamp(json['updated_at'], 'updated_at'),
+      deletedAt: _parseNullableUtcTimestamp(json['deleted_at']),
+    );
+  }
+}
+
+/// Remote transaction snapshot received from `POST /api/v1/sync/pull`.
+@immutable
+class SyncRemoteTransactionModel {
+  const SyncRemoteTransactionModel({
+    required this.id,
+    required this.accountId,
+    this.categoryId,
+    required this.type,
+    required this.amountMinor,
+    required this.currency,
+    required this.exchangeRateToBase,
+    required this.baseAmountMinor,
+    this.note,
+    required this.transactionDate,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String accountId;
+  final String? categoryId;
+  final String type;
+  final BigInt amountMinor;
+  final String currency;
+  final BigInt exchangeRateToBase;
+  final BigInt baseAmountMinor;
+  final String? note;
+  final DateTime transactionDate;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  factory SyncRemoteTransactionModel.fromJson(Map<String, dynamic> json) {
+    final currency = (json['currency'] as String? ?? 'IDR').toUpperCase();
+    final amountMinor = FixedPointDecimalCodec.parseCurrencyToMinorUnits(
+      json['amount']?.toString() ?? '0',
+      currency: currency,
+    );
+    final rateRaw = json['exchange_rate_to_base']?.toString() ?? '1.000000';
+    final rateScaled = FixedPointDecimalCodec.parseToMinorUnits(
+      rateRaw,
+      decimalDigits: 6,
+    );
+    final baseAmountRaw = json['base_amount']?.toString();
+    final baseAmountMinor = baseAmountRaw != null && baseAmountRaw.isNotEmpty
+        ? FixedPointDecimalCodec.parseCurrencyToMinorUnits(
+            baseAmountRaw,
+            currency: CurrencyConverter.defaultBaseCurrency,
+          )
+        : amountMinor;
+
+    return SyncRemoteTransactionModel(
+      id: json['id'] as String,
+      accountId: json['account_id'] as String,
+      categoryId: json['category_id'] as String?,
+      type: json['type'] as String,
+      amountMinor: amountMinor,
+      currency: currency,
+      exchangeRateToBase: rateScaled,
+      baseAmountMinor: baseAmountMinor,
+      note: json['note'] as String?,
+      transactionDate: _parseRequiredUtcTimestamp(
+        json['transaction_date'],
+        'transaction_date',
+      ),
+      createdAt: _parseRequiredUtcTimestamp(json['created_at'], 'created_at'),
+      updatedAt: _parseRequiredUtcTimestamp(json['updated_at'], 'updated_at'),
+      deletedAt: _parseNullableUtcTimestamp(json['deleted_at']),
+    );
+  }
+}
+
+/// Delta response returned by `POST /api/v1/sync/pull` or `GET /api/v1/sync/pull`.
+@immutable
+class SyncPullResponseModel {
+  const SyncPullResponseModel({
+    required this.accounts,
+    required this.categories,
+    required this.transactions,
+    required this.pulledAt,
+  });
+
+  final List<SyncRemoteAccountModel> accounts;
+  final List<SyncRemoteCategoryModel> categories;
+  final List<SyncRemoteTransactionModel> transactions;
+  final DateTime pulledAt;
+
+  factory SyncPullResponseModel.fromJson(Map<String, dynamic> json) {
+    final payload = json['data'] is Map<String, dynamic>
+        ? json['data'] as Map<String, dynamic>
+        : json;
+
+    final rawAccounts = payload['accounts'] as List<dynamic>? ?? const [];
+    final rawCategories = payload['categories'] as List<dynamic>? ?? const [];
+    final rawTransactions =
+        payload['transactions'] as List<dynamic>? ?? const [];
+
+    final cursorRaw = payload['server_time'] ?? payload['pulled_at'];
+
+    return SyncPullResponseModel(
+      accounts: rawAccounts
+          .cast<Map<String, dynamic>>()
+          .map(SyncRemoteAccountModel.fromJson)
+          .toList(growable: false),
+      categories: rawCategories
+          .cast<Map<String, dynamic>>()
+          .map(SyncRemoteCategoryModel.fromJson)
+          .toList(growable: false),
+      transactions: rawTransactions
+          .cast<Map<String, dynamic>>()
+          .map(SyncRemoteTransactionModel.fromJson)
+          .toList(growable: false),
+      pulledAt: _parseNullableUtcTimestamp(cursorRaw) ?? DateTime.now().toUtc(),
+    );
+  }
+}
