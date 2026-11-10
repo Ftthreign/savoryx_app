@@ -28,4 +28,6 @@ abstract interface class SyncRepository implements SyncPushGateway {
   Future<SyncPullSummary> pullDelta();
 
   Future<String> getLastPulledAtIso();
+
+  Stream<int> watchPendingCount();
 }

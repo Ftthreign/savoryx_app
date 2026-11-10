@@ -48,11 +48,11 @@ import '../../features/category/domain/usecases/watch_categories_by_budget_useca
 import '../../features/category/domain/usecases/watch_categories_usecase.dart'
     as _i36;
 import '../../features/navigation/domain/usecases/calculate_safe_to_spend_usecase.dart'
-    as _i5;
+    as _i4;
 import '../../features/navigation/domain/usecases/stash_impulse_fund_usecase.dart'
     as _i38;
 import '../../features/navigation/presentation/bloc/overview_bloc.dart' as _i39;
-import '../../features/settings/presentation/bloc/theme_cubit.dart' as _i4;
+import '../../features/settings/presentation/bloc/theme_cubit.dart' as _i5;
 import '../../features/transaction/data/datasources/transaction_local_datasource.dart'
     as _i17;
 import '../../features/transaction/data/repositories/exchange_rate_repository_impl.dart'
@@ -95,9 +95,9 @@ extension GetItInjectableX on _i1.GetIt {
       environmentFilter,
     );
     gh.lazySingleton<_i3.AppDatabase>(() => _i3.AppDatabase());
-    gh.lazySingleton<_i4.ThemeCubit>(() => _i4.ThemeCubit());
-    gh.lazySingleton<_i5.CalculateSafeToSpendUseCase>(
-        () => const _i5.CalculateSafeToSpendUseCase());
+    gh.lazySingleton<_i4.CalculateSafeToSpendUseCase>(
+        () => const _i4.CalculateSafeToSpendUseCase());
+    gh.lazySingleton<_i5.ThemeCubit>(() => _i5.ThemeCubit());
     gh.lazySingleton<_i6.ExchangeRateRepository>(() =>
         _i7.ExchangeRateRepositoryImpl.fromDatabase(gh<_i3.AppDatabase>()));
     gh.lazySingleton<_i8.AccountRepository>(
@@ -166,7 +166,7 @@ extension GetItInjectableX on _i1.GetIt {
           watchAccountsUseCase: gh<_i16.WatchAccountsUseCase>(),
           watchRecentTransactionsUseCase:
               gh<_i29.WatchRecentTransactionsUseCase>(),
-          calculateSafeToSpendUseCase: gh<_i5.CalculateSafeToSpendUseCase>(),
+          calculateSafeToSpendUseCase: gh<_i4.CalculateSafeToSpendUseCase>(),
           stashImpulseFundUseCase: gh<_i38.StashImpulseFundUseCase>(),
         ));
     return this;

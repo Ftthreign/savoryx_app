@@ -28,6 +28,9 @@ class SyncRepositoryImpl implements SyncRepository {
   Future<String> getLastPulledAtIso() => _localDataSource.getLastPulledAtIso();
 
   @override
+  Stream<int> watchPendingCount() => _localDataSource.watchPendingCount();
+
+  @override
   Future<SyncPullSummary> pullDelta() async {
     try {
       final sinceIso = await _localDataSource.getLastPulledAtIso();

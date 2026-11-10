@@ -25,6 +25,10 @@ import 'package:savoryx/features/search/presentation/bloc/search_state.dart';
 import 'package:savoryx/features/search/presentation/widgets/clay_search_bar.dart';
 import 'package:savoryx/features/search/presentation/widgets/search_filter_bottom_sheet.dart';
 import 'package:savoryx/features/search/presentation/widgets/search_result_tile.dart';
+import 'package:savoryx/features/sync/presentation/bloc/sync_bloc.dart';
+import 'package:savoryx/features/sync/presentation/bloc/sync_event.dart';
+import 'package:savoryx/features/sync/presentation/bloc/sync_state.dart';
+import 'package:savoryx/features/sync/presentation/widgets/sync_status_indicator.dart';
 import 'package:savoryx/features/transaction/domain/entities/transaction_entity.dart';
 import 'package:savoryx/features/transaction/presentation/bloc/currency_bloc.dart';
 import 'package:savoryx/features/transaction/presentation/bloc/currency_event.dart';
@@ -34,28 +38,51 @@ import 'package:savoryx/features/transaction/presentation/widgets/dual_currency_
 /// Presentation widget representing the Overview / PulseSpend screen.
 /// Completely decoupled from SQLite/Drift DAOs and orchestrated via OverviewBloc.
 class OverviewTab extends StatelessWidget {
-  const OverviewTab({super.key, this.bloc});
+  const OverviewTab({super.key, this.bloc, this.syncBloc});
 
   final OverviewBloc? bloc;
+  final SyncBloc? syncBloc;
 
   @override
   Widget build(BuildContext context) {
+    final Widget content;
+    final bool hasSyncBloc;
+    if (syncBloc != null) {
+      hasSyncBloc = true;
+      content = BlocProvider<SyncBloc>.value(
+        value: syncBloc!,
+        child: const _OverviewContentView(hasSyncBloc: true),
+      );
+    } else if (getIt.isRegistered<SyncBloc>()) {
+      hasSyncBloc = true;
+      content = BlocProvider<SyncBloc>.value(
+        value: getIt<SyncBloc>()..add(const SyncEvent.started()),
+        child: const _OverviewContentView(hasSyncBloc: true),
+      );
+    } else {
+      hasSyncBloc = false;
+      content = const _OverviewContentView(hasSyncBloc: false);
+    }
+    assert(hasSyncBloc == (syncBloc != null || getIt.isRegistered<SyncBloc>()));
+
     if (bloc != null) {
       return BlocProvider<OverviewBloc>.value(
         value: bloc!,
-        child: const _OverviewContentView(),
+        child: content,
       );
     }
 
     return BlocProvider<OverviewBloc>(
       create: (_) => getIt<OverviewBloc>()..add(const OverviewLoadStarted()),
-      child: const _OverviewContentView(),
+      child: content,
     );
   }
 }
 
 class _OverviewContentView extends StatelessWidget {
-  const _OverviewContentView();
+  const _OverviewContentView({this.hasSyncBloc = false});
+
+  final bool hasSyncBloc;
 
   Future<void> _openCurrencyPicker(
     BuildContext context,
@@ -95,201 +122,238 @@ class _OverviewContentView extends StatelessWidget {
     );
   }
 
+  Future<void> _handleRefresh(BuildContext context) async {
+    if (hasSyncBloc) {
+      final activeSyncBloc = context.read<SyncBloc>();
+      final completer = Completer<void>();
+      activeSyncBloc
+          .add(SyncEvent.manualRequested(onComplete: completer.complete));
+      await completer.future;
+    }
+    if (context.mounted) {
+      context.read<OverviewBloc>().add(const OverviewLoadStarted());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<OverviewBloc, OverviewState>(
       builder: (context, state) {
         return SafeArea(
           bottom: false,
-          child: SingleChildScrollView(
-            key: const PageStorageKey<String>('overview_scroll_view'),
-            padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 110.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Top Bar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'PULSESPEND // SAVORYX',
-                            style: ClayTypography.labelSm(
-                              color: ClayColors.onSurfaceVariant,
-                            ),
-                          ),
-                          Text(
-                            'Overview',
-                            style: ClayTypography.headlineSm(
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8.0),
-                    Row(
-                      children: [
-                        // Search Bar Trigger Button
-                        ClayButton(
-                          key: const Key('overview_search_button'),
-                          width: 40.0,
-                          height: 40.0,
-                          padding: EdgeInsets.zero,
-                          borderRadius: BorderRadius.circular(20.0),
-                          semanticLabel: 'Cari transaksi',
-                          onTap: () => _openSearchModal(context),
-                          child: Icon(
-                            Icons.search_rounded,
-                            size: 20.0,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(width: 8.0),
-
-                        // Currency Selector Button
-                        ClayButton(
-                          key: const Key('overview_currency_button'),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12.0,
-                            vertical: 8.0,
-                          ),
-                          borderRadius: BorderRadius.circular(18.0),
-                          onTap: () => _openCurrencyPicker(
-                            context,
-                            state.selectedCurrency,
-                          ),
-                          child: Text(
-                            '${state.selectedCurrency} (${state.selectedCurrencySymbol})',
-                            style: ClayTypography.labelMd(
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8.0),
-
-                        // Privacy Shield Button
-                        ClayButton(
-                          width: 40.0,
-                          height: 40.0,
-                          padding: EdgeInsets.zero,
-                          borderRadius: BorderRadius.circular(20.0),
-                          semanticLabel: 'Sembunyikan saldo',
-                          onTap: () => context
-                              .read<OverviewBloc>()
-                              .add(const OverviewMaskToggled()),
-                          child: Icon(
-                            state.isMasked
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            size: 18.0,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20.0),
-
-                // Hero Spend Card (Safe-to-Spend Runway)
-                _buildHeroCard(context, state.safeToSpend, state.isMasked),
-                const SizedBox(height: 18.0),
-
-                // Behavioral Fast-Action Row
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClayButton(
-                        color: ClayColors.tertiaryContainer,
-                        borderRadius: BorderRadius.circular(24.0),
-                        padding: const EdgeInsets.all(14.0),
-                        onTap: () {
-                          context.read<OverviewBloc>().add(
-                                const OverviewSafeToSpendStashed(
-                                  amountMinorUnits: 45000,
-                                ),
-                              );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Impulse deflected! +Rp 45k moved to Sinking Fund',
-                              ),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                        child: Row(
+          child: RefreshIndicator(
+            onRefresh: () => _handleRefresh(context),
+            child: SingleChildScrollView(
+              key: const PageStorageKey<String>('overview_scroll_view'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 110.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Top Bar
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 36.0,
-                              height: 36.0,
-                              decoration: const BoxDecoration(
-                                color: ClayColors.tertiaryFixed,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.shield,
-                                size: 20.0,
-                                color: ClayColors.onTertiaryFixed,
+                            Text(
+                              'PULSESPEND // SAVORYX',
+                              style: ClayTypography.labelSm(
+                                color: ClayColors.onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(width: 10.0),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Saya Batal Beli',
-                                    style: ClayTypography.labelLg(
-                                      color: ClayColors.onTertiary,
-                                    ),
-                                  ),
-                                  Text(
-                                    '+${CurrencyFormatter.formatCompactRupiah(state.stashedImpulseFund)} Stashed',
-                                    style: ClayTypography.labelSm(
-                                      color: ClayColors.tertiaryChip,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              'Overview',
+                              style: ClayTypography.headlineSm(
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8.0),
+                      Row(
+                        children: [
+                          if (hasSyncBloc)
+                            BlocBuilder<SyncBloc, SyncState>(
+                              builder: (syncCtx, syncState) {
+                                return SyncStatusIndicator(
+                                  key: const Key('overview_sync_indicator'),
+                                  state: syncState,
+                                  onTap: () => syncCtx.read<SyncBloc>().add(
+                                        const SyncEvent.manualRequested(),
+                                      ),
+                                );
+                              },
+                            )
+                          else
+                            const SyncStatusIndicator(
+                              key: Key('overview_sync_indicator'),
+                              state: SyncState.idle(),
+                            ),
+                          const SizedBox(width: 8.0),
+
+                          // Search Bar Trigger Button
+                          ClayButton(
+                            key: const Key('overview_search_button'),
+                            width: 40.0,
+                            height: 40.0,
+                            padding: EdgeInsets.zero,
+                            borderRadius: BorderRadius.circular(20.0),
+                            semanticLabel: 'Cari transaksi',
+                            onTap: () => _openSearchModal(context),
+                            child: Icon(
+                              Icons.search_rounded,
+                              size: 20.0,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 8.0),
+
+                          // Currency Selector Button
+                          ClayButton(
+                            key: const Key('overview_currency_button'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 8.0,
+                            ),
+                            borderRadius: BorderRadius.circular(18.0),
+                            onTap: () => _openCurrencyPicker(
+                              context,
+                              state.selectedCurrency,
+                            ),
+                            child: Text(
+                              '${state.selectedCurrency} (${state.selectedCurrencySymbol})',
+                              style: ClayTypography.labelMd(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8.0),
+
+                          // Privacy Shield Button
+                          ClayButton(
+                            width: 40.0,
+                            height: 40.0,
+                            padding: EdgeInsets.zero,
+                            borderRadius: BorderRadius.circular(20.0),
+                            semanticLabel: 'Sembunyikan saldo',
+                            onTap: () => context
+                                .read<OverviewBloc>()
+                                .add(const OverviewMaskToggled()),
+                            child: Icon(
+                              state.isMasked
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              size: 18.0,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20.0),
+
+                  // Hero Spend Card (Safe-to-Spend Runway)
+                  _buildHeroCard(context, state.safeToSpend, state.isMasked),
+                  const SizedBox(height: 18.0),
+
+                  // Behavioral Fast-Action Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClayButton(
+                          color: ClayColors.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(24.0),
+                          padding: const EdgeInsets.all(14.0),
+                          onTap: () {
+                            context.read<OverviewBloc>().add(
+                                  const OverviewSafeToSpendStashed(
+                                    amountMinorUnits: 45000,
+                                  ),
+                                );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Impulse deflected! +Rp 45k moved to Sinking Fund',
+                                ),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36.0,
+                                height: 36.0,
+                                decoration: const BoxDecoration(
+                                  color: ClayColors.tertiaryFixed,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.shield,
+                                  size: 20.0,
+                                  color: ClayColors.onTertiaryFixed,
+                                ),
+                              ),
+                              const SizedBox(width: 10.0),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Saya Batal Beli',
+                                      style: ClayTypography.labelLg(
+                                        color: ClayColors.onTertiary,
+                                      ),
+                                    ),
+                                    Text(
+                                      '+${CurrencyFormatter.formatCompactRupiah(state.stashedImpulseFund)} Stashed',
+                                      style: ClayTypography.labelSm(
+                                        color: ClayColors.tertiaryChip,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22.0),
+
+                  // Accounts Horizontal Carousel Section
+                  Text(
+                    'Pockets & Accounts',
+                    style: ClayTypography.headlineSm(
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 22.0),
-
-                // Accounts Horizontal Carousel Section
-                Text(
-                  'Pockets & Accounts',
-                  style: ClayTypography.headlineSm(
-                    color: Theme.of(context).colorScheme.onSurface,
                   ),
-                ),
-                const SizedBox(height: 12.0),
-                _buildAccountsCarousel(context, state.accounts, state.isMasked),
-                const SizedBox(height: 24.0),
+                  const SizedBox(height: 12.0),
+                  _buildAccountsCarousel(
+                      context, state.accounts, state.isMasked),
+                  const SizedBox(height: 24.0),
 
-                // Recent Tactile Ledger Section
-                Text(
-                  'Recent Tactile Ledger',
-                  style: ClayTypography.headlineSm(
-                    color: Theme.of(context).colorScheme.onSurface,
+                  // Recent Tactile Ledger Section
+                  Text(
+                    'Recent Tactile Ledger',
+                    style: ClayTypography.headlineSm(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12.0),
-                _buildRecentLedger(
-                  state.recentTransactions,
-                  state.accounts,
-                  state.isMasked,
-                ),
-              ],
+                  const SizedBox(height: 12.0),
+                  _buildRecentLedger(
+                    state.recentTransactions,
+                    state.accounts,
+                    state.isMasked,
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -747,7 +811,8 @@ class _OverviewSearchSheetState extends State<_OverviewSearchSheet> {
                             const SizedBox(height: 8.0),
                             Text(
                               'Tidak ada transaksi yang cocok.',
-                              style: ClayTypography.bodyMd(color: subtitleColor),
+                              style:
+                                  ClayTypography.bodyMd(color: subtitleColor),
                             ),
                           ],
                         ),

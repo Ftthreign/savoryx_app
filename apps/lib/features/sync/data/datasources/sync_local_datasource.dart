@@ -56,6 +56,9 @@ class SyncLocalDataSource {
   final AppDatabase _database;
   final SyncCursorStorage _cursorStorage;
 
+  /// Emits reactive updates for the number of unsynced outbox mutations.
+  Stream<int> watchPendingCount() => _database.outboxDao.watchPendingCount();
+
   /// Returns stored `last_pulled_at` watermark or Unix epoch if never synced.
   Future<String> getLastPulledAtIso() async {
     final stored = await _cursorStorage.readLastPulledAtIso();
