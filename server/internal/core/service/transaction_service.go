@@ -379,7 +379,6 @@ func (s *transactionService) lockAccount(ctx context.Context, id domain.UUID) (*
 	return acc, nil
 }
 
-// lockTransferAccounts locks two accounts in deterministic UUID byte order in O(1) time to prevent deadlocks.
 func (s *transactionService) lockTransferAccounts(
 	ctx context.Context,
 	sourceID, destID domain.UUID,

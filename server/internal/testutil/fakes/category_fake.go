@@ -131,4 +131,33 @@ func (r *InMemoryCategoryRepository) Delete(ctx context.Context, id domain.UUID)
 	return nil
 }
 
+func (r *InMemoryCategoryRepository) ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Category, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []*domain.Category
+	for _, cat := range r.categories {
+		if cat.UpdatedAt.After(since) {
+			clone := *cat
+			result = append(result, &clone)
+		}
+	}
+	return result, nil
+}
+
+func (r *InMemoryCategoryRepository) UpsertSync(ctx context.Context, cat *domain.Category) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	existing, exists := r.categories[cat.ID]
+	if exists && !cat.UpdatedAt.After(existing.UpdatedAt) {
+		// Last-Write-Wins: ignore older or equal timestamp
+		return nil
+	}
+
+	clone := *cat
+	r.categories[cat.ID] = &clone
+	return nil
+}
+
 var _ port.CategoryRepository = (*InMemoryCategoryRepository)(nil)

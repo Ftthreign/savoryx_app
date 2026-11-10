@@ -72,6 +72,8 @@ type MockAccountRepository struct {
 	UpdateFunc           func(ctx context.Context, acc *domain.Account) error
 	UpdateBalanceFunc    func(ctx context.Context, id domain.UUID, balance decimal.Decimal) error
 	DeleteFunc           func(ctx context.Context, id domain.UUID) error
+	ListUpdatedAfterFunc func(ctx context.Context, since time.Time) ([]*domain.Account, error)
+	UpsertSyncFunc       func(ctx context.Context, acc *domain.Account) error
 }
 
 func (m *MockAccountRepository) Create(ctx context.Context, acc *domain.Account) error {
@@ -130,16 +132,32 @@ func (m *MockAccountRepository) Delete(ctx context.Context, id domain.UUID) erro
 	return nil
 }
 
+func (m *MockAccountRepository) ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Account, error) {
+	if m.ListUpdatedAfterFunc != nil {
+		return m.ListUpdatedAfterFunc(ctx, since)
+	}
+	return nil, nil
+}
+
+func (m *MockAccountRepository) UpsertSync(ctx context.Context, acc *domain.Account) error {
+	if m.UpsertSyncFunc != nil {
+		return m.UpsertSyncFunc(ctx, acc)
+	}
+	return nil
+}
+
 var _ port.AccountRepository = (*MockAccountRepository)(nil)
 
 // MockCategoryRepository implements port.CategoryRepository for unit testing.
 type MockCategoryRepository struct {
-	CreateFunc  func(ctx context.Context, cat *domain.Category) error
-	GetByIDFunc func(ctx context.Context, id domain.UUID) (*domain.Category, error)
-	ListFunc    func(ctx context.Context, limit, offset int) ([]*domain.Category, error)
-	CountFunc   func(ctx context.Context) (int, error)
-	UpdateFunc  func(ctx context.Context, cat *domain.Category) error
-	DeleteFunc  func(ctx context.Context, id domain.UUID) error
+	CreateFunc           func(ctx context.Context, cat *domain.Category) error
+	GetByIDFunc          func(ctx context.Context, id domain.UUID) (*domain.Category, error)
+	ListFunc             func(ctx context.Context, limit, offset int) ([]*domain.Category, error)
+	CountFunc            func(ctx context.Context) (int, error)
+	UpdateFunc           func(ctx context.Context, cat *domain.Category) error
+	DeleteFunc           func(ctx context.Context, id domain.UUID) error
+	ListUpdatedAfterFunc func(ctx context.Context, since time.Time) ([]*domain.Category, error)
+	UpsertSyncFunc       func(ctx context.Context, cat *domain.Category) error
 }
 
 func (m *MockCategoryRepository) Create(ctx context.Context, cat *domain.Category) error {
@@ -180,6 +198,20 @@ func (m *MockCategoryRepository) Update(ctx context.Context, cat *domain.Categor
 func (m *MockCategoryRepository) Delete(ctx context.Context, id domain.UUID) error {
 	if m.DeleteFunc != nil {
 		return m.DeleteFunc(ctx, id)
+	}
+	return nil
+}
+
+func (m *MockCategoryRepository) ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Category, error) {
+	if m.ListUpdatedAfterFunc != nil {
+		return m.ListUpdatedAfterFunc(ctx, since)
+	}
+	return nil, nil
+}
+
+func (m *MockCategoryRepository) UpsertSync(ctx context.Context, cat *domain.Category) error {
+	if m.UpsertSyncFunc != nil {
+		return m.UpsertSyncFunc(ctx, cat)
 	}
 	return nil
 }

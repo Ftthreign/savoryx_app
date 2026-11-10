@@ -40,20 +40,9 @@ INSERT INTO transactions (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 )
 ON CONFLICT (id) DO UPDATE SET
-    account_id = EXCLUDED.account_id,
-    category_id = EXCLUDED.category_id,
-    destination_account_id = EXCLUDED.destination_account_id,
-    type = EXCLUDED.type,
-    amount = EXCLUDED.amount,
-    currency = EXCLUDED.currency,
-    exchange_rate_to_base = EXCLUDED.exchange_rate_to_base,
-    base_amount = EXCLUDED.base_amount,
-    note = EXCLUDED.note,
-    is_talangan = EXCLUDED.is_talangan,
-    transaction_date = EXCLUDED.transaction_date,
-    updated_at = EXCLUDED.updated_at,
-    deleted_at = EXCLUDED.deleted_at
-WHERE transactions.updated_at <= EXCLUDED.updated_at
+    deleted_at = EXCLUDED.deleted_at,
+    updated_at = EXCLUDED.updated_at
+WHERE transactions.deleted_at IS NULL AND EXCLUDED.deleted_at IS NOT NULL
 RETURNING id, account_id, category_id, destination_account_id, type, amount, currency, exchange_rate_to_base, base_amount, note, is_talangan, transaction_date, created_at, updated_at, deleted_at;
 
 -- name: GetTransactionByID :one

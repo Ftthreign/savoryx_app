@@ -221,6 +221,71 @@ func (r *AccountRepository) Delete(ctx context.Context, id domain.UUID) error {
 	return nil
 }
 
+func (r *AccountRepository) ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Account, error) {
+	rows, err := r.queries(ctx).ListAccountsUpdatedAfter(ctx, toPgTimestamptz(since))
+	if err != nil {
+		return nil, oops.
+			In("account_repository").
+			Tags("database", "postgres").
+			Code("ERR_ACCOUNT_LIST_UPDATED_AFTER").
+			Wrapf(err, "failed to list accounts updated after timestamp")
+	}
+
+	result := make([]*domain.Account, len(rows))
+	for i, row := range rows {
+		result[i] = toDomainAccount(row)
+	}
+	return result, nil
+}
+
+func (r *AccountRepository) UpsertSync(ctx context.Context, acc *domain.Account) error {
+	if acc == nil {
+		return oops.
+			In("account_repository").
+			Tags("database", "postgres").
+			Code("ERR_ACCOUNT_NIL").
+			Wrap(domain.ErrInvalidInput)
+	}
+
+	now := time.Now().UTC()
+	createdAt := acc.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = now
+	}
+	updatedAt := acc.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = now
+	}
+
+	params := db.UpsertAccountSyncParams{
+		ID:        toPgUUID(acc.ID),
+		Name:      acc.Name,
+		Type:      db.AccountType(acc.Type),
+		Currency:  acc.Currency,
+		Balance:   acc.Balance,
+		CreatedAt: toPgTimestamptz(createdAt),
+		UpdatedAt: toPgTimestamptz(updatedAt),
+		DeletedAt: toPgNullableTimestamptz(acc.DeletedAt),
+	}
+
+	upserted, err := r.queries(ctx).UpsertAccountSync(ctx, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Ignored when incoming updated_at is not newer than existing record (LWW guard)
+			return nil
+		}
+		return oops.
+			In("account_repository").
+			Tags("database", "postgres").
+			Code("ERR_ACCOUNT_UPSERT_SYNC").
+			With("account_id", acc.ID.String()).
+			Wrapf(err, "failed to upsert account sync record")
+	}
+
+	*acc = *toDomainAccount(upserted)
+	return nil
+}
+
 func toDomainAccount(row db.Account) *domain.Account {
 	var deletedAt *time.Time
 	if row.DeletedAt.Valid {

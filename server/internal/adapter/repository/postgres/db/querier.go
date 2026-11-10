@@ -29,7 +29,9 @@ type Querier interface {
 	GetTransactionByID(ctx context.Context, id pgtype.UUID) (Transaction, error)
 	GetUserPreferences(ctx context.Context, id pgtype.UUID) (UserPreference, error)
 	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error)
+	ListAccountsUpdatedAfter(ctx context.Context, updatedAt pgtype.Timestamptz) ([]Account, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]Category, error)
+	ListCategoriesUpdatedAfter(ctx context.Context, updatedAt pgtype.Timestamptz) ([]Category, error)
 	ListLatestRates(ctx context.Context, baseCurrency string) ([]ExchangeRate, error)
 	ListSupportedCurrencies(ctx context.Context) ([]Currency, error)
 	ListTransactions(ctx context.Context, arg ListTransactionsParams) ([]Transaction, error)
@@ -44,6 +46,8 @@ type Querier interface {
 	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
 	UpdateDeviceLastActive(ctx context.Context, id pgtype.UUID) error
+	UpsertAccountSync(ctx context.Context, arg UpsertAccountSyncParams) (Account, error)
+	UpsertCategorySync(ctx context.Context, arg UpsertCategorySyncParams) (Category, error)
 	UpsertExchangeRate(ctx context.Context, arg UpsertExchangeRateParams) (ExchangeRate, error)
 	UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error)
 	UpsertUserPreferences(ctx context.Context, arg UpsertUserPreferencesParams) (UserPreference, error)

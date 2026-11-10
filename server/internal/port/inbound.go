@@ -47,6 +47,31 @@ type TransactionService interface {
 	DeleteTransaction(ctx context.Context, id domain.UUID) error
 }
 
+type SyncPullResult struct {
+	Accounts     []*domain.Account     `json:"accounts"`
+	Categories   []*domain.Category    `json:"categories"`
+	Transactions []*domain.Transaction `json:"transactions"`
+	PulledAt     time.Time             `json:"pulled_at"`
+}
+
+type SyncPushPayload struct {
+	Accounts     []*domain.Account     `json:"accounts"`
+	Categories   []*domain.Category    `json:"categories"`
+	Transactions []*domain.Transaction `json:"transactions"`
+}
+
+type SyncPushResult struct {
+	AccountsApplied     int       `json:"accounts_applied"`
+	CategoriesApplied   int       `json:"categories_applied"`
+	TransactionsApplied int       `json:"transactions_applied"`
+	SyncedAt            time.Time `json:"synced_at"`
+}
+
+type SyncService interface {
+	PullChanges(ctx context.Context, lastPulledAt time.Time) (*SyncPullResult, error)
+	PushChanges(ctx context.Context, payload *SyncPushPayload) (*SyncPushResult, error)
+}
+
 type ExchangeRateService interface {
 	GetLatestRate(ctx context.Context, base, target string) (*domain.ExchangeRate, error)
 	GetHistoricalRate(ctx context.Context, base, target string, date time.Time) (*domain.ExchangeRate, error)

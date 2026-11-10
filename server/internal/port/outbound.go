@@ -21,6 +21,8 @@ type AccountRepository interface {
 	Update(ctx context.Context, acc *domain.Account) error
 	UpdateBalance(ctx context.Context, id domain.UUID, balance decimal.Decimal) error
 	Delete(ctx context.Context, id domain.UUID) error
+	ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Account, error)
+	UpsertSync(ctx context.Context, acc *domain.Account) error
 }
 
 type CategoryRepository interface {
@@ -30,6 +32,8 @@ type CategoryRepository interface {
 	Count(ctx context.Context) (int, error)
 	Update(ctx context.Context, cat *domain.Category) error
 	Delete(ctx context.Context, id domain.UUID) error
+	ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Category, error)
+	UpsertSync(ctx context.Context, cat *domain.Category) error
 }
 
 type TransactionRepository interface {

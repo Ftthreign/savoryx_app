@@ -150,4 +150,33 @@ func (r *InMemoryAccountRepository) Delete(ctx context.Context, id domain.UUID) 
 	return nil
 }
 
+func (r *InMemoryAccountRepository) ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Account, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []*domain.Account
+	for _, acc := range r.accounts {
+		if acc.UpdatedAt.After(since) {
+			clone := *acc
+			result = append(result, &clone)
+		}
+	}
+	return result, nil
+}
+
+func (r *InMemoryAccountRepository) UpsertSync(ctx context.Context, acc *domain.Account) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	existing, exists := r.accounts[acc.ID]
+	if exists && !acc.UpdatedAt.After(existing.UpdatedAt) {
+		// Last-Write-Wins: ignore older or equal timestamp
+		return nil
+	}
+
+	clone := *acc
+	r.accounts[acc.ID] = &clone
+	return nil
+}
+
 var _ port.AccountRepository = (*InMemoryAccountRepository)(nil)

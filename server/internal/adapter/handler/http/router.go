@@ -15,6 +15,8 @@ type RouterOptions struct {
 	AuthService         port.AuthService
 	AccountService      port.AccountService
 	CategoryService     port.CategoryService
+	TransactionService  port.TransactionService
+	SyncService         port.SyncService
 	ExchangeRateService port.ExchangeRateService
 	TokenManager        port.TokenManager
 	FXRateLimiter       *RateLimiter
@@ -38,6 +40,18 @@ func WithAccountService(accountService port.AccountService) RouterOption {
 func WithCategoryService(categoryService port.CategoryService) RouterOption {
 	return func(o *RouterOptions) {
 		o.CategoryService = categoryService
+	}
+}
+
+func WithTransactionService(transactionService port.TransactionService) RouterOption {
+	return func(o *RouterOptions) {
+		o.TransactionService = transactionService
+	}
+}
+
+func WithSyncService(syncService port.SyncService) RouterOption {
+	return func(o *RouterOptions) {
+		o.SyncService = syncService
 	}
 }
 
@@ -131,6 +145,24 @@ func SetupRouter(
 						cat.Get("/{id}", categoryHandler.GetCategory)
 						cat.Put("/{id}", categoryHandler.UpdateCategory)
 						cat.Delete("/{id}", categoryHandler.DeleteCategory)
+					})
+				}
+
+				if options.TransactionService != nil {
+					txHandler := NewTransactionHandler(options.TransactionService)
+					protected.Route("/transactions", func(tx chi.Router) {
+						tx.Get("/", txHandler.ListTransactions)
+						tx.Post("/", txHandler.CreateTransaction)
+						tx.Get("/{id}", txHandler.GetTransaction)
+						tx.Delete("/{id}", txHandler.DeleteTransaction)
+					})
+				}
+
+				if options.SyncService != nil {
+					syncHandler := NewSyncHandler(options.SyncService)
+					protected.Route("/sync", func(sync chi.Router) {
+						sync.Post("/pull", syncHandler.PullChanges)
+						sync.Post("/push", syncHandler.PushChanges)
 					})
 				}
 

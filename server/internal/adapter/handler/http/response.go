@@ -110,11 +110,19 @@ func WriteDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrNotFound),
 		errors.Is(err, domain.ErrAccountNotFound),
 		errors.Is(err, domain.ErrCategoryNotFound),
+		errors.Is(err, domain.ErrTransactionNotFound),
 		errors.Is(err, domain.ErrPreferenceNotFound),
 		errors.Is(err, domain.ErrDeviceNotFound):
 		statusCode = http.StatusNotFound
 		if errorCode == "internal_error" {
 			errorCode = "not_found"
+		}
+		errorMessage = err.Error()
+
+	case errors.Is(err, domain.ErrInsufficientBalance):
+		statusCode = http.StatusUnprocessableEntity
+		if errorCode == "internal_error" {
+			errorCode = "insufficient_balance"
 		}
 		errorMessage = err.Error()
 

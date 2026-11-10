@@ -23,6 +23,13 @@ func NewCategoryRepository(d *DB) *CategoryRepository {
 	}
 }
 
+func (r *CategoryRepository) queries(ctx context.Context) *db.Queries {
+	if tx := ExtractTx(ctx); tx != nil {
+		return r.q.WithTx(tx)
+	}
+	return r.q
+}
+
 func (r *CategoryRepository) Create(ctx context.Context, cat *domain.Category) error {
 	if cat == nil {
 		return oops.
@@ -152,7 +159,7 @@ func (r *CategoryRepository) Update(ctx context.Context, cat *domain.Category) e
 
 func (r *CategoryRepository) Delete(ctx context.Context, id domain.UUID) error {
 	pgID := pgtype.UUID{Bytes: id.Bytes(), Valid: true}
-	err := r.q.SoftDeleteCategory(ctx, pgID)
+	err := r.queries(ctx).SoftDeleteCategory(ctx, pgID)
 	if err != nil {
 		return oops.
 			In("category_repository").
@@ -162,6 +169,71 @@ func (r *CategoryRepository) Delete(ctx context.Context, id domain.UUID) error {
 			Wrapf(err, "failed to soft delete category")
 	}
 
+	return nil
+}
+
+func (r *CategoryRepository) ListUpdatedAfter(ctx context.Context, since time.Time) ([]*domain.Category, error) {
+	rows, err := r.queries(ctx).ListCategoriesUpdatedAfter(ctx, toPgTimestamptz(since))
+	if err != nil {
+		return nil, oops.
+			In("category_repository").
+			Tags("database", "postgres").
+			Code("ERR_CATEGORY_LIST_UPDATED_AFTER").
+			Wrapf(err, "failed to list categories updated after timestamp")
+	}
+
+	result := make([]*domain.Category, len(rows))
+	for i, row := range rows {
+		result[i] = toDomainCategory(row)
+	}
+	return result, nil
+}
+
+func (r *CategoryRepository) UpsertSync(ctx context.Context, cat *domain.Category) error {
+	if cat == nil {
+		return oops.
+			In("category_repository").
+			Tags("database", "postgres").
+			Code("ERR_CATEGORY_NIL").
+			Wrap(domain.ErrInvalidInput)
+	}
+
+	now := time.Now().UTC()
+	createdAt := cat.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = now
+	}
+	updatedAt := cat.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = now
+	}
+
+	params := db.UpsertCategorySyncParams{
+		ID:        toPgUUID(cat.ID),
+		Name:      cat.Name,
+		Icon:      cat.Icon,
+		Color:     cat.Color,
+		IsWants:   cat.IsWants,
+		CreatedAt: toPgTimestamptz(createdAt),
+		UpdatedAt: toPgTimestamptz(updatedAt),
+		DeletedAt: toPgNullableTimestamptz(cat.DeletedAt),
+	}
+
+	upserted, err := r.queries(ctx).UpsertCategorySync(ctx, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Ignored when incoming updated_at is not newer than existing record (LWW guard)
+			return nil
+		}
+		return oops.
+			In("category_repository").
+			Tags("database", "postgres").
+			Code("ERR_CATEGORY_UPSERT_SYNC").
+			With("category_id", cat.ID.String()).
+			Wrapf(err, "failed to upsert category sync record")
+	}
+
+	*cat = *toDomainCategory(upserted)
 	return nil
 }
 

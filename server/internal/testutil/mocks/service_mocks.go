@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
@@ -175,3 +176,25 @@ func (m *MockTransactionService) DeleteTransaction(ctx context.Context, id domai
 }
 
 var _ port.TransactionService = (*MockTransactionService)(nil)
+
+// MockSyncService implements port.SyncService for unit testing.
+type MockSyncService struct {
+	PullChangesFunc func(ctx context.Context, lastPulledAt time.Time) (*port.SyncPullResult, error)
+	PushChangesFunc func(ctx context.Context, payload *port.SyncPushPayload) (*port.SyncPushResult, error)
+}
+
+func (m *MockSyncService) PullChanges(ctx context.Context, lastPulledAt time.Time) (*port.SyncPullResult, error) {
+	if m.PullChangesFunc != nil {
+		return m.PullChangesFunc(ctx, lastPulledAt)
+	}
+	return nil, nil
+}
+
+func (m *MockSyncService) PushChanges(ctx context.Context, payload *port.SyncPushPayload) (*port.SyncPushResult, error) {
+	if m.PushChangesFunc != nil {
+		return m.PushChangesFunc(ctx, payload)
+	}
+	return nil, nil
+}
+
+var _ port.SyncService = (*MockSyncService)(nil)
