@@ -308,3 +308,41 @@ func (m *MockTxManager) RunInTx(ctx context.Context, fn func(ctx context.Context
 }
 
 var _ port.TxManager = (*MockTxManager)(nil)
+
+// MockSyncLogRepository implements port.SyncLogRepository for unit testing.
+type MockSyncLogRepository struct {
+	RecordFunc        func(ctx context.Context, log *domain.SyncLog) error
+	GetByIDFunc       func(ctx context.Context, id domain.UUID) (*domain.SyncLog, error)
+	ListByDeviceFunc  func(ctx context.Context, deviceID domain.UUID, limit, offset int) ([]*domain.SyncLog, error)
+	CountByDeviceFunc func(ctx context.Context, deviceID domain.UUID) (int, error)
+}
+
+func (m *MockSyncLogRepository) Record(ctx context.Context, log *domain.SyncLog) error {
+	if m.RecordFunc != nil {
+		return m.RecordFunc(ctx, log)
+	}
+	return nil
+}
+
+func (m *MockSyncLogRepository) GetByID(ctx context.Context, id domain.UUID) (*domain.SyncLog, error) {
+	if m.GetByIDFunc != nil {
+		return m.GetByIDFunc(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *MockSyncLogRepository) ListByDevice(ctx context.Context, deviceID domain.UUID, limit, offset int) ([]*domain.SyncLog, error) {
+	if m.ListByDeviceFunc != nil {
+		return m.ListByDeviceFunc(ctx, deviceID, limit, offset)
+	}
+	return nil, nil
+}
+
+func (m *MockSyncLogRepository) CountByDevice(ctx context.Context, deviceID domain.UUID) (int, error) {
+	if m.CountByDeviceFunc != nil {
+		return m.CountByDeviceFunc(ctx, deviceID)
+	}
+	return 0, nil
+}
+
+var _ port.SyncLogRepository = (*MockSyncLogRepository)(nil)

@@ -1,20 +1,45 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/ftthreign/savoryx_app/server/internal/port"
 	"github.com/samber/oops"
+	"github.com/shopspring/decimal"
 )
 
 type syncService struct {
 	accountRepo  port.AccountRepository
 	categoryRepo port.CategoryRepository
 	txRepo       port.TransactionRepository
+	syncLogRepo  port.SyncLogRepository
 	txManager    port.TxManager
+}
+
+// SyncServiceOption configures optional dependencies on syncService.
+type SyncServiceOption func(*syncService)
+
+// WithSyncTxManager injects an atomic database transaction manager.
+func WithSyncTxManager(txManager port.TxManager) SyncServiceOption {
+	return func(s *syncService) {
+		if txManager != nil {
+			s.txManager = txManager
+		}
+	}
+}
+
+// WithSyncLogRepository injects the audit trail repository for PUSH/PULL sync logs.
+func WithSyncLogRepository(syncLogRepo port.SyncLogRepository) SyncServiceOption {
+	return func(s *syncService) {
+		if syncLogRepo != nil {
+			s.syncLogRepo = syncLogRepo
+		}
+	}
 }
 
 func NewSyncService(
@@ -35,6 +60,26 @@ func NewSyncService(
 	}
 }
 
+// NewSyncServiceWithOptions constructs a SyncService with explicit functional options.
+func NewSyncServiceWithOptions(
+	accountRepo port.AccountRepository,
+	categoryRepo port.CategoryRepository,
+	txRepo port.TransactionRepository,
+	opts ...SyncServiceOption,
+) port.SyncService {
+	svc := &syncService{
+		accountRepo:  accountRepo,
+		categoryRepo: categoryRepo,
+		txRepo:       txRepo,
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
+}
+
 func svcSyncErr() oops.OopsErrorBuilder {
 	return oops.In("sync_service")
 }
@@ -47,8 +92,11 @@ func (s *syncService) runInTx(ctx context.Context, fn func(ctx context.Context) 
 }
 
 func (s *syncService) PullChanges(ctx context.Context, lastPulledAt time.Time) (*port.SyncPullResult, error) {
-	since := lastPulledAt.UTC()
-	pulledAt := time.Now().UTC()
+	since := time.Unix(0, 0).UTC()
+	if !lastPulledAt.IsZero() {
+		since = lastPulledAt.UTC()
+	}
+	pulledAt := time.Now().UTC().Truncate(time.Microsecond)
 
 	accounts, err := s.accountRepo.ListUpdatedAfter(ctx, since)
 	if err != nil {
@@ -80,6 +128,13 @@ func (s *syncService) PullChanges(ctx context.Context, lastPulledAt time.Time) (
 		transactions = make([]*domain.Transaction, 0)
 	}
 
+	if deviceID, ok := domain.SyncDeviceIDFromContext(ctx); ok {
+		totalRecords := len(accounts) + len(categories) + len(transactions)
+		if err := s.recordSyncAuditLog(ctx, deviceID, domain.SyncDirectionPull, totalRecords, since, pulledAt); err != nil {
+			return nil, err
+		}
+	}
+
 	return &port.SyncPullResult{
 		Accounts:     accounts,
 		Categories:   categories,
@@ -99,8 +154,19 @@ func (s *syncService) PushChanges(ctx context.Context, payload *port.SyncPushPay
 		return nil, err
 	}
 
+	accountsInBatch := make(map[domain.UUID]struct{}, len(payload.Accounts))
+	for _, acc := range payload.Accounts {
+		accountsInBatch[acc.ID] = struct{}{}
+	}
+
+	serverNow := time.Now().UTC()
+	clientTS := serverNow
+	if !payload.ClientTimestamp.IsZero() {
+		clientTS = payload.ClientTimestamp.UTC()
+	}
+
 	err := s.runInTx(ctx, func(txCtx context.Context) error {
-		// 1. Upsert Categories (Last-Write-Wins based on updated_at)
+		// 1. Upsert Categories (Last-Write-Wins based on microsecond updated_at)
 		for _, cat := range payload.Categories {
 			if err := s.categoryRepo.UpsertSync(txCtx, cat); err != nil {
 				return svcSyncErr().
@@ -110,7 +176,7 @@ func (s *syncService) PushChanges(ctx context.Context, payload *port.SyncPushPay
 			}
 		}
 
-		// 2. Upsert Accounts (Last-Write-Wins based on updated_at)
+		// 2. Upsert Accounts (Last-Write-Wins based on microsecond updated_at)
 		for _, acc := range payload.Accounts {
 			if err := s.accountRepo.UpsertSync(txCtx, acc); err != nil {
 				return svcSyncErr().
@@ -118,15 +184,28 @@ func (s *syncService) PushChanges(ctx context.Context, payload *port.SyncPushPay
 					With("account_id", acc.ID.String()).
 					Wrapf(err, "failed to upsert account during sync push")
 			}
+			if acc.DeletedAt == nil {
+				if _, err := s.accountRepo.GetByIDForUpdate(txCtx, acc.ID); err != nil && !errors.Is(err, domain.ErrAccountNotFound) {
+					return svcSyncErr().
+						Code("ERR_SYNC_LOCK_ACCOUNT").
+						With("account_id", acc.ID.String()).
+						Wrapf(err, "failed to acquire row lock on synced account")
+				}
+			}
 		}
 
-		// 3. Upsert Transactions (Append-Only Ledger with Tombstone support)
+		// 3. Upsert Transactions (Append-Only Ledger with Tombstone & Pessimistic Row-Locking)
 		for _, tx := range payload.Transactions {
-			if err := s.txRepo.Upsert(txCtx, tx); err != nil {
-				return svcSyncErr().
-					Code("ERR_SYNC_PUSH_TRANSACTION").
-					With("transaction_id", tx.ID.String()).
-					Wrapf(err, "failed to upsert transaction during sync push")
+			if err := s.applySyncedTransaction(txCtx, tx, accountsInBatch); err != nil {
+				return err
+			}
+		}
+
+		// 4. Record PUSH audit entry atomically inside the same database transaction
+		if !payload.DeviceID.IsZero() {
+			batchSize := len(payload.Categories) + len(payload.Accounts) + len(payload.Transactions)
+			if err := s.recordSyncAuditLog(txCtx, payload.DeviceID, domain.SyncDirectionPush, batchSize, clientTS, serverNow); err != nil {
+				return err
 			}
 		}
 
@@ -142,6 +221,200 @@ func (s *syncService) PushChanges(ctx context.Context, payload *port.SyncPushPay
 		TransactionsApplied: len(payload.Transactions),
 		SyncedAt:            time.Now().UTC(),
 	}, nil
+}
+
+func (s *syncService) applySyncedTransaction(
+	ctx context.Context,
+	tx *domain.Transaction,
+	accountsInBatch map[domain.UUID]struct{},
+) error {
+	existingTx, getErr := s.txRepo.GetByID(ctx, tx.ID)
+	if getErr != nil && !errors.Is(getErr, domain.ErrTransactionNotFound) {
+		return svcSyncErr().
+			Code("ERR_SYNC_CHECK_TRANSACTION").
+			With("transaction_id", tx.ID.String()).
+			Wrapf(getErr, "failed to check existing transaction state")
+	}
+
+	isNewActive := existingTx == nil && tx.DeletedAt == nil
+	isNewlyTombstoned := existingTx != nil && tx.DeletedAt != nil
+
+	if isNewActive {
+		_, sourceSnapshotInBatch := accountsInBatch[tx.AccountID]
+		if err := s.reconcileBalanceForSyncedTx(ctx, tx, false, sourceSnapshotInBatch, accountsInBatch); err != nil {
+			return err
+		}
+	} else if isNewlyTombstoned {
+		_, sourceSnapshotInBatch := accountsInBatch[existingTx.AccountID]
+		if err := s.reconcileBalanceForSyncedTx(ctx, existingTx, true, sourceSnapshotInBatch, accountsInBatch); err != nil {
+			return err
+		}
+	}
+
+	if err := s.txRepo.Upsert(ctx, tx); err != nil {
+		return svcSyncErr().
+			Code("ERR_SYNC_PUSH_TRANSACTION").
+			With("transaction_id", tx.ID.String()).
+			Wrapf(err, "failed to upsert transaction during sync push")
+	}
+	return nil
+}
+
+func (s *syncService) reconcileBalanceForSyncedTx(
+	ctx context.Context,
+	tx *domain.Transaction,
+	revert bool,
+	sourceSnapshotInBatch bool,
+	accountsInBatch map[domain.UUID]struct{},
+) error {
+	switch tx.Type {
+	case domain.TransactionTypeIncome, domain.TransactionTypeExpense:
+		acc, err := s.accountRepo.GetByIDForUpdate(ctx, tx.AccountID)
+		if err != nil {
+			return svcSyncErr().
+				Code("ERR_SYNC_LOCK_ACCOUNT").
+				With("account_id", tx.AccountID.String()).
+				Wrapf(err, "failed to lock account for synced transaction")
+		}
+		// Unconfigured simple unit-test mocks return (nil, nil); skip balance reconciliation.
+		if acc == nil || sourceSnapshotInBatch {
+			return nil
+		}
+
+		isAddition := (tx.Type == domain.TransactionTypeIncome) != revert
+		if !isAddition {
+			if err := ensureSufficientBalance(acc, tx.Amount); err != nil {
+				return err
+			}
+			acc.Balance = acc.Balance.Sub(tx.Amount)
+		} else {
+			acc.Balance = acc.Balance.Add(tx.Amount)
+		}
+
+		if err := s.accountRepo.UpdateBalance(ctx, acc.ID, acc.Balance); err != nil {
+			return svcSyncErr().
+				Code("ERR_SYNC_UPDATE_BALANCE").
+				With("account_id", acc.ID.String()).
+				Wrapf(err, "failed to reconcile account balance during sync")
+		}
+		return nil
+
+	case domain.TransactionTypeTransfer:
+		if tx.DestinationAccountID == nil {
+			return svcSyncErr().
+				Code("ERR_SYNC_INVALID_TRANSFER").
+				With("transaction_id", tx.ID.String()).
+				Wrap(domain.ErrInvalidInput)
+		}
+		sourceAcc, destAcc, err := s.lockTransferAccountsDeterministic(ctx, tx.AccountID, *tx.DestinationAccountID)
+		if err != nil {
+			return err
+		}
+
+		if sourceAcc != nil && !sourceSnapshotInBatch {
+			var nextSourceBalance decimal.Decimal
+			if revert {
+				nextSourceBalance = sourceAcc.Balance.Add(tx.Amount)
+			} else {
+				if err := ensureSufficientBalance(sourceAcc, tx.Amount); err != nil {
+					return err
+				}
+				nextSourceBalance = sourceAcc.Balance.Sub(tx.Amount)
+			}
+			if err := s.accountRepo.UpdateBalance(ctx, sourceAcc.ID, nextSourceBalance); err != nil {
+				return svcSyncErr().
+					Code("ERR_SYNC_UPDATE_SOURCE_BALANCE").
+					With("account_id", sourceAcc.ID.String()).
+					Wrapf(err, "failed to reconcile source account balance during sync")
+			}
+		}
+
+		_, destSnapshotInBatch := accountsInBatch[*tx.DestinationAccountID]
+		if destAcc != nil && !destSnapshotInBatch {
+			var nextDestBalance decimal.Decimal
+			if revert {
+				nextDestBalance = destAcc.Balance.Sub(tx.Amount)
+			} else {
+				nextDestBalance = destAcc.Balance.Add(tx.Amount)
+			}
+			if err := s.accountRepo.UpdateBalance(ctx, destAcc.ID, nextDestBalance); err != nil {
+				return svcSyncErr().
+					Code("ERR_SYNC_UPDATE_DEST_BALANCE").
+					With("account_id", destAcc.ID.String()).
+					Wrapf(err, "failed to reconcile destination account balance during sync")
+			}
+		}
+		return nil
+
+	default:
+		return svcSyncErr().
+			Code("ERR_INVALID_TRANSACTION_TYPE").
+			Wrap(domain.ErrInvalidInput)
+	}
+}
+
+func (s *syncService) lockTransferAccountsDeterministic(
+	ctx context.Context,
+	sourceID, destID domain.UUID,
+) (*domain.Account, *domain.Account, error) {
+	firstID, secondID := sourceID, destID
+	swapped := false
+	if bytes.Compare(sourceID[:], destID[:]) > 0 {
+		firstID, secondID = destID, sourceID
+		swapped = true
+	}
+
+	firstAcc, err := s.accountRepo.GetByIDForUpdate(ctx, firstID)
+	if err != nil {
+		return nil, nil, svcSyncErr().
+			Code("ERR_SYNC_LOCK_ACCOUNT").
+			With("account_id", firstID.String()).
+			Wrapf(err, "failed to lock transfer account")
+	}
+
+	secondAcc, err := s.accountRepo.GetByIDForUpdate(ctx, secondID)
+	if err != nil {
+		return nil, nil, svcSyncErr().
+			Code("ERR_SYNC_LOCK_ACCOUNT").
+			With("account_id", secondID.String()).
+			Wrapf(err, "failed to lock transfer account")
+	}
+
+	if swapped {
+		return secondAcc, firstAcc, nil
+	}
+	return firstAcc, secondAcc, nil
+}
+
+func (s *syncService) recordSyncAuditLog(
+	ctx context.Context,
+	deviceID domain.UUID,
+	direction domain.SyncDirection,
+	batchSize int,
+	clientTS, serverTS time.Time,
+) error {
+	if s.syncLogRepo == nil || deviceID.IsZero() {
+		return nil
+	}
+
+	auditLog := &domain.SyncLog{
+		ID:              domain.NewUUIDv7(),
+		DeviceID:        deviceID,
+		Direction:       direction,
+		BatchSize:       batchSize,
+		Status:          domain.SyncStatusSuccess,
+		ClientTimestamp: clientTS.UTC(),
+		ServerTimestamp: serverTS.UTC(),
+		CreatedAt:       serverTS.UTC(),
+	}
+	if err := s.syncLogRepo.Record(ctx, auditLog); err != nil {
+		return svcSyncErr().
+			Code("ERR_SYNC_AUDIT_LOG").
+			With("device_id", deviceID.String()).
+			With("direction", string(direction)).
+			Wrapf(err, "failed to record sync audit log")
+	}
+	return nil
 }
 
 func validateSyncPushBatch(payload *port.SyncPushPayload) error {

@@ -53,7 +53,8 @@ func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-Request-ID, X-Signature")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-Request-ID, X-Device-ID, X-Timestamp, X-Signature")
+		w.Header().Set("Access-Control-Expose-Headers", "X-Server-Time, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After")
 		w.Header().Set("Access-Control-Max-Age", "300")
 
 		if r.Method == http.MethodOptions {
@@ -201,18 +202,28 @@ func AuthMiddleware(tokenManager port.TokenManager) func(next http.Handler) http
 	}
 }
 
+func computeCanonicalHMACSignature(secret, timestamp, method, path, delimiter string, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(timestamp))
+	_, _ = mac.Write([]byte(delimiter))
+	_, _ = mac.Write([]byte(strings.ToUpper(method)))
+	_, _ = mac.Write([]byte(delimiter))
+	_, _ = mac.Write([]byte(path))
+	_, _ = mac.Write([]byte(delimiter))
+	_, _ = mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 // ComputeHMACSignature computes the canonical hex-encoded HMAC-SHA256 digest over
 // timestamp + "\n" + method + "\n" + path + "\n" + body.
 func ComputeHMACSignature(secret, timestamp, method, path string, body []byte) string {
-	mac := hmac.New(sha256.New, []byte(secret))
-	_, _ = mac.Write([]byte(timestamp))
-	_, _ = mac.Write([]byte("\n"))
-	_, _ = mac.Write([]byte(strings.ToUpper(method)))
-	_, _ = mac.Write([]byte("\n"))
-	_, _ = mac.Write([]byte(path))
-	_, _ = mac.Write([]byte("\n"))
-	_, _ = mac.Write(body)
-	return hex.EncodeToString(mac.Sum(nil))
+	return computeCanonicalHMACSignature(secret, timestamp, method, path, "\n", body)
+}
+
+// ComputePipeHMACSignature computes the canonical hex-encoded HMAC-SHA256 digest over
+// timestamp + "|" + method + "|" + path + "|" + body.
+func ComputePipeHMACSignature(secret, timestamp, method, path string, body []byte) string {
+	return computeCanonicalHMACSignature(secret, timestamp, method, path, "|", body)
 }
 
 func computeLegacyHMACSignature(secret, timestamp string, body []byte) string {
@@ -235,8 +246,10 @@ func parseSignatureTimestamp(raw string) (time.Time, error) {
 	return time.Time{}, errors.New("unsupported timestamp format")
 }
 
-// VerifyHMACSignature validates X-Signature and X-Timestamp headers on mutation requests
-// (POST, PUT, PATCH, DELETE) using constant-time HMAC-SHA256 comparison and a 60s clock skew guard.
+func RequireValidHMACSignature(secretKey string) func(next http.Handler) http.Handler {
+	return VerifyHMACSignature(secretKey)
+}
+
 func VerifyHMACSignature(secretKey string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +265,18 @@ func VerifyHMACSignature(secretKey string) func(next http.Handler) http.Handler 
 				return
 			}
 
+			if deviceHeader := strings.TrimSpace(r.Header.Get("X-Device-ID")); deviceHeader != "" {
+				parsedDeviceID, err := domain.ParseUUID(deviceHeader)
+				if err != nil || parsedDeviceID.IsZero() {
+					WriteError(w, http.StatusUnauthorized, "invalid_device_id", "Invalid X-Device-ID header format")
+					return
+				}
+				if authDeviceID, ctxErr := DeviceIDFromContext(r.Context()); ctxErr == nil && parsedDeviceID != authDeviceID {
+					WriteError(w, http.StatusUnauthorized, "device_id_mismatch", "X-Device-ID does not match authenticated device token")
+					return
+				}
+			}
+
 			sigHeader := strings.TrimSpace(r.Header.Get("X-Signature"))
 			tsHeader := strings.TrimSpace(r.Header.Get("X-Timestamp"))
 			if sigHeader == "" || tsHeader == "" {
@@ -265,11 +290,13 @@ func VerifyHMACSignature(secretKey string) func(next http.Handler) http.Handler 
 				return
 			}
 
-			skew := time.Since(reqTime)
+			now := time.Now().UTC()
+			skew := now.Sub(reqTime)
 			if skew < 0 {
 				skew = -skew
 			}
 			if skew > MaxClockSkew {
+				w.Header().Set("X-Server-Time", now.Format(time.RFC3339Nano))
 				WriteError(w, http.StatusUnauthorized, "clock_skew_exceeded", "Request timestamp exceeds 60-second clock skew tolerance")
 				return
 			}
@@ -288,12 +315,14 @@ func VerifyHMACSignature(secretKey string) func(next http.Handler) http.Handler 
 			}
 
 			providedSig := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(sigHeader, "sha256=")))
-			expectedCanonical := ComputeHMACSignature(secretKey, tsHeader, r.Method, r.URL.Path, bodyBytes)
+			expectedNewline := ComputeHMACSignature(secretKey, tsHeader, r.Method, r.URL.Path, bodyBytes)
+			expectedPipe := ComputePipeHMACSignature(secretKey, tsHeader, r.Method, r.URL.Path, bodyBytes)
 			expectedLegacy := computeLegacyHMACSignature(secretKey, tsHeader, bodyBytes)
 
-			canonicalMatch := subtle.ConstantTimeCompare([]byte(providedSig), []byte(expectedCanonical)) == 1
+			newlineMatch := subtle.ConstantTimeCompare([]byte(providedSig), []byte(expectedNewline)) == 1
+			pipeMatch := subtle.ConstantTimeCompare([]byte(providedSig), []byte(expectedPipe)) == 1
 			legacyMatch := subtle.ConstantTimeCompare([]byte(providedSig), []byte(expectedLegacy)) == 1
-			if !canonicalMatch && !legacyMatch {
+			if !newlineMatch && !pipeMatch && !legacyMatch {
 				WriteError(w, http.StatusUnauthorized, "invalid_signature", "Invalid HMAC-SHA256 digital signature")
 				return
 			}

@@ -242,6 +242,17 @@ type ExchangeRate struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SyncLog struct {
+	ID              pgtype.UUID        `json:"id"`
+	DeviceID        pgtype.UUID        `json:"device_id"`
+	Direction       string             `json:"direction"`
+	BatchSize       int32              `json:"batch_size"`
+	Status          string             `json:"status"`
+	ClientTimestamp pgtype.Timestamptz `json:"client_timestamp"`
+	ServerTimestamp pgtype.Timestamptz `json:"server_timestamp"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type Transaction struct {
 	ID                   pgtype.UUID        `json:"id"`
 	AccountID            pgtype.UUID        `json:"account_id"`

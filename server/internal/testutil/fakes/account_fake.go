@@ -131,7 +131,11 @@ func (r *InMemoryAccountRepository) UpdateBalance(ctx context.Context, id domain
 	}
 
 	existing.Balance = balance
-	existing.UpdatedAt = time.Now().UTC()
+	nextUpdated := time.Now().UTC()
+	if !nextUpdated.After(existing.UpdatedAt) {
+		nextUpdated = existing.UpdatedAt.Add(time.Microsecond)
+	}
+	existing.UpdatedAt = nextUpdated
 	return nil
 }
 

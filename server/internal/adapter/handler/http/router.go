@@ -20,6 +20,7 @@ type RouterOptions struct {
 	ExchangeRateService port.ExchangeRateService
 	TokenManager        port.TokenManager
 	FXRateLimiter       *RateLimiter
+	SyncRateLimiter     *SlidingWindowLimiter
 	HMACSecretKey       string
 }
 
@@ -71,6 +72,13 @@ func WithExchangeRateService(exchangeRateService port.ExchangeRateService) Route
 func WithFXRateLimiter(limiter *RateLimiter) RouterOption {
 	return func(o *RouterOptions) {
 		o.FXRateLimiter = limiter
+	}
+}
+
+// WithSyncRateLimiter overrides the default 120 req/min sliding window limiter guarding sync endpoints.
+func WithSyncRateLimiter(limiter *SlidingWindowLimiter) RouterOption {
+	return func(o *RouterOptions) {
+		o.SyncRateLimiter = limiter
 	}
 }
 
@@ -159,8 +167,15 @@ func SetupRouter(
 				}
 
 				if options.SyncService != nil {
-					syncHandler := NewSyncHandler(options.SyncService)
+					syncLimiter := options.SyncRateLimiter
+					if syncLimiter == nil {
+						syncLimiter = NewSlidingWindowLimiter(DefaultSyncRateLimitPerMinute)
+					}
+
+					syncHandler := NewSyncHandler(options.SyncService, logger)
 					protected.Route("/sync", func(sync chi.Router) {
+						sync.Use(SyncRateLimiter(syncLimiter))
+						sync.Get("/pull", syncHandler.PullChanges)
 						sync.Post("/pull", syncHandler.PullChanges)
 						sync.Post("/push", syncHandler.PushChanges)
 					})

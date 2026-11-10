@@ -55,9 +55,11 @@ type SyncPullResult struct {
 }
 
 type SyncPushPayload struct {
-	Accounts     []*domain.Account     `json:"accounts"`
-	Categories   []*domain.Category    `json:"categories"`
-	Transactions []*domain.Transaction `json:"transactions"`
+	DeviceID        domain.UUID           `json:"-"`
+	ClientTimestamp time.Time             `json:"-"`
+	Accounts        []*domain.Account     `json:"accounts"`
+	Categories      []*domain.Category    `json:"categories"`
+	Transactions    []*domain.Transaction `json:"transactions"`
 }
 
 type SyncPushResult struct {

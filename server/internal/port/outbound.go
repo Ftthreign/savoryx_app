@@ -48,6 +48,13 @@ type TransactionRepository interface {
 	Delete(ctx context.Context, id domain.UUID) error
 }
 
+type SyncLogRepository interface {
+	Record(ctx context.Context, log *domain.SyncLog) error
+	GetByID(ctx context.Context, id domain.UUID) (*domain.SyncLog, error)
+	ListByDevice(ctx context.Context, deviceID domain.UUID, limit, offset int) ([]*domain.SyncLog, error)
+	CountByDevice(ctx context.Context, deviceID domain.UUID) (int, error)
+}
+
 type PreferenceRepository interface {
 	Get(ctx context.Context, id domain.UUID) (*domain.UserPreference, error)
 	Upsert(ctx context.Context, pref *domain.UserPreference) error

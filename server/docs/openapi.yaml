@@ -20,6 +20,8 @@ tags:
     description: Transaction categorization and Needs vs Wants classification
   - name: Exchange Rates
     description: Daily foreign exchange snapshots and supported currencies (rate limited to 60 requests per minute per device)
+  - name: Sync
+    description: Offline-first two-way delta synchronization secured by PASETO, HMAC-SHA256, and 120 req/min sliding window rate limiting
 
 components:
   securitySchemes:
@@ -49,6 +51,39 @@ components:
             error:
               code: rate_limit_exceeded
               message: Too many requests, please retry later
+
+    SyncTooManyRequests:
+      description: Per-device sync rate limit exceeded (120 requests per minute, sliding window)
+      headers:
+        X-RateLimit-Limit:
+          description: Maximum sync requests allowed per 60-second sliding window
+          schema:
+            type: integer
+            example: 120
+        X-RateLimit-Remaining:
+          description: Remaining sync requests in current sliding window
+          schema:
+            type: integer
+            example: 0
+        X-RateLimit-Reset:
+          description: Unix timestamp when oldest request exits the sliding window
+          schema:
+            type: integer
+            example: 1762776060
+        Retry-After:
+          description: Seconds to wait before the next sync request will be accepted
+          schema:
+            type: integer
+            minimum: 1
+            example: 60
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: rate_limit_exceeded
+              message: Sync rate limit exceeded, please retry later
 
   schemas:
     ResponseEnvelope:
@@ -437,6 +472,199 @@ components:
           example: 15
       required:
         - total
+
+    SyncAccountPayload:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [CASH, BANK, E_WALLET, CREDIT_CARD, INVESTMENT, ASSET]
+        currency:
+          type: string
+          example: IDR
+        balance:
+          type: string
+          example: "1500000.00"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - name
+        - type
+        - balance
+
+    SyncCategoryPayload:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+          example: "#8DB355"
+        is_wants:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - name
+        - icon
+        - color
+
+    SyncTransactionPayload:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        category_id:
+          type: string
+          format: uuid
+        destination_account_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [INCOME, EXPENSE, TRANSFER]
+        amount:
+          type: string
+          example: "75000.00"
+        currency:
+          type: string
+          example: IDR
+        exchange_rate_to_base:
+          type: string
+          example: "1"
+        base_amount:
+          type: string
+          example: "75000.00"
+        note:
+          type: string
+        is_talangan:
+          type: boolean
+        transaction_date:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - account_id
+        - type
+        - amount
+        - transaction_date
+
+    SyncPullRequest:
+      type: object
+      properties:
+        last_pulled_at:
+          type: string
+          format: date-time
+          example: "2026-11-10T00:00:00Z"
+          description: RFC3339Nano UTC watermark cursor (or "0"/empty for full initial pull)
+
+    SyncPullResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncAccountPayload'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncCategoryPayload'
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncTransactionPayload'
+        pulled_at:
+          type: string
+          format: date-time
+        server_time:
+          type: string
+          format: date-time
+          description: Authoritative microsecond-precision UTC server timestamp for next pull cursor
+      required:
+        - accounts
+        - categories
+        - transactions
+        - pulled_at
+        - server_time
+
+    SyncPushRequest:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncAccountPayload'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncCategoryPayload'
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncTransactionPayload'
+
+    SyncPushResponse:
+      type: object
+      properties:
+        accounts_applied:
+          type: integer
+          example: 1
+        categories_applied:
+          type: integer
+          example: 2
+        transactions_applied:
+          type: integer
+          example: 3
+        synced_at:
+          type: string
+          format: date-time
+      required:
+        - accounts_applied
+        - categories_applied
+        - transactions_applied
+        - synced_at
 
 paths:
   /healthz:
@@ -1155,3 +1383,179 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/sync/pull:
+    get:
+      summary: Pull incremental delta changes since cursor (query param)
+      description: Returns accounts, categories, and transactions modified after `since` (including soft-deleted tombstones) and records a PULL audit entry. Rate limited to 120 req/min per device.
+      tags:
+        - Sync
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339Nano UTC watermark cursor (omit or set to "0" for initial pull)
+      responses:
+        '200':
+          description: Incremental delta snapshot with server_time cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SyncPullResponse'
+                required:
+                  - data
+        '400':
+          description: Invalid timestamp cursor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Unauthorized or invalid PASETO token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/SyncTooManyRequests'
+
+    post:
+      summary: Pull incremental delta changes since cursor (signed POST)
+      description: Returns accounts, categories, and transactions modified after `last_pulled_at` (including soft-deleted tombstones). Protected by PASETO, HMAC-SHA256, and 120 req/min sliding window rate limiter.
+      tags:
+        - Sync
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: X-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Client UTC timestamp (RFC3339Nano or Unix seconds) within 60-second skew window
+        - name: X-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Hex HMAC-SHA256 signature over canonical payload
+        - name: X-Device-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional device UUID binding check against PASETO device claims
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPullRequest'
+      responses:
+        '200':
+          description: Incremental delta snapshot with server_time cursor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SyncPullResponse'
+                required:
+                  - data
+        '400':
+          description: Invalid JSON or timestamp format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Invalid PASETO token, HMAC signature, device binding, or clock skew (>60s emits X-Server-Time header)
+          headers:
+            X-Server-Time:
+              description: Server UTC RFC3339Nano timestamp emitted on clock skew rejection
+              schema:
+                type: string
+                format: date-time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/SyncTooManyRequests'
+
+  /api/v1/sync/push:
+    post:
+      summary: Push local offline mutations atomically in a batch
+      description: Applies categories (LWW), accounts (LWW), and transactions (Append-Only Ledger with row locking and tombstones) in one atomic pgx.Tx block and records a PUSH audit entry.
+      tags:
+        - Sync
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: X-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Client UTC timestamp (RFC3339Nano or Unix seconds) within 60-second skew window
+        - name: X-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Hex HMAC-SHA256 signature over canonical payload
+        - name: X-Device-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional device UUID binding check against PASETO device claims
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPushRequest'
+      responses:
+        '200':
+          description: Batch committed atomically
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SyncPushResponse'
+                required:
+                  - data
+        '400':
+          description: Batch validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Invalid PASETO token, HMAC signature, device binding, or clock skew (>60s emits X-Server-Time header)
+          headers:
+            X-Server-Time:
+              description: Server UTC RFC3339Nano timestamp emitted on clock skew rejection
+              schema:
+                type: string
+                format: date-time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          $ref: '#/components/responses/SyncTooManyRequests'

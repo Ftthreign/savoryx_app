@@ -11,6 +11,7 @@ import (
 	"time"
 
 	httpAdapter "github.com/ftthreign/savoryx_app/server/internal/adapter/handler/http"
+	"github.com/ftthreign/savoryx_app/server/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -114,6 +115,10 @@ func TestVerifyHMACSignature(t *testing.T) {
 		recPast := httptest.NewRecorder()
 		handler.ServeHTTP(recPast, reqPast)
 		assert.Equal(t, http.StatusUnauthorized, recPast.Code)
+		serverTimePast := recPast.Header().Get("X-Server-Time")
+		require.NotEmpty(t, serverTimePast, "X-Server-Time must be set on clock skew rejection")
+		_, parsePastErr := time.Parse(time.RFC3339Nano, serverTimePast)
+		assert.NoError(t, parsePastErr)
 		var envPast httpAdapter.ErrorEnvelope
 		require.NoError(t, json.Unmarshal(recPast.Body.Bytes(), &envPast))
 		assert.Equal(t, "clock_skew_exceeded", envPast.Error.Code)
@@ -127,6 +132,10 @@ func TestVerifyHMACSignature(t *testing.T) {
 		recFuture := httptest.NewRecorder()
 		handler.ServeHTTP(recFuture, reqFuture)
 		assert.Equal(t, http.StatusUnauthorized, recFuture.Code)
+		serverTimeFuture := recFuture.Header().Get("X-Server-Time")
+		require.NotEmpty(t, serverTimeFuture, "X-Server-Time must be set on clock skew rejection")
+		_, parseFutureErr := time.Parse(time.RFC3339Nano, serverTimeFuture)
+		assert.NoError(t, parseFutureErr)
 		var envFuture httpAdapter.ErrorEnvelope
 		require.NoError(t, json.Unmarshal(recFuture.Body.Bytes(), &envFuture))
 		assert.Equal(t, "clock_skew_exceeded", envFuture.Error.Code)
@@ -213,4 +222,104 @@ func TestVerifyHMACSignature(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &env))
 		assert.Equal(t, "invalid_signature", env.Error.Code)
 	})
+
+	t.Run("valid pipe-delimited canonical HMAC-SHA256 signature succeeds", func(t *testing.T) {
+		t.Parallel()
+
+		handler := httpAdapter.RequireValidHMACSignature(testSecret)(echoBodyHandler)
+		payload := []byte(`{"last_pulled_at":"2026-11-10T00:00:00Z"}`)
+		ts := time.Now().UTC().Format(time.RFC3339Nano)
+		sig := httpAdapter.ComputePipeHMACSignature(testSecret, ts, http.MethodPost, "/api/v1/sync/pull", payload)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/sync/pull", bytes.NewReader(payload))
+		req.Header.Set("X-Timestamp", ts)
+		req.Header.Set("X-Signature", sig)
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, string(payload), rec.Body.String())
+	})
+
+	t.Run("X-Device-ID validation rejects malformed, zero, and mismatched device IDs", func(t *testing.T) {
+		t.Parallel()
+
+		handler := httpAdapter.VerifyHMACSignature(testSecret)(echoBodyHandler)
+		payload := []byte(`{"accounts":[]}`)
+		ts := time.Now().UTC().Format(time.RFC3339)
+		sig := httpAdapter.ComputePipeHMACSignature(testSecret, ts, http.MethodPost, "/api/v1/sync/push", payload)
+
+		authDeviceID := domain.NewUUIDv7()
+		otherDeviceID := domain.NewUUIDv7()
+
+		// Malformed X-Device-ID
+		reqInvalid := httptest.NewRequest(http.MethodPost, "/api/v1/sync/push", bytes.NewReader(payload))
+		reqInvalid = reqInvalid.WithContext(httpAdapter.WithDeviceID(reqInvalid.Context(), authDeviceID))
+		reqInvalid.Header.Set("X-Device-ID", "not-a-uuid")
+		reqInvalid.Header.Set("X-Timestamp", ts)
+		reqInvalid.Header.Set("X-Signature", sig)
+		recInvalid := httptest.NewRecorder()
+		handler.ServeHTTP(recInvalid, reqInvalid)
+		assert.Equal(t, http.StatusUnauthorized, recInvalid.Code)
+		var envInvalid httpAdapter.ErrorEnvelope
+		require.NoError(t, json.Unmarshal(recInvalid.Body.Bytes(), &envInvalid))
+		assert.Equal(t, "invalid_device_id", envInvalid.Error.Code)
+
+		// Zero UUID in X-Device-ID
+		reqZero := httptest.NewRequest(http.MethodPost, "/api/v1/sync/push", bytes.NewReader(payload))
+		reqZero = reqZero.WithContext(httpAdapter.WithDeviceID(reqZero.Context(), authDeviceID))
+		reqZero.Header.Set("X-Device-ID", domain.NilUUID.String())
+		reqZero.Header.Set("X-Timestamp", ts)
+		reqZero.Header.Set("X-Signature", sig)
+		recZero := httptest.NewRecorder()
+		handler.ServeHTTP(recZero, reqZero)
+		assert.Equal(t, http.StatusUnauthorized, recZero.Code)
+		var envZero httpAdapter.ErrorEnvelope
+		require.NoError(t, json.Unmarshal(recZero.Body.Bytes(), &envZero))
+		assert.Equal(t, "invalid_device_id", envZero.Error.Code)
+
+		// Spoofed X-Device-ID differing from authenticated token context
+		reqMismatch := httptest.NewRequest(http.MethodPost, "/api/v1/sync/push", bytes.NewReader(payload))
+		reqMismatch = reqMismatch.WithContext(httpAdapter.WithDeviceID(reqMismatch.Context(), authDeviceID))
+		reqMismatch.Header.Set("X-Device-ID", otherDeviceID.String())
+		reqMismatch.Header.Set("X-Timestamp", ts)
+		reqMismatch.Header.Set("X-Signature", sig)
+		recMismatch := httptest.NewRecorder()
+		handler.ServeHTTP(recMismatch, reqMismatch)
+		assert.Equal(t, http.StatusUnauthorized, recMismatch.Code)
+		var envMismatch httpAdapter.ErrorEnvelope
+		require.NoError(t, json.Unmarshal(recMismatch.Body.Bytes(), &envMismatch))
+		assert.Equal(t, "device_id_mismatch", envMismatch.Error.Code)
+
+		// Matching X-Device-ID succeeds
+		reqMatch := httptest.NewRequest(http.MethodPost, "/api/v1/sync/push", bytes.NewReader(payload))
+		reqMatch = reqMatch.WithContext(httpAdapter.WithDeviceID(reqMatch.Context(), authDeviceID))
+		reqMatch.Header.Set("X-Device-ID", authDeviceID.String())
+		reqMatch.Header.Set("X-Timestamp", ts)
+		reqMatch.Header.Set("X-Signature", sig)
+		recMatch := httptest.NewRecorder()
+		handler.ServeHTTP(recMatch, reqMatch)
+		assert.Equal(t, http.StatusOK, recMatch.Code)
+		assert.Equal(t, string(payload), recMatch.Body.String())
+	})
+}
+
+func TestCORS_SyncHeaders(t *testing.T) {
+	t.Parallel()
+
+	handler := httpAdapter.CORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/sync/push", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Contains(t, rec.Header().Get("Access-Control-Allow-Headers"), "X-Device-ID")
+	assert.Contains(t, rec.Header().Get("Access-Control-Allow-Headers"), "X-Timestamp")
+	assert.Contains(t, rec.Header().Get("Access-Control-Allow-Headers"), "X-Signature")
+	assert.Contains(t, rec.Header().Get("Access-Control-Expose-Headers"), "X-Server-Time")
+	assert.Contains(t, rec.Header().Get("Access-Control-Expose-Headers"), "Retry-After")
 }
