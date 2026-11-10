@@ -7,9 +7,10 @@ import (
 )
 
 type Config struct {
-	AppEnv      string `env:"APP_ENV" envDefault:"development"`
-	Port        int    `env:"PORT" envDefault:"8080"`
-	DatabaseURL string `env:"DATABASE_URL" envDefault:"postgres://savoryx_user:savoryx_secret@127.0.0.1:5433/savoryx_db?sslmode=disable"`
+	AppEnv        string `env:"APP_ENV" envDefault:"development"`
+	Port          int    `env:"PORT" envDefault:"8080"`
+	DatabaseURL   string `env:"DATABASE_URL" envDefault:"postgres://savoryx_user:savoryx_secret@127.0.0.1:5433/savoryx_db?sslmode=disable"`
+	HMACSecretKey string `env:"HMAC_SECRET_KEY"`
 }
 
 func LoadConfig() (*Config, error) {

@@ -18,6 +18,7 @@ type RouterOptions struct {
 	ExchangeRateService port.ExchangeRateService
 	TokenManager        port.TokenManager
 	FXRateLimiter       *RateLimiter
+	HMACSecretKey       string
 }
 
 type RouterOption func(*RouterOptions)
@@ -56,6 +57,13 @@ func WithExchangeRateService(exchangeRateService port.ExchangeRateService) Route
 func WithFXRateLimiter(limiter *RateLimiter) RouterOption {
 	return func(o *RouterOptions) {
 		o.FXRateLimiter = limiter
+	}
+}
+
+// WithHMACSecretKey enables HMAC-SHA256 payload signature verification on mutation routes.
+func WithHMACSecretKey(secretKey string) RouterOption {
+	return func(o *RouterOptions) {
+		o.HMACSecretKey = secretKey
 	}
 }
 
@@ -98,6 +106,9 @@ func SetupRouter(
 		if options.TokenManager != nil {
 			api.Group(func(protected chi.Router) {
 				protected.Use(AuthMiddleware(options.TokenManager))
+				if options.HMACSecretKey != "" {
+					protected.Use(VerifyHMACSignature(options.HMACSecretKey))
+				}
 
 				if options.AccountService != nil {
 					accountHandler := NewAccountHandler(options.AccountService)

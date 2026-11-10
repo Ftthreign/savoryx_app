@@ -1,10 +1,17 @@
 package http
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +20,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/samber/oops"
 )
+
+const MaxClockSkew = 60 * time.Second
 
 func StructuredLogger(logger *slog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -188,6 +197,108 @@ func AuthMiddleware(tokenManager port.TokenManager) func(next http.Handler) http
 
 			ctx := WithDeviceID(r.Context(), claims.DeviceID)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// ComputeHMACSignature computes the canonical hex-encoded HMAC-SHA256 digest over
+// timestamp + "\n" + method + "\n" + path + "\n" + body.
+func ComputeHMACSignature(secret, timestamp, method, path string, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(timestamp))
+	_, _ = mac.Write([]byte("\n"))
+	_, _ = mac.Write([]byte(strings.ToUpper(method)))
+	_, _ = mac.Write([]byte("\n"))
+	_, _ = mac.Write([]byte(path))
+	_, _ = mac.Write([]byte("\n"))
+	_, _ = mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func computeLegacyHMACSignature(secret, timestamp string, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(timestamp))
+	_, _ = mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func parseSignatureTimestamp(raw string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return t.UTC(), nil
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t.UTC(), nil
+	}
+	if sec, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		return time.Unix(sec, 0).UTC(), nil
+	}
+	return time.Time{}, errors.New("unsupported timestamp format")
+}
+
+// VerifyHMACSignature validates X-Signature and X-Timestamp headers on mutation requests
+// (POST, PUT, PATCH, DELETE) using constant-time HMAC-SHA256 comparison and a 60s clock skew guard.
+func VerifyHMACSignature(secretKey string) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+			default:
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if strings.TrimSpace(secretKey) == "" {
+				WriteError(w, http.StatusInternalServerError, "internal_error", "HMAC signing secret is not configured")
+				return
+			}
+
+			sigHeader := strings.TrimSpace(r.Header.Get("X-Signature"))
+			tsHeader := strings.TrimSpace(r.Header.Get("X-Timestamp"))
+			if sigHeader == "" || tsHeader == "" {
+				WriteError(w, http.StatusUnauthorized, "missing_signature", "Missing X-Signature or X-Timestamp header")
+				return
+			}
+
+			reqTime, err := parseSignatureTimestamp(tsHeader)
+			if err != nil {
+				WriteError(w, http.StatusUnauthorized, "invalid_timestamp", "Invalid X-Timestamp header format")
+				return
+			}
+
+			skew := time.Since(reqTime)
+			if skew < 0 {
+				skew = -skew
+			}
+			if skew > MaxClockSkew {
+				WriteError(w, http.StatusUnauthorized, "clock_skew_exceeded", "Request timestamp exceeds 60-second clock skew tolerance")
+				return
+			}
+
+			var bodyBytes []byte
+			if r.Body != nil {
+				const maxBody = 1 << 20 // 1 MB
+				var readErr error
+				bodyBytes, readErr = io.ReadAll(io.LimitReader(r.Body, maxBody))
+				_ = r.Body.Close()
+				if readErr != nil {
+					WriteError(w, http.StatusBadRequest, "invalid_body", "Failed to read request body")
+					return
+				}
+				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			}
+
+			providedSig := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(sigHeader, "sha256=")))
+			expectedCanonical := ComputeHMACSignature(secretKey, tsHeader, r.Method, r.URL.Path, bodyBytes)
+			expectedLegacy := computeLegacyHMACSignature(secretKey, tsHeader, bodyBytes)
+
+			canonicalMatch := subtle.ConstantTimeCompare([]byte(providedSig), []byte(expectedCanonical)) == 1
+			legacyMatch := subtle.ConstantTimeCompare([]byte(providedSig), []byte(expectedLegacy)) == 1
+			if !canonicalMatch && !legacyMatch {
+				WriteError(w, http.StatusUnauthorized, "invalid_signature", "Invalid HMAC-SHA256 digital signature")
+				return
+			}
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }

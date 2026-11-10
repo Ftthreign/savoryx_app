@@ -56,6 +56,9 @@ func main() {
 
 	var fxWorker *worker.FXCronWorker
 	var routerOpts []httpAdapter.RouterOption
+	if cfg.HMACSecretKey != "" {
+		routerOpts = append(routerOpts, httpAdapter.WithHMACSecretKey(cfg.HMACSecretKey))
+	}
 	if dbConn != nil {
 		deviceRepo := postgres.NewDeviceRepository(dbConn)
 		accountRepo := postgres.NewAccountRepository(dbConn)
