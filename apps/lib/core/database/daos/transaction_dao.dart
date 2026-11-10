@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:savoryx/core/database/app_database.dart';
+import 'package:savoryx/core/database/daos/outbox_dao.dart';
 import 'package:savoryx/core/database/tables/accounts_table.dart';
 import 'package:savoryx/core/database/tables/categories_table.dart';
 import 'package:savoryx/core/database/tables/transactions_table.dart';
@@ -45,7 +46,17 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<int> insertTransaction(LocalTransactionsCompanion companion) {
-    return into(localTransactions).insert(companion);
+    return transaction<int>(() async {
+      final rowId = await into(localTransactions).insert(companion);
+      final inserted = await getTransactionById(companion.id.value);
+      if (inserted != null && !inserted.isSynced) {
+        await db.outboxDao.enqueueTransactionMutation(
+          transactionRecord: inserted,
+          operation: OutboxOperation.create,
+        );
+      }
+      return rowId;
+    });
   }
 
   Future<void> createTransactionWithBalanceAdjustment({
@@ -54,7 +65,9 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     required BigInt balanceDelta,
   }) {
     return transaction(() async {
-      await into(localTransactions).insert(transactionCompanion);
+      final effectiveTx =
+          transactionCompanion.copyWith(isSynced: const Value(false));
+      await into(localTransactions).insert(effectiveTx);
 
       final account = await (select(localAccounts)
             ..where((t) => t.id.equals(accountId)))
@@ -64,14 +77,33 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
       }
 
       final newBalance = account.balance + balanceDelta;
+      final now = DateTime.now().toUtc();
 
       await (update(localAccounts)..where((t) => t.id.equals(accountId))).write(
         LocalAccountsCompanion(
           balance: Value(newBalance),
-          updatedAt: Value(DateTime.now().toUtc()),
+          updatedAt: Value(now),
           isSynced: const Value(false),
         ),
       );
+
+      final insertedTx = await getTransactionById(effectiveTx.id.value);
+      if (insertedTx != null) {
+        await db.outboxDao.enqueueTransactionMutation(
+          transactionRecord: insertedTx,
+          operation: OutboxOperation.create,
+        );
+      }
+
+      final updatedAccount = await (select(localAccounts)
+            ..where((t) => t.id.equals(accountId)))
+          .getSingleOrNull();
+      if (updatedAccount != null) {
+        await db.outboxDao.enqueueAccountMutation(
+          account: updatedAccount,
+          operation: OutboxOperation.update,
+        );
+      }
     });
   }
 
@@ -83,7 +115,7 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     return transaction(() async {
       final now = DateTime.now().toUtc();
 
-      await (update(localTransactions)
+      final deletedRows = await (update(localTransactions)
             ..where((t) => t.id.equals(transactionId)))
           .write(
         LocalTransactionsCompanion(
@@ -92,6 +124,16 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
           isSynced: const Value(false),
         ),
       );
+
+      if (deletedRows > 0) {
+        final deletedTx = await getTransactionById(transactionId);
+        if (deletedTx != null) {
+          await db.outboxDao.enqueueTransactionMutation(
+            transactionRecord: deletedTx,
+            operation: OutboxOperation.delete,
+          );
+        }
+      }
 
       final account = await (select(localAccounts)
             ..where((t) => t.id.equals(accountId)))
@@ -106,6 +148,15 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
             isSynced: const Value(false),
           ),
         );
+        final updatedAccount = await (select(localAccounts)
+              ..where((t) => t.id.equals(accountId)))
+            .getSingleOrNull();
+        if (updatedAccount != null) {
+          await db.outboxDao.enqueueAccountMutation(
+            account: updatedAccount,
+            operation: OutboxOperation.update,
+          );
+        }
       }
     });
   }
@@ -140,13 +191,27 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<int> softDeleteTransaction(String id) {
-    final now = DateTime.now().toUtc();
-    return (update(localTransactions)..where((t) => t.id.equals(id))).write(
-      LocalTransactionsCompanion(
-        deletedAt: Value(now),
-        updatedAt: Value(now),
-        isSynced: const Value(false),
-      ),
-    );
+    return transaction<int>(() async {
+      final now = DateTime.now().toUtc();
+      final updatedCount = await (update(localTransactions)
+            ..where((t) => t.id.equals(id)))
+          .write(
+        LocalTransactionsCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          isSynced: const Value(false),
+        ),
+      );
+      if (updatedCount > 0) {
+        final deleted = await getTransactionById(id);
+        if (deleted != null) {
+          await db.outboxDao.enqueueTransactionMutation(
+            transactionRecord: deleted,
+            operation: OutboxOperation.delete,
+          );
+        }
+      }
+      return updatedCount;
+    });
   }
 }

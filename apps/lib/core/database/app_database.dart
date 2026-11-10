@@ -9,10 +9,12 @@ import 'package:savoryx/core/database/daos/account_dao.dart';
 import 'package:savoryx/core/database/daos/category_dao.dart';
 import 'package:savoryx/core/database/daos/exchange_rate_dao.dart';
 import 'package:savoryx/core/database/daos/fts_search_dao.dart';
+import 'package:savoryx/core/database/daos/outbox_dao.dart';
 import 'package:savoryx/core/database/daos/transaction_dao.dart';
 import 'package:savoryx/core/database/tables/accounts_table.dart';
 import 'package:savoryx/core/database/tables/categories_table.dart';
 import 'package:savoryx/core/database/tables/exchange_rates_table.dart';
+import 'package:savoryx/core/database/tables/outbox_mutations_table.dart';
 import 'package:savoryx/core/database/tables/transactions_fts_table.dart';
 import 'package:savoryx/core/database/tables/transactions_table.dart';
 
@@ -25,6 +27,7 @@ part 'app_database.g.dart';
     LocalCategories,
     LocalTransactions,
     LocalExchangeRates,
+    LocalOutboxMutations,
   ],
   daos: [
     AccountDao,
@@ -32,6 +35,7 @@ part 'app_database.g.dart';
     TransactionDao,
     FtsSearchDao,
     ExchangeRateDao,
+    OutboxDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -40,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
@@ -51,7 +55,9 @@ class AppDatabase extends _$AppDatabase {
         await seedDefaultData();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Migration strategies for future schema increments
+        if (from < 2) {
+          await m.createTable(localOutboxMutations);
+        }
       },
       beforeOpen: (OpeningDetails details) async {
         await _createFtsTableAndTriggers();
