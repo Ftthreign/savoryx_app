@@ -64,6 +64,7 @@ func main() {
 		accountRepo := postgres.NewAccountRepository(dbConn)
 		categoryRepo := postgres.NewCategoryRepository(dbConn)
 		txRepo := postgres.NewTransactionRepository(dbConn)
+		syncLogRepo := postgres.NewSyncLogRepository(dbConn)
 
 		tokenManager, err := security.NewPasetoTokenManager("")
 		if err != nil {
@@ -74,7 +75,14 @@ func main() {
 			accountService := service.NewAccountService(accountRepo, txManager)
 			categoryService := service.NewCategoryService(categoryRepo)
 			transactionService := service.NewTransactionService(txRepo, accountRepo, categoryRepo, txManager)
-			syncService := service.NewSyncService(accountRepo, categoryRepo, txRepo, txManager)
+			syncService := service.NewSyncServiceWithOptions(
+				accountRepo,
+				categoryRepo,
+				txRepo,
+				service.WithSyncTxManager(txManager),
+				service.WithSyncLogRepository(syncLogRepo),
+			)
+			syncLimiter := httpAdapter.NewSlidingWindowLimiter(httpAdapter.DefaultSyncRateLimitPerMinute)
 
 			routerOpts = append(routerOpts,
 				httpAdapter.WithAuthService(authService),
@@ -82,6 +90,7 @@ func main() {
 				httpAdapter.WithCategoryService(categoryService),
 				httpAdapter.WithTransactionService(transactionService),
 				httpAdapter.WithSyncService(syncService),
+				httpAdapter.WithSyncRateLimiter(syncLimiter),
 				httpAdapter.WithTokenManager(tokenManager),
 			)
 		}
