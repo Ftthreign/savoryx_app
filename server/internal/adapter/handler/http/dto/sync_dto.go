@@ -93,6 +93,7 @@ type SyncPullResponse struct {
 	Categories   []SyncCategoryResponse `json:"categories"`
 	Transactions []TransactionResponse  `json:"transactions"`
 	PulledAt     time.Time              `json:"pulled_at"`
+	ServerTime   string                 `json:"server_time"`
 }
 
 func ToSyncPullResponse(res *port.SyncPullResult) SyncPullResponse {
@@ -124,11 +125,14 @@ func ToSyncPullResponse(res *port.SyncPullResult) SyncPullResponse {
 		}
 	}
 
+	pulledAt := res.PulledAt.UTC().Truncate(time.Microsecond)
+
 	return SyncPullResponse{
 		Accounts:     accounts,
 		Categories:   categories,
 		Transactions: ToTransactionResponseList(res.Transactions),
-		PulledAt:     res.PulledAt,
+		PulledAt:     pulledAt,
+		ServerTime:   pulledAt.Format(time.RFC3339Nano),
 	}
 }
 

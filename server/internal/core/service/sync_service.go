@@ -92,8 +92,11 @@ func (s *syncService) runInTx(ctx context.Context, fn func(ctx context.Context) 
 }
 
 func (s *syncService) PullChanges(ctx context.Context, lastPulledAt time.Time) (*port.SyncPullResult, error) {
-	since := lastPulledAt.UTC()
-	pulledAt := time.Now().UTC()
+	since := time.Unix(0, 0).UTC()
+	if !lastPulledAt.IsZero() {
+		since = lastPulledAt.UTC()
+	}
+	pulledAt := time.Now().UTC().Truncate(time.Microsecond)
 
 	accounts, err := s.accountRepo.ListUpdatedAfter(ctx, since)
 	if err != nil {
@@ -123,6 +126,13 @@ func (s *syncService) PullChanges(ctx context.Context, lastPulledAt time.Time) (
 	}
 	if transactions == nil {
 		transactions = make([]*domain.Transaction, 0)
+	}
+
+	if deviceID, ok := domain.SyncDeviceIDFromContext(ctx); ok {
+		totalRecords := len(accounts) + len(categories) + len(transactions)
+		if err := s.recordSyncAuditLog(ctx, deviceID, domain.SyncDirectionPull, totalRecords, since, pulledAt); err != nil {
+			return nil, err
+		}
 	}
 
 	return &port.SyncPullResult{
@@ -192,23 +202,10 @@ func (s *syncService) PushChanges(ctx context.Context, payload *port.SyncPushPay
 		}
 
 		// 4. Record PUSH audit entry atomically inside the same database transaction
-		if s.syncLogRepo != nil && !payload.DeviceID.IsZero() {
+		if !payload.DeviceID.IsZero() {
 			batchSize := len(payload.Categories) + len(payload.Accounts) + len(payload.Transactions)
-			auditLog := &domain.SyncLog{
-				ID:              domain.NewUUIDv7(),
-				DeviceID:        payload.DeviceID,
-				Direction:       domain.SyncDirectionPush,
-				BatchSize:       batchSize,
-				Status:          domain.SyncStatusSuccess,
-				ClientTimestamp: clientTS,
-				ServerTimestamp: serverNow,
-				CreatedAt:       serverNow,
-			}
-			if err := s.syncLogRepo.Record(txCtx, auditLog); err != nil {
-				return svcSyncErr().
-					Code("ERR_SYNC_AUDIT_LOG").
-					With("device_id", payload.DeviceID.String()).
-					Wrapf(err, "failed to record sync push audit log")
+			if err := s.recordSyncAuditLog(txCtx, payload.DeviceID, domain.SyncDirectionPush, batchSize, clientTS, serverNow); err != nil {
+				return err
 			}
 		}
 
@@ -387,6 +384,37 @@ func (s *syncService) lockTransferAccountsDeterministic(
 		return secondAcc, firstAcc, nil
 	}
 	return firstAcc, secondAcc, nil
+}
+
+func (s *syncService) recordSyncAuditLog(
+	ctx context.Context,
+	deviceID domain.UUID,
+	direction domain.SyncDirection,
+	batchSize int,
+	clientTS, serverTS time.Time,
+) error {
+	if s.syncLogRepo == nil || deviceID.IsZero() {
+		return nil
+	}
+
+	auditLog := &domain.SyncLog{
+		ID:              domain.NewUUIDv7(),
+		DeviceID:        deviceID,
+		Direction:       direction,
+		BatchSize:       batchSize,
+		Status:          domain.SyncStatusSuccess,
+		ClientTimestamp: clientTS.UTC(),
+		ServerTimestamp: serverTS.UTC(),
+		CreatedAt:       serverTS.UTC(),
+	}
+	if err := s.syncLogRepo.Record(ctx, auditLog); err != nil {
+		return svcSyncErr().
+			Code("ERR_SYNC_AUDIT_LOG").
+			With("device_id", deviceID.String()).
+			With("direction", string(direction)).
+			Wrapf(err, "failed to record sync audit log")
+	}
+	return nil
 }
 
 func validateSyncPushBatch(payload *port.SyncPushPayload) error {

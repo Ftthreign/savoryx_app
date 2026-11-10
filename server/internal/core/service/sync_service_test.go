@@ -101,6 +101,85 @@ func TestSyncService_PullChanges(t *testing.T) {
 		assert.Empty(t, res.Categories)
 		assert.Empty(t, res.Transactions)
 	})
+
+	t.Run("records PULL audit log with total delta count and includes tombstones across entities", func(t *testing.T) {
+		devID := domain.NewUUIDv7()
+		authCtx := domain.WithSyncDeviceID(ctx, devID)
+		tombstoneAt := since.Add(45*time.Minute + 123456*time.Microsecond)
+
+		accRepo := &mocks.MockAccountRepository{
+			ListUpdatedAfterFunc: func(ctx context.Context, s time.Time) ([]*domain.Account, error) {
+				assert.Equal(t, time.Unix(0, 0).UTC(), s, "zero time input must normalize to Unix epoch")
+				return []*domain.Account{
+					{ID: domain.NewUUIDv7(), Name: "Closed Wallet", Type: domain.AccountTypeCash, Currency: "IDR", Balance: decimal.Zero, UpdatedAt: tombstoneAt, DeletedAt: &tombstoneAt},
+				}, nil
+			},
+		}
+		catRepo := &mocks.MockCategoryRepository{
+			ListUpdatedAfterFunc: func(ctx context.Context, s time.Time) ([]*domain.Category, error) {
+				return []*domain.Category{
+					{ID: domain.NewUUIDv7(), Name: "Old Cat", Icon: "old", Color: "#000000", UpdatedAt: tombstoneAt, DeletedAt: &tombstoneAt},
+				}, nil
+			},
+		}
+		txRepo := &mocks.MockTransactionRepository{
+			ListUpdatedAfterFunc: func(ctx context.Context, s time.Time) ([]*domain.Transaction, error) {
+				return []*domain.Transaction{
+					{ID: domain.NewUUIDv7(), AccountID: domain.NewUUIDv7(), Type: domain.TransactionTypeTransfer, Amount: decimal.NewFromInt(10000), Currency: "IDR", TransactionDate: since, UpdatedAt: tombstoneAt, DeletedAt: &tombstoneAt},
+				}, nil
+			},
+		}
+
+		var recorded *domain.SyncLog
+		syncLogRepo := &mocks.MockSyncLogRepository{
+			RecordFunc: func(ctx context.Context, log *domain.SyncLog) error {
+				recorded = log
+				return nil
+			},
+		}
+
+		svc := service.NewSyncServiceWithOptions(accRepo, catRepo, txRepo, service.WithSyncLogRepository(syncLogRepo))
+		res, err := svc.PullChanges(authCtx, time.Time{})
+		require.NoError(t, err)
+		require.Len(t, res.Accounts, 1)
+		assert.NotNil(t, res.Accounts[0].DeletedAt)
+		require.Len(t, res.Categories, 1)
+		assert.NotNil(t, res.Categories[0].DeletedAt)
+		require.Len(t, res.Transactions, 1)
+		assert.NotNil(t, res.Transactions[0].DeletedAt)
+
+		// Cursor must be truncated to PostgreSQL TIMESTAMPTZ(6) microsecond precision.
+		assert.Equal(t, res.PulledAt.Truncate(time.Microsecond), res.PulledAt)
+
+		require.NotNil(t, recorded)
+		assert.Equal(t, devID, recorded.DeviceID)
+		assert.Equal(t, domain.SyncDirectionPull, recorded.Direction)
+		assert.Equal(t, domain.SyncStatusSuccess, recorded.Status)
+		assert.Equal(t, 3, recorded.BatchSize)
+		assert.Equal(t, time.Unix(0, 0).UTC(), recorded.ClientTimestamp)
+		assert.Equal(t, res.PulledAt, recorded.ServerTimestamp)
+	})
+
+	t.Run("propagates error when PULL audit logging fails", func(t *testing.T) {
+		authCtx := domain.WithSyncDeviceID(ctx, domain.NewUUIDv7())
+		auditErr := errors.New("sync_logs insert failed")
+		syncLogRepo := &mocks.MockSyncLogRepository{
+			RecordFunc: func(ctx context.Context, log *domain.SyncLog) error {
+				return auditErr
+			},
+		}
+
+		svc := service.NewSyncServiceWithOptions(
+			&mocks.MockAccountRepository{},
+			&mocks.MockCategoryRepository{},
+			&mocks.MockTransactionRepository{},
+			service.WithSyncLogRepository(syncLogRepo),
+		)
+		res, err := svc.PullChanges(authCtx, since)
+		require.Error(t, err)
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, auditErr)
+	})
 }
 
 func TestSyncService_PushChanges(t *testing.T) {

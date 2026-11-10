@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -96,4 +97,23 @@ func (l *SyncLog) Validate() error {
 	l.ClientTimestamp = l.ClientTimestamp.UTC()
 
 	return nil
+}
+
+type syncDeviceContextKey struct{}
+
+// WithSyncDeviceID attaches the authenticated device UUID to ctx for audit logging in SyncService.
+func WithSyncDeviceID(ctx context.Context, deviceID UUID) context.Context {
+	return context.WithValue(ctx, syncDeviceContextKey{}, deviceID)
+}
+
+// SyncDeviceIDFromContext extracts the authenticated device UUID attached by WithSyncDeviceID.
+func SyncDeviceIDFromContext(ctx context.Context) (UUID, bool) {
+	if ctx == nil {
+		return NilUUID, false
+	}
+	id, ok := ctx.Value(syncDeviceContextKey{}).(UUID)
+	if !ok || id.IsZero() {
+		return NilUUID, false
+	}
+	return id, true
 }
